@@ -39,7 +39,7 @@
     "better-sqlite3": "13.0.3",
     "framer-motion": "11.15.0",
     "lucide-react": "0.468.0",
-    "react": "18.3.1",
+    "react": "19.2.8",
     "react-dom": "18.3.1"
   },
   "devDependencies": {
@@ -47,7 +47,7 @@
     "@testing-library/react": "16.1.0",
     "@types/better-sqlite3": "9.6.0",
     "@types/node": "22.10.2",
-    "@types/react": "18.3.18",
+    "@types/react": "19.2.18",
     "@types/react-dom": "18.3.5",
     "@vitejs/plugin-react": "4.3.4",
     "concurrently": "9.1.0",
