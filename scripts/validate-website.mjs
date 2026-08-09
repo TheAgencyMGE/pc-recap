@@ -4,7 +4,7 @@ import { extname, resolve } from 'node:path';
 
 const site = resolve('website');
 const required = [
-  'index.html', 'styles.css', 'site.js', '_headers', 'robots.txt', 'og.png',
+  'index.html', 'styles.css', 'site.js', 'analytics.js', '_headers', 'robots.txt', 'og.png',
   'THIRD_PARTY_NOTICES.txt', 'fonts/archivo.woff2', 'fonts/instrument-sans.woff2',
   'fonts/OFL-Archivo.txt', 'fonts/OFL-Instrument-Sans.txt',
 ];
@@ -17,6 +17,7 @@ for (const file of required) await access(resolve(site, file));
 const html = await readFile(resolve(site, 'index.html'), 'utf8');
 const headers = await readFile(resolve(site, '_headers'), 'utf8');
 const script = await readFile(resolve(site, 'site.js'), 'utf8');
+const analytics = await readFile(resolve(site, 'analytics.js'), 'utf8');
 const png = await readFile(resolve(site, 'og.png'));
 
 assert.match(html, /<main[\s>]/i, 'The page needs a semantic main element.');
@@ -30,6 +31,16 @@ assert.match(headers, /Content-Security-Policy:/i);
 assert.match(headers, /X-Content-Type-Options:\s*nosniff/i);
 assert.match(headers, /Referrer-Policy:/i);
 assert.match(script, /prefers-reduced-motion/);
+assert.match(html, /<script async src="https:\/\/plausible\.io\/js\/pa-XHVFKtgOfFWCJGGT6QqaS\.js"><\/script>/, 'The Plausible site tracker must load.');
+assert.match(analytics, /plausible\.init\(\)/, 'Plausible must be initialized before it loads.');
+assert.match(headers, /script-src[^\r\n]*https:\/\/plausible\.io/i, 'The content security policy must allow the Plausible tracker.');
+assert.match(headers, /connect-src[^\r\n]*https:\/\/plausible\.io/i, 'The content security policy must allow Plausible events.');
+const installerLinks = [...html.matchAll(new RegExp(`<a\\b[^>]*href="${releaseUrl.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}"[^>]*>`, 'g'))];
+assert.ok(installerLinks.length > 0, 'The site needs at least one installer download link.');
+for (const [index, link] of installerLinks.entries()) {
+  assert.match(link[0], /data-download-location="[^"]+"/, `Installer link ${index + 1} must identify its placement for analytics.`);
+}
+assert.match(script, /plausible\('Download'/, 'Installer clicks must emit the Download event.');
 assert.match(html, /aria-label="Download installer SHA-256 checksum"/i, 'The checksum link needs an accessible name.');
 assert.deepEqual([...png.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10], 'og.png must be a real PNG.');
 const ogWidth = png.readUInt32BE(16);

@@ -16,6 +16,8 @@
     <link rel="preload" href="fonts/archivo.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="fonts/instrument-sans.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="styles.css" />
+    <script src="analytics.js"></script>
+    <script async src="https://plausible.io/js/pa-XHVFKtgOfFWCJGGT6QqaS.js"></script>
     <script src="site.js" defer></script>
   </head>
   <body>
@@ -25,7 +27,7 @@
         <span class="brand__stamp" aria-hidden="true">PC</span>
         <span class="brand__name"><b>PC</b><em>RECAP</em></span>
       </a>
-      <a class="header-download" href="https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.0.1/PC-Recap-1.0.1-Setup.exe">Download</a>
+      <a class="header-download" data-download-location="header" href="https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.0.1/PC-Recap-1.0.1-Setup.exe">Download</a>
     </header>
 
     <main id="main">
@@ -35,7 +37,7 @@
           <h1>Your PC,<br /><em>remembered.</em></h1>
           <p class="hero__lede">See the apps, eras, and late nights that made up your year.</p>
           <div class="hero__actions">
-            <a class="download-button" href="https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.0.1/PC-Recap-1.0.1-Setup.exe">
+            <a class="download-button" data-download-location="hero" href="https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.0.1/PC-Recap-1.0.1-Setup.exe">
               <span>Download for Windows</span>
               <span aria-hidden="true">↓</span>
             </a>
@@ -88,7 +90,7 @@
           <p class="overline">PC Recap 1.0.1 Beta</p>
           <h2 id="download-title">Start your archive.</h2>
         </div>
-        <a class="download-button download-button--light" href="https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.0.1/PC-Recap-1.0.1-Setup.exe">
+        <a class="download-button download-button--light" data-download-location="footer-panel" href="https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.0.1/PC-Recap-1.0.1-Setup.exe">
           <span>Download for Windows</span>
           <span aria-hidden="true">↓</span>
         </a>

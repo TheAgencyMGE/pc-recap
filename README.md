@@ -36,6 +36,7 @@ PC Recap does not update automatically yet. Install newer beta versions manually
 - Window titles are off by default.
 - Tracking can be paused immediately and individual executables can be excluded.
 - All history can be exported or erased from the app.
+- The marketing website uses Plausible for aggregate page and download analytics; the desktop app remains telemetry-free and never sends activity history.
 
 See [SECURITY.md](SECURITY.md) for vulnerability reporting.
 

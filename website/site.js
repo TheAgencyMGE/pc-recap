@@ -1,5 +1,16 @@
 document.documentElement.classList.add('js');
 
+for (const link of document.querySelectorAll('[data-download-location]')) {
+  link.addEventListener('click', () => {
+    window.plausible('Download', {
+      props: {
+        location: link.dataset.downloadLocation,
+        target: link.href,
+      },
+    });
+  });
+}
+
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 const reveals = [...document.querySelectorAll('.reveal')];
 
