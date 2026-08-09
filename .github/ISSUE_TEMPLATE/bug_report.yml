@@ -1,5 +1,5 @@
 name: Bug report
-description: Report reproducible incorrect behavior in PC Wrapped.
+description: Report reproducible incorrect behavior in PC Recap.
 title: "[Bug]: "
 labels: [bug]
 body:
@@ -9,8 +9,8 @@ body:
   - type: input
     id: version
     attributes:
-      label: PC Wrapped version
-      placeholder: 1.0.0
+      label: PC Recap version
+      placeholder: 1.0.1
     validations:
       required: true
   - type: input

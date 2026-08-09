@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { createTestApi } from './test-utils/create-test-api';
-import { getShareCardDimensions, getShareCardModel } from './lib/share-card';
+import * as shareCard from './lib/share-card';
+
+const { getShareCardDimensions, getShareCardModel } = shareCard;
 
 describe('getShareCardModel', () => {
   it('turns a yearly summary into stable card copy', async () => {
@@ -21,6 +23,16 @@ describe('getShareCardModel', () => {
   it('uses social portrait dimensions instead of a website banner', () => {
     expect(getShareCardDimensions('portrait')).toEqual({ width: 1080, height: 1350 });
     expect(getShareCardDimensions('story')).toEqual({ width: 1080, height: 1920 });
+  });
+
+  it('saves new share cards under the PC Recap brand', async () => {
+    const api = createTestApi();
+    const summary = await api.getSummary('year', 2026);
+    const getShareCardFileName = (shareCard as typeof shareCard & {
+      getShareCardFileName(summaryLabel: string, format: 'portrait' | 'story'): string;
+    }).getShareCardFileName;
+
+    expect(getShareCardFileName(summary.label, 'portrait')).toBe('PC-Recap-2026-portrait.png');
   });
 
   it('does not invent an observation when the summary has none', async () => {

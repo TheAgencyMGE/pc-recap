@@ -1,6 +1,6 @@
-# Contributing to PC Wrapped
+# Contributing to PC Recap
 
-Thanks for helping make PC Wrapped better.
+Thanks for helping make PC Recap better.
 
 ## Before you start
 
@@ -8,7 +8,7 @@ Thanks for helping make PC Wrapped better.
 - Keep activity data on-device. Telemetry, remote analytics, accounts, and external AI features are out of scope.
 - Never add seeded sessions, demo activity, placeholder statistics, or nondeterministic observations to runtime code.
 - Keep Windows-specific tracking behind the activity-source boundary.
-- Do not include personal databases, `.pcw` backups, logs, screenshots with private data, or local paths in commits.
+- Do not include personal databases, `.pcr` backups, logs, screenshots with private data, or local paths in commits.
 
 ## Development workflow
 

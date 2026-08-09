@@ -1,11 +1,11 @@
 import { Palette, Plus, Shapes } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useState } from 'react';
-import type { PCWrappedAPI } from '../../shared/ipc';
+import type { PCRecapAPI } from '../../shared/ipc';
 import type { Category, TrackedApp } from '../../shared/types';
 import { AppIcon } from '../components/AppIcon';
 
-export function Categories({ api, categories, apps, onChanged }: { api: PCWrappedAPI; categories: Category[]; apps: TrackedApp[]; onChanged: () => void }) {
+export function Categories({ api, categories, apps, onChanged }: { api: PCRecapAPI; categories: Category[]; apps: TrackedApp[]; onChanged: () => void }) {
   const [selected, setSelected] = useState(categories[0]?.id ?? 'other');
   const selectedCategory = categories.find((item) => item.id === selected);
   const saveNew = async () => {

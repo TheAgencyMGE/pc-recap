@@ -51,4 +51,4 @@ jobs:
           $metadata = Get-Content -Raw release-metadata.json | ConvertFrom-Json
           $installer = Join-Path release $metadata.fileName
           $checksum = "$installer.sha256"
-          gh release create $env:RELEASE_TAG $installer $checksum --verify-tag --title "PC Wrapped $($metadata.version)" --generate-notes
+          gh release create $env:RELEASE_TAG $installer $checksum --verify-tag --title "PC Recap $($metadata.version)" --generate-notes

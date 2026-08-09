@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { createTestApi } from '../test-utils/create-test-api';
-import { buildWrappedScenes, formatWrappedTotal } from './wrapped-scenes';
+import { buildRecapScenes, formatRecapTotal } from './recap-scenes';
 
-describe('buildWrappedScenes', () => {
+describe('buildRecapScenes', () => {
   it('keeps the core story grounded in a non-empty summary', async () => {
     const api = createTestApi();
     const year = new Date().getFullYear();
     const summary = await api.getSummary('year', year);
 
-    expect(buildWrappedScenes(summary, [])).toEqual([
+    expect(buildRecapScenes(summary, [])).toEqual([
       'cover',
       'total',
       'favorite',
@@ -28,7 +28,7 @@ describe('buildWrappedScenes', () => {
       { key: `${year}-02`, label: 'February', seconds: 300, topApp: 'Browser', categoryId: 'browsing', intensity: 1 },
     ];
 
-    expect(buildWrappedScenes(summary, timeline)).toContain('sprint');
+    expect(buildRecapScenes(summary, timeline)).toContain('sprint');
   });
 
   it('only includes era and memory scenes when those facts exist', async () => {
@@ -41,12 +41,12 @@ describe('buildWrappedScenes', () => {
       observations: [{ id: 'obs-1', eyebrow: 'NIGHT OWL', text: 'Your late-night app was Code.', detail: 'Based on recorded sessions.', accent: '#9189FF', priority: 1 }],
     };
 
-    expect(buildWrappedScenes(enriched, [])).toEqual(expect.arrayContaining(['era', 'memory']));
-    expect(buildWrappedScenes({ ...enriched, eras: [], observations: [] }, [])).not.toEqual(expect.arrayContaining(['era', 'memory']));
+    expect(buildRecapScenes(enriched, [])).toEqual(expect.arrayContaining(['era', 'memory']));
+    expect(buildRecapScenes({ ...enriched, eras: [], observations: [] }, [])).not.toEqual(expect.arrayContaining(['era', 'memory']));
   });
 
   it('uses minutes for a young archive instead of displaying zero hours', () => {
-    expect(formatWrappedTotal(120)).toEqual({ value: '2', unit: 'minutes' });
-    expect(formatWrappedTotal(5_400)).toEqual({ value: '2', unit: 'hours' });
+    expect(formatRecapTotal(120)).toEqual({ value: '2', unit: 'minutes' });
+    expect(formatRecapTotal(5_400)).toEqual({ value: '2', unit: 'hours' });
   });
 });

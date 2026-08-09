@@ -98,7 +98,7 @@ $source = @'
 using System;
 using System.Runtime.InteropServices;
 using System.Text;
-public static class PCWrappedForeground {
+public static class PCRecapForeground {
   [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
   [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr handle, out uint processId);
   [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr handle, StringBuilder text, int count);
@@ -110,11 +110,11 @@ Add-Type -TypeDefinition $source
 while (($request = [Console]::In.ReadLine()) -ne $null) {
   if ($request -ne 'sample') { continue }
   try {
-    $process = Get-Process -Id ([PCWrappedForeground]::GetProcessId()) -ErrorAction Stop
+    $process = Get-Process -Id ([PCRecapForeground]::GetProcessId()) -ErrorAction Stop
     $path = ''
     try { $path = $process.Path } catch {}
     $executable = if ($path) { [IO.Path]::GetFileName($path) } else { $process.ProcessName + '.exe' }
-    [pscustomobject]@{ name = $process.ProcessName; executable = $executable; path = $path; title = [PCWrappedForeground]::GetTitle() } | ConvertTo-Json -Compress
+    [pscustomobject]@{ name = $process.ProcessName; executable = $executable; path = $path; title = [PCRecapForeground]::GetTitle() } | ConvertTo-Json -Compress
   } catch {
     [pscustomobject]@{ error = $_.Exception.Message } | ConvertTo-Json -Compress
   }

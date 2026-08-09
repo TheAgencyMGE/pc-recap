@@ -7,13 +7,13 @@ describe('renderer target security', () => {
     const result = security?.resolveRendererTarget({
       isPackaged: true,
       developmentUrl: 'https://malicious.example/',
-      rendererFile: 'C:\\Program Files\\PC Wrapped\\resources\\app.asar\\dist\\renderer\\index.html',
+      rendererFile: 'C:\\Program Files\\PC Recap\\resources\\app.asar\\dist\\renderer\\index.html',
     });
 
     expect(result).toEqual({
       kind: 'file',
-      location: 'C:\\Program Files\\PC Wrapped\\resources\\app.asar\\dist\\renderer\\index.html',
-      trustedUrl: 'file:///C:/Program%20Files/PC%20Wrapped/resources/app.asar/dist/renderer/index.html',
+      location: 'C:\\Program Files\\PC Recap\\resources\\app.asar\\dist\\renderer\\index.html',
+      trustedUrl: 'file:///C:/Program%20Files/PC%20Recap/resources/app.asar/dist/renderer/index.html',
     });
   });
 });

@@ -1,6 +1,6 @@
 # Third-party notices
 
-PC Wrapped includes the following fonts through Fontsource:
+PC Recap includes the following fonts through Fontsource:
 
 - **Archivo** — Copyright 2016 The Archivo Project Authors. Licensed under the SIL Open Font License 1.1.
 - **Instrument Sans** — Copyright 2022 The Instrument Sans Project Authors. Licensed under the SIL Open Font License 1.1.

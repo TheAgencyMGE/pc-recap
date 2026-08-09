@@ -1,6 +1,7 @@
 import { readFile, stat } from 'node:fs/promises';
 import { gunzip, gzipSync } from 'node:zlib';
 import type { ActivitySession, Category, TrackedApp } from '../shared/types.js';
+import { isSupportedBackupProduct, PRODUCT_NAME } from '../shared/brand.js';
 import type { ActivityRepository, BackupSnapshot } from './database.js';
 
 const BACKUP_VERSION = 1;
@@ -17,7 +18,7 @@ interface BackupLimits {
 interface BackupArchive {
   manifest: {
     version: number;
-    product: 'PC Wrapped';
+    product: string;
     exportedAt: string;
   };
   data: BackupSnapshot;
@@ -34,7 +35,7 @@ export class BackupService {
     const archive: BackupArchive = {
       manifest: {
         version: BACKUP_VERSION,
-        product: 'PC Wrapped',
+        product: PRODUCT_NAME,
         exportedAt: now.toISOString(),
       },
       data: this.repository.exportSnapshot(),
@@ -87,10 +88,10 @@ function validateArchive(value: unknown): BackupArchive {
   const version = value.manifest.version;
   if (typeof version !== 'number' || !Number.isInteger(version) || version < 1) throw invalidBackup();
   if (version > BACKUP_VERSION) {
-    throw new Error('Unsupported backup version. Update PC Wrapped before importing this archive.');
+    throw new Error(`Unsupported backup version. Update ${PRODUCT_NAME} before importing this archive.`);
   }
   if (
-    value.manifest.product !== 'PC Wrapped'
+    !isSupportedBackupProduct(value.manifest.product)
     || !isIsoDate(value.manifest.exportedAt)
     || !isRecord(value.data)
     || !Array.isArray(value.data.apps)
@@ -155,9 +156,9 @@ function isCategory(value: unknown): value is Category {
 }
 
 function invalidBackup() {
-  return new Error('This is not a valid PC Wrapped backup.');
+  return new Error(`This is not a valid ${PRODUCT_NAME} backup.`);
 }
 
 function backupTooLarge() {
-  return new Error('This PC Wrapped backup is too large to import safely.');
+  return new Error(`This ${PRODUCT_NAME} backup is too large to import safely.`);
 }

@@ -1,8 +1,8 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { PCWrappedAPI } from '../shared/ipc.js';
+import type { PCRecapAPI } from '../shared/ipc.js';
 import type { TrackingStatus } from '../shared/types.js';
 
-const api: PCWrappedAPI = {
+const api: PCRecapAPI = {
   getDashboard: (kind, year) => ipcRenderer.invoke('dashboard:get', kind, year),
   getSummary: (kind, year) => ipcRenderer.invoke('summary:get', kind, year),
   getTimeline: (level, anchor) => ipcRenderer.invoke('timeline:get', level, anchor),
@@ -31,4 +31,4 @@ const api: PCWrappedAPI = {
   getVersion: () => ipcRenderer.invoke('app:version'),
 };
 
-contextBridge.exposeInMainWorld('pcWrapped', api);
+contextBridge.exposeInMainWorld('pcRecap', api);

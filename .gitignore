@@ -9,6 +9,7 @@ coverage/
 *.db
 *.db-shm
 *.db-wal
+*.pcr
 *.pcw
 *.zip
 .env

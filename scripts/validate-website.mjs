@@ -20,10 +20,10 @@ const script = await readFile(resolve(site, 'site.js'), 'utf8');
 const png = await readFile(resolve(site, 'og.png'));
 
 assert.match(html, /<main[\s>]/i, 'The page needs a semantic main element.');
-assert.match(html, /<title>PC Wrapped/i, 'The page needs product-specific metadata.');
+assert.match(html, /<title>PC Recap/i, 'The page needs product-specific metadata.');
 assert.match(html, /property="og:image"/i, 'The page needs a social preview image.');
 assert.match(html, /property="og:image" content="og\.png"/i, 'The social preview must ship with the Netlify site.');
-assert.ok(html.includes(releaseUrl), 'The primary download must use the v1.0.0 GitHub Release asset.');
+assert.ok(html.includes(releaseUrl), `The primary download must use the v${metadata.version} GitHub Release asset.`);
 assert.ok(html.includes(checksumUrl), 'The site must link to the checksum uploaded beside the installer.');
 assert.doesNotMatch(html, /\b\d+[,.]?\d*\s*(hours?|minutes?|sessions?|active days?)\b/i, 'The site must not invent product activity.');
 assert.match(headers, /Content-Security-Policy:/i);

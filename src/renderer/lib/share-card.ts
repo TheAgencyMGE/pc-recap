@@ -1,4 +1,4 @@
-import type { PCWrappedAPI } from '../../shared/ipc';
+import type { PCRecapAPI } from '../../shared/ipc';
 import type { PeriodSummary } from '../../shared/types';
 
 export type ShareCardFormat = 'portrait' | 'story';
@@ -16,7 +16,11 @@ export const getShareCardModel = (summary: PeriodSummary) => ({
   observation: summary.observations[0]?.text ?? '',
 });
 
-function writeWrappedText(
+export const getShareCardFileName = (summaryLabel: string, format: ShareCardFormat) => (
+  `PC-Recap-${summaryLabel}-${format}.png`
+);
+
+function writeRecapText(
   context: CanvasRenderingContext2D,
   value: string,
   x: number,
@@ -74,7 +78,7 @@ function renderCard(summary: PeriodSummary, format: ShareCardFormat) {
 
   context.fillStyle = '#151515';
   context.font = '800 38px "Archivo Variable", Archivo, sans-serif';
-  context.fillText('PC WRAPPED', margin, long ? 130 : 105);
+  context.fillText('PC RECAP', margin, long ? 130 : 105);
   context.textAlign = 'right';
   context.fillText(model.year, width - 205, long ? 130 : 105);
   context.textAlign = 'left';
@@ -95,7 +99,7 @@ function renderCard(summary: PeriodSummary, format: ShareCardFormat) {
 
   if (model.observation) {
     context.font = `750 ${long ? 52 : 39}px "Archivo Variable", Archivo, sans-serif`;
-    writeWrappedText(context, model.observation, margin, long ? 1320 : 955, width - 330, long ? 64 : 49, 3);
+    writeRecapText(context, model.observation, margin, long ? 1320 : 955, width - 330, long ? 64 : 49, 3);
   }
 
   context.font = `800 ${long ? 42 : 34}px "Archivo Variable", Archivo, sans-serif`;
@@ -104,12 +108,12 @@ function renderCard(summary: PeriodSummary, format: ShareCardFormat) {
   context.translate(width - 80, height - 70);
   context.rotate(-Math.PI / 2);
   context.font = '800 26px "Archivo Variable", Archivo, sans-serif';
-  context.fillText(`PC WRAPPED / ${model.year}`, 0, 0);
+  context.fillText(`PC RECAP / ${model.year}`, 0, 0);
   context.restore();
   return canvas;
 }
 
-export async function saveShareCard(summary: PeriodSummary, api: PCWrappedAPI, format: ShareCardFormat = 'portrait') {
+export async function saveShareCard(summary: PeriodSummary, api: PCRecapAPI, format: ShareCardFormat = 'portrait') {
   const canvas = renderCard(summary, format);
-  return api.saveShareCard(canvas.toDataURL('image/png'), `PC-Wrapped-${summary.label}-${format}.png`);
+  return api.saveShareCard(canvas.toDataURL('image/png'), getShareCardFileName(summary.label, format));
 }

@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { afterEach, describe, expect, it } from 'vitest';
-import { gzipSync } from 'node:zlib';
+import { gunzipSync, gzipSync } from 'node:zlib';
 import { BackupService } from './backup';
 import { ActivityRepository } from './database';
 
@@ -24,10 +24,12 @@ describe('BackupService', () => {
       durationSeconds: 2_700, machineId: 'laptop',
     });
     const archive = new BackupService(source).exportBuffer(new Date('2025-01-01T00:00:00.000Z'));
+    const exported = JSON.parse(gunzipSync(archive).toString('utf8')) as { manifest: { product: string } };
     const target = makeRepository();
 
     const result = await new BackupService(target).importBuffer(archive);
 
+    expect(exported.manifest.product).toBe('PC Recap');
     expect(result).toEqual({ importedSessions: 1, skippedSessions: 0 });
     expect(target.querySessions('2024-01-01T00:00:00.000Z', '2025-01-01T00:00:00.000Z'))
       .toEqual([expect.objectContaining({ id: 'portable-session', appName: 'Obsidian' })]);
@@ -75,7 +77,7 @@ describe('BackupService', () => {
       data: { apps: [], categories: [], settings: {}, sessions: [{ id: 'missing-fields' }] },
     }), 'utf8'));
 
-    await expect(new BackupService(target).importBuffer(archive)).rejects.toThrow(/valid PC Wrapped backup/i);
+    await expect(new BackupService(target).importBuffer(archive)).rejects.toThrow(/valid PC Recap backup/i);
     expect(target.getAllSessions()).toEqual([]);
   });
 });

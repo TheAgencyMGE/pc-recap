@@ -3,12 +3,13 @@ import { describe, expect, it } from 'vitest';
 import { App } from './App';
 import { createTestApi } from './test-utils/create-test-api';
 
-describe('PC Wrapped renderer', () => {
+describe('PC Recap renderer', () => {
   it('opens on the cover shelf without dashboard chrome', async () => {
     const api = createTestApi();
     render(<App api={api} />);
 
     expect(await screen.findByRole('heading', { name: 'Your recaps' })).toBeInTheDocument();
+    expect(screen.getByLabelText('PC Recap')).toBeVisible();
     expect(screen.getByRole('button', { name: /pause tracking/i })).toBeVisible();
     expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
     expect(screen.queryByText(/private edition|local archive|side a|side b|tracking visual studio code/i)).not.toBeInTheDocument();

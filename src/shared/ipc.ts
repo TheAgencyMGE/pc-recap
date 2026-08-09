@@ -13,7 +13,7 @@ import type {
   TrackingStatus,
 } from './types.js';
 
-export interface PCWrappedAPI {
+export interface PCRecapAPI {
   getDashboard(kind?: PeriodKind, year?: number): Promise<DashboardData>;
   getSummary(kind: PeriodKind, year?: number): Promise<PeriodSummary>;
   getTimeline(level: 'year' | 'month' | 'day', anchor?: string): Promise<TimelineBucket[]>;
@@ -40,6 +40,6 @@ export interface PCWrappedAPI {
 
 declare global {
   interface Window {
-    pcWrapped?: PCWrappedAPI;
+    pcRecap?: PCRecapAPI;
   }
 }

@@ -1,11 +1,11 @@
 import { ArrowLeft, ArrowRight, Archive } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useEffect, useState } from 'react';
-import type { PCWrappedAPI } from '../../shared/ipc';
+import type { PCRecapAPI } from '../../shared/ipc';
 import type { TimelineBucket } from '../../shared/types';
 import { formatDuration } from '../lib/format';
 
-export function Timeline({ api }: { api: PCWrappedAPI }) {
+export function Timeline({ api }: { api: PCRecapAPI }) {
   const [level, setLevel] = useState<'year' | 'month' | 'day'>('year');
   const [anchor, setAnchor] = useState<string>();
   const [data, setData] = useState<TimelineBucket[]>([]);

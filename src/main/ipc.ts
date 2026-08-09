@@ -2,6 +2,7 @@ import { writeFile } from 'node:fs/promises';
 import { basename } from 'node:path';
 import { app, dialog, ipcMain } from 'electron';
 import type { BrowserWindow, IpcMainInvokeEvent } from 'electron';
+import { BACKUP_EXTENSION, LEGACY_BACKUP_EXTENSIONS, PRODUCT_NAME } from '../shared/brand.js';
 import type { Category, PeriodKind, TrackingSettings } from '../shared/types.js';
 import type { AnalyticsService } from './analytics-service.js';
 import type { BackupService } from './backup.js';
@@ -22,7 +23,7 @@ interface IpcDependencies {
 const PERIODS = new Set<PeriodKind>(['today', 'week', 'month', 'year', 'all-time', 'decade']);
 const validatePeriod = (value: unknown): PeriodKind => PERIODS.has(value as PeriodKind) ? value as PeriodKind : 'today';
 const safeYear = (value: unknown) => typeof value === 'number' && value >= 1970 && value <= 9999 ? Math.floor(value) : undefined;
-const cleanName = (value: string) => basename(value).replace(/[^a-zA-Z0-9 ._-]/g, '').slice(0, 80) || 'PC-Wrapped.png';
+const cleanName = (value: string) => basename(value).replace(/[^a-zA-Z0-9 ._-]/g, '').slice(0, 80) || 'PC-Recap.png';
 
 export function registerIpcHandlers({
   repository, analytics, tracker, backup, icons, getMainWindow, trustedRendererUrl,
@@ -72,9 +73,9 @@ export function registerIpcHandlers({
   });
   handle('backup:export', async () => {
     const selected = await dialog.showSaveDialog({
-      title: 'Export your PC Wrapped archive',
-      defaultPath: `PC-Wrapped-${new Date().toISOString().slice(0, 10)}.pcw`,
-      filters: [{ name: 'PC Wrapped archive', extensions: ['pcw'] }],
+      title: `Export your ${PRODUCT_NAME} archive`,
+      defaultPath: `PC-Recap-${new Date().toISOString().slice(0, 10)}.${BACKUP_EXTENSION}`,
+      filters: [{ name: `${PRODUCT_NAME} archive`, extensions: [BACKUP_EXTENSION] }],
     });
     if (selected.canceled || !selected.filePath) return { ok: false, canceled: true };
     await writeFile(selected.filePath, backup.exportBuffer());
@@ -82,9 +83,9 @@ export function registerIpcHandlers({
   });
   handle('backup:import', async () => {
     const selected = await dialog.showOpenDialog({
-      title: 'Import a PC Wrapped archive',
+      title: `Import a ${PRODUCT_NAME} archive`,
       properties: ['openFile'],
-      filters: [{ name: 'PC Wrapped archive', extensions: ['pcw'] }],
+      filters: [{ name: `${PRODUCT_NAME} archive`, extensions: [BACKUP_EXTENSION, ...LEGACY_BACKUP_EXTENSIONS] }],
     });
     if (selected.canceled || !selected.filePaths[0]) return { ok: false, canceled: true };
     try {
@@ -99,7 +100,7 @@ export function registerIpcHandlers({
       return { ok: false, error: 'The share card is invalid.' };
     }
     const selected = await dialog.showSaveDialog({
-      title: 'Save your Wrapped card',
+      title: 'Save your Recap card',
       defaultPath: cleanName(suggestedName),
       filters: [{ name: 'PNG image', extensions: ['png'] }],
     });

@@ -1,16 +1,16 @@
 {
-  "name": "pc-wrapped",
-  "version": "1.0.0",
+  "name": "pc-recap",
+  "version": "1.0.1",
   "private": true,
-  "author": "PC Wrapped",
+  "author": "PC Recap",
   "license": "UNLICENSED",
-  "homepage": "https://github.com/TheAgencyMGE/pc-wrapped#readme",
+  "homepage": "https://github.com/TheAgencyMGE/pc-recap#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/TheAgencyMGE/pc-wrapped.git"
+    "url": "git+https://github.com/TheAgencyMGE/pc-recap.git"
   },
   "bugs": {
-    "url": "https://github.com/TheAgencyMGE/pc-wrapped/issues"
+    "url": "https://github.com/TheAgencyMGE/pc-recap/issues"
   },
   "engines": {
     "node": ">=22"
@@ -63,8 +63,8 @@
     "wait-on": "8.0.1"
   },
   "build": {
-    "appId": "com.pcwrapped.app",
-    "productName": "PC Wrapped",
+    "appId": "com.pcrecap.app",
+    "productName": "PC Recap",
     "electronDist": "node_modules/electron/dist",
     "asar": true,
     "directories": {
@@ -77,7 +77,7 @@
     "win": {
       "target": "nsis",
       "icon": "build/icon.svg",
-      "artifactName": "PC-Wrapped-${version}-Setup.${ext}"
+      "artifactName": "PC-Recap-${version}-Setup.${ext}"
     },
     "nsis": {
       "oneClick": false,

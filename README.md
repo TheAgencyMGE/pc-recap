@@ -1,11 +1,11 @@
-# PC Wrapped
+# PC Recap
 
-PC Wrapped turns real computer activity into a private history of your digital life: daily snapshots, weekly and monthly recaps, a cinematic Yearly Wrapped, long-term eras, records, and an archive you can carry between computers.
+PC Recap turns real computer activity into a private history of your digital life: daily snapshots, weekly and monthly recaps, a cinematic Yearly Recap, long-term eras, records, and an archive you can carry between computers.
 
-![PC Wrapped cover shelf](website/og.png)
+![PC Recap cover shelf](website/og.png)
 
 > [!IMPORTANT]
-> **PC Wrapped 1.0 is a public beta for Windows 10/11 x64.** The installer is currently unsigned, updates are installed manually from [GitHub Releases](https://github.com/TheAgencyMGE/pc-wrapped/releases), and beta users may encounter bugs. [Report a bug](https://github.com/TheAgencyMGE/pc-wrapped/issues/new?template=bug_report.yml) or [suggest an improvement](https://github.com/TheAgencyMGE/pc-wrapped/issues/new?template=feature_request.yml).
+> **PC Recap 1.0.1 is a public beta for Windows 10/11 x64.** The installer is currently unsigned, updates are installed manually from [GitHub Releases](https://github.com/TheAgencyMGE/pc-recap/releases), and beta users may encounter bugs. [Report a bug](https://github.com/TheAgencyMGE/pc-recap/issues/new?template=bug_report.yml) or [suggest an improvement](https://github.com/TheAgencyMGE/pc-recap/issues/new?template=feature_request.yml).
 
 ## What it does
 
@@ -13,21 +13,21 @@ PC Wrapped turns real computer activity into a private history of your digital l
 - Builds Today, Week, Month, Year, All-Time, Decade, and On This Day recaps.
 - Finds deterministic observations, app pairings, streaks, records, and usage eras without AI services.
 - Keeps history in local SQLite storage with per-app exclusions.
-- Exports and merges versioned `.pcw` backups across computers.
+- Exports and merges versioned `.pcr` backups across computers.
 - Runs from the system tray and continues collecting when the window is closed.
-- Uses native application icons and exports shareable Wrapped cards locally.
+- Uses native application icons and exports shareable Recap cards locally.
 
-PC Wrapped never creates demo activity or placeholder statistics. A new archive is empty until real sessions are collected or imported.
+PC Recap never creates demo activity or placeholder statistics. A new archive is empty until real sessions are collected or imported.
 
 ## Download
 
-The current Windows beta installer is available from the [PC Wrapped 1.0.0 Beta release](https://github.com/TheAgencyMGE/pc-wrapped/releases/tag/v1.0.0).
+The current Windows beta installer is available from the [PC Recap 1.0.1 Beta release](https://github.com/TheAgencyMGE/pc-recap/releases/tag/v1.0.1).
 
 Requirements: Windows 10 or Windows 11, x64.
 
 > Windows may show a SmartScreen warning because the installer is not yet signed with a publicly trusted Authenticode certificate.
 
-PC Wrapped does not update automatically yet. Install newer beta versions manually from GitHub Releases.
+PC Recap does not update automatically yet. Install newer beta versions manually from GitHub Releases.
 
 ## Privacy
 
@@ -83,7 +83,7 @@ ActivityTracker -> SQLite repository -> daily rollups / backups
 
 - `src/main` — Electron lifecycle, tray, Windows activity collection, SQLite, backups, and IPC.
 - `src/shared` — domain contracts, period math, analytics, and the deterministic observation engine.
-- `src/renderer` — React UI, archive visualizations, Yearly Wrapped, and share cards.
+- `src/renderer` — React UI, archive visualizations, Yearly Recap, and share cards.
 - `website` — dependency-free product and download site for static hosting.
 - `scripts` — activity and website verification utilities.
 

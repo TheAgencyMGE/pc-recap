@@ -12,4 +12,4 @@ Include the affected version, Windows version, reproduction steps, impact, and a
 
 ## Security model
 
-PC Wrapped is local-first. The renderer is sandboxed and context-isolated, Node integration is disabled, IPC is allowlisted, and activity history is stored on the user's machine. The application intentionally has no telemetry, cloud sync, account system, advertising identifiers, or external AI calls.
+PC Recap is local-first. The renderer is sandboxed and context-isolated, Node integration is disabled, IPC is allowlisted, and activity history is stored on the user's machine. The application intentionally has no telemetry, cloud sync, account system, advertising identifiers, or external AI calls.

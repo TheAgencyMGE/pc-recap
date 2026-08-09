@@ -4,4 +4,5 @@
 *.ico binary
 *.woff2 binary
 *.exe binary
+*.pcr binary
 *.pcw binary

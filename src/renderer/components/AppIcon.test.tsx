@@ -1,10 +1,10 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import type { PCWrappedAPI } from '../../shared/ipc';
+import type { PCRecapAPI } from '../../shared/ipc';
 import { createTestApi } from '../test-utils/create-test-api';
 import { AppIcon, AppIconProvider } from './AppIcon';
 
-function apiWithIcon(result: string | null): PCWrappedAPI {
+function apiWithIcon(result: string | null): PCRecapAPI {
   return { ...createTestApi(), getAppIcon: async () => result };
 }
 

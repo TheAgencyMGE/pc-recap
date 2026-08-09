@@ -1,14 +1,14 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import type { PCWrappedAPI } from '../../shared/ipc';
+import type { PCRecapAPI } from '../../shared/ipc';
 
-const AppIconContext = createContext<PCWrappedAPI | null>(null);
-const iconCaches = new WeakMap<PCWrappedAPI, Map<string, Promise<string | null>>>();
+const AppIconContext = createContext<PCRecapAPI | null>(null);
+const iconCaches = new WeakMap<PCRecapAPI, Map<string, Promise<string | null>>>();
 
-export function AppIconProvider({ api, children }: { api: PCWrappedAPI; children: React.ReactNode }) {
+export function AppIconProvider({ api, children }: { api: PCRecapAPI; children: React.ReactNode }) {
   return <AppIconContext.Provider value={api}>{children}</AppIconContext.Provider>;
 }
 
-function requestIcon(api: PCWrappedAPI, appId: string) {
+function requestIcon(api: PCRecapAPI, appId: string) {
   let cache = iconCaches.get(api);
   if (!cache) {
     cache = new Map();

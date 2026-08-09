@@ -1,4 +1,4 @@
-import type { PCWrappedAPI } from '../../shared/ipc';
+import type { PCRecapAPI } from '../../shared/ipc';
 import { summarizeSessions } from '../../shared/analytics';
 import { clipSessionToRange, localDayKey, localMonthKey, localYearKey } from '../../shared/calendar';
 import { getPeriodRange } from '../../shared/periods';
@@ -12,7 +12,7 @@ const categories: Category[] = [
   { id: 'browsing', name: 'Browsing', color: '#5AB7FF', icon: 'globe-2', isDefault: true },
 ];
 
-export function createTestApi(overrides: Partial<TrackingSettings> = {}): PCWrappedAPI & { clearHistory(): void } {
+export function createTestApi(overrides: Partial<TrackingSettings> = {}): PCRecapAPI & { clearHistory(): void } {
   const now = new Date();
   const codeStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9);
   const browserStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 10, 5);
@@ -62,7 +62,7 @@ export function createTestApi(overrides: Partial<TrackingSettings> = {}): PCWrap
     getTrackingStatus: async () => status,
     setTrackingEnabled: async (enabled) => (status = { state: enabled ? 'tracking' : 'paused' }),
     onTrackingStatus: () => () => undefined,
-    exportBackup: async () => ({ ok: true, path: 'test.pcw' }),
+    exportBackup: async () => ({ ok: true, path: 'test.pcr' }),
     importBackup: async () => ({ ok: true, importedSessions: 0 }),
     saveShareCard: async () => ({ ok: true, path: 'test.png' }),
     deleteAllHistory: async () => { sessions = []; },

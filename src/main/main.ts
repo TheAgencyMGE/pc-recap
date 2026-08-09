@@ -2,16 +2,19 @@ import { hostname } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { app, BrowserWindow, Menu, nativeImage, powerMonitor, Tray } from 'electron';
+import { APP_ID, PRODUCT_NAME } from '../shared/brand.js';
 import { WindowsActivitySource } from './activity-source.js';
 import { AppIconService } from './app-icon-service.js';
 import { AnalyticsService } from './analytics-service.js';
 import { BackupService } from './backup.js';
 import { ActivityRepository } from './database.js';
+import { prepareActivityDatabase } from './data-migration.js';
 import { registerIpcHandlers } from './ipc.js';
 import { isTrustedNavigation, resolveRendererTarget } from './renderer-security.js';
 import { ActivityTracker } from './tracker.js';
 
 const currentDirectory = dirname(fileURLToPath(import.meta.url));
+app.setName(PRODUCT_NAME);
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) app.quit();
 
@@ -36,7 +39,7 @@ function createWindow() {
     minWidth: 980,
     minHeight: 680,
     show: false,
-    title: 'PC Wrapped',
+    title: PRODUCT_NAME,
     backgroundColor: '#F4F0E6',
     autoHideMenuBar: true,
     webPreferences: {
@@ -67,9 +70,9 @@ function createWindow() {
 function createTray() {
   const image = nativeImage.createFromDataURL(`data:image/svg+xml;base64,${Buffer.from(traySvg).toString('base64')}`).resize({ width: 20, height: 20 });
   tray = new Tray(image);
-  tray.setToolTip('PC Wrapped');
+  tray.setToolTip(PRODUCT_NAME);
   tray.setContextMenu(Menu.buildFromTemplate([
-    { label: 'Open PC Wrapped', click: () => { mainWindow?.show(); mainWindow?.focus(); } },
+    { label: `Open ${PRODUCT_NAME}`, click: () => { mainWindow?.show(); mainWindow?.focus(); } },
     { type: 'separator' },
     { label: 'Pause tracking', click: () => tracker?.pause() },
     { label: 'Resume tracking', click: () => tracker?.resume() },
@@ -87,9 +90,10 @@ app.on('second-instance', () => {
   }
 });
 
-app.whenReady().then(() => {
-  app.setAppUserModelId('com.pcwrapped.app');
-  repository = new ActivityRepository(join(app.getPath('userData'), 'pc-wrapped.db'));
+app.whenReady().then(async () => {
+  app.setAppUserModelId(APP_ID);
+  const databasePath = await prepareActivityDatabase(app.getPath('userData'), app.getPath('appData'));
+  repository = new ActivityRepository(databasePath);
   tracker = new ActivityTracker(repository, new WindowsActivitySource(), {
     idleSeconds: () => powerMonitor.getSystemIdleTime(),
     machineId: hostname(),

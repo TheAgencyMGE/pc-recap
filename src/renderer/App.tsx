@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { Activity, DatabaseBackup, HardDrive, LoaderCircle, ShieldCheck, Upload } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { PCWrappedAPI } from '../shared/ipc';
+import type { PCRecapAPI } from '../shared/ipc';
 import type {
   AppDetail as AppDetailData, Category, DashboardData, OnThisDayEntry,
   PeriodKind, PeriodSummary, TrackedApp, TrackingSettings,
@@ -19,7 +19,7 @@ import { OnThisDay } from './pages/OnThisDay';
 import { PeriodView } from './pages/PeriodView';
 import { Settings } from './pages/Settings';
 import { Timeline } from './pages/Timeline';
-import { YearlyWrapped } from './pages/YearlyWrapped';
+import { YearlyRecap } from './pages/YearlyRecap';
 import type { RouteId } from './routes';
 
 const PERIOD_ROUTES = new Set<RouteId>(['today', 'week', 'month', 'year', 'all-time', 'decade']);
@@ -32,10 +32,10 @@ const routeTitle = (route: RouteId, detail?: AppDetailData | null) => {
     timeline: 'Timeline', 'on-this-day': 'On this day', achievements: 'Records',
     categories: 'Categories', settings: 'Settings',
   };
-  return titles[route] ?? 'PC Wrapped';
+  return titles[route] ?? 'PC Recap';
 };
 
-export function App({ api = rendererApi }: { api?: PCWrappedAPI }) {
+export function App({ api = rendererApi }: { api?: PCRecapAPI }) {
   const [route, setRoute] = useState<RouteId>('home');
   const [data, setData] = useState<DashboardData>();
   const [summaries, setSummaries] = useState<Partial<Record<PeriodKind, PeriodSummary>>>({});
@@ -69,7 +69,7 @@ export function App({ api = rendererApi }: { api?: PCWrappedAPI }) {
       setOnThisDay(entries);
       if (homeSummaries.length) setSummaries(Object.fromEntries(homeSummaries));
     };
-    void load().catch((reason: unknown) => live && setError(reason instanceof Error ? reason.message : 'Could not open PC Wrapped.'));
+    void load().catch((reason: unknown) => live && setError(reason instanceof Error ? reason.message : 'Could not open PC Recap.'));
     return () => { live = false; };
   }, [api, period, revision, route, selectedYear]);
 
@@ -113,10 +113,10 @@ export function App({ api = rendererApi }: { api?: PCWrappedAPI }) {
     return null;
   }, [api, appDetail, apps, categories, data, onThisDay, reload, route, settings, summaries, toggleTracking]);
 
-  if (error) return <div className="fatal-state"><h1>Could not open PC Wrapped.</h1><p>{error}</p><button className="primary-button" onClick={reload}>Try again</button></div>;
+  if (error) return <div className="fatal-state"><h1>Could not open PC Recap.</h1><p>{error}</p><button className="primary-button" onClick={reload}>Try again</button></div>;
   if (!data || !settings) return <Loading />;
   if (!settings.onboardingComplete) return <Onboarding onComplete={async (patch) => { setSettings(await api.updateSettings(patch)); reload(); }} />;
-  if (route === 'year' && data.summary.sessionCount > 0) return <AppIconProvider api={api}><YearlyWrapped api={api} summary={data.summary} timeline={data.timeline} onClose={() => setRoute('home')} /></AppIconProvider>;
+  if (route === 'year' && data.summary.sessionCount > 0) return <AppIconProvider api={api}><YearlyRecap api={api} summary={data.summary} timeline={data.timeline} onClose={() => setRoute('home')} /></AppIconProvider>;
 
   if (route === 'home') return <AppIconProvider api={api}>{page}</AppIconProvider>;
   return <AppIconProvider api={api}><div className="interior-app">
@@ -129,7 +129,7 @@ function Loading() {
   return <div className="loading-state"><LoaderCircle /><span>Opening</span></div>;
 }
 
-function EmptyArchive({ api, isArchiveEmpty, status, onChanged }: { api: PCWrappedAPI; isArchiveEmpty: boolean; status: string; onChanged: () => void }) {
+function EmptyArchive({ api, isArchiveEmpty, status, onChanged }: { api: PCRecapAPI; isArchiveEmpty: boolean; status: string; onChanged: () => void }) {
   const [message, setMessage] = useState('');
   const importHistory = async () => {
     const result = await api.importBackup();
@@ -139,7 +139,7 @@ function EmptyArchive({ api, isArchiveEmpty, status, onChanged }: { api: PCWrapp
   return <motion.main className="page empty-archive" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
     <div className="empty-archive__mark"><Activity /></div>
     <h1>{isArchiveEmpty ? 'No activity yet.' : 'Nothing here.'}</h1>
-    <p>{status === 'tracking' ? 'Leave PC Wrapped running and come back later.' : 'Resume tracking to add activity.'}</p>
+    <p>{status === 'tracking' ? 'Leave PC Recap running and come back later.' : 'Resume tracking to add activity.'}</p>
     <div className="empty-archive__facts">
       <div><HardDrive /><span><b>{status === 'tracking' ? 'Tracking is on' : 'Tracking is paused'}</b></span></div>
       <div><DatabaseBackup /><span><b>Have a backup?</b></span></div>

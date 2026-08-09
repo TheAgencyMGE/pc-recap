@@ -24,7 +24,7 @@ describe('IPC authorization', () => {
 
   it('rejects a privileged request from any frame other than the app main frame', async () => {
     const deleteAllHistory = vi.fn();
-    const mainFrame = { url: 'file:///C:/Program%20Files/PC%20Wrapped/resources/app.asar/dist/renderer/index.html' };
+    const mainFrame = { url: 'file:///C:/Program%20Files/PC%20Recap/resources/app.asar/dist/renderer/index.html' };
     const webContents = { mainFrame };
     const dependencies = {
       repository: { deleteAllHistory } as never,
