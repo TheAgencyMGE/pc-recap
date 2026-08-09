@@ -1,0 +1,45 @@
+import type {
+  Achievement,
+  AppDetail,
+  BackupResult,
+  Category,
+  DashboardData,
+  OnThisDayEntry,
+  PeriodKind,
+  PeriodSummary,
+  TimelineBucket,
+  TrackedApp,
+  TrackingSettings,
+  TrackingStatus,
+} from './types.js';
+
+export interface PCWrappedAPI {
+  getDashboard(kind?: PeriodKind, year?: number): Promise<DashboardData>;
+  getSummary(kind: PeriodKind, year?: number): Promise<PeriodSummary>;
+  getTimeline(level: 'year' | 'month' | 'day', anchor?: string): Promise<TimelineBucket[]>;
+  getAppDetail(appId: string): Promise<AppDetail | null>;
+  getAppIcon(appId: string): Promise<string | null>;
+  listApps(): Promise<TrackedApp[]>;
+  getAchievements(): Promise<Achievement[]>;
+  getOnThisDay(): Promise<OnThisDayEntry[]>;
+  getSettings(): Promise<TrackingSettings>;
+  updateSettings(patch: Partial<TrackingSettings>): Promise<TrackingSettings>;
+  getCategories(): Promise<Category[]>;
+  saveCategory(category: Category): Promise<Category>;
+  setAppCategory(appId: string, categoryId: string): Promise<void>;
+  setAppExcluded(appId: string, excluded: boolean): Promise<void>;
+  getTrackingStatus(): Promise<TrackingStatus>;
+  setTrackingEnabled(enabled: boolean): Promise<TrackingStatus>;
+  onTrackingStatus(callback: (status: TrackingStatus) => void): () => void;
+  exportBackup(): Promise<BackupResult>;
+  importBackup(): Promise<BackupResult>;
+  saveShareCard(dataUrl: string, suggestedName: string): Promise<BackupResult>;
+  deleteAllHistory(): Promise<void>;
+  getVersion(): Promise<string>;
+}
+
+declare global {
+  interface Window {
+    pcWrapped?: PCWrappedAPI;
+  }
+}

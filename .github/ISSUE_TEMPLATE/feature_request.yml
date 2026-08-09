@@ -1,0 +1,23 @@
+name: Feature request
+description: Suggest an improvement that preserves PC Wrapped's local-first model.
+title: "[Idea]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What should feel better?
+      description: Describe the user need rather than only the proposed implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: approach
+    attributes:
+      label: Suggested direction
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy
+      options:
+        - label: This idea can work without sending activity data off the device.
+          required: true

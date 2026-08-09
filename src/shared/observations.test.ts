@@ -1,0 +1,52 @@
+import { describe, expect, it } from 'vitest';
+import { generateObservations } from './observations';
+import type { PeriodSummary } from './types';
+
+const summary: PeriodSummary = {
+  kind: 'week',
+  label: 'This week',
+  rangeStart: '2025-01-01T00:00:00.000Z',
+  rangeEnd: '2025-01-08T00:00:00.000Z',
+  totalSeconds: 36_000,
+  previousTotalSeconds: 30_000,
+  changePercent: 20,
+  firstActivity: '2025-01-01T08:12:00.000Z',
+  lastActivity: '2025-01-03T02:17:00.000Z',
+  longestSession: {
+    id: 'long', appId: 'minecraft', appName: 'Minecraft', categoryId: 'gaming',
+    startedAt: '2025-01-02T20:00:00.000Z', endedAt: '2025-01-02T22:00:00.000Z', durationSeconds: 7_200,
+  },
+  topApps: [
+    { appId: 'minecraft', name: 'Minecraft', categoryId: 'gaming', seconds: 18_000, sessions: 3, share: 50, color: '#75C46B', changePercent: 41 },
+    { appId: 'discord', name: 'Discord', categoryId: 'social', seconds: 10_000, sessions: 4, share: 27.8, color: '#8D87FF' },
+  ],
+  categories: [],
+  hourly: Array.from({ length: 24 }, (_, hour) => ({ label: String(hour), seconds: hour === 2 ? 8_000 : 0 })),
+  daily: [],
+  appPairs: [{ appA: 'Chrome', appB: 'VS Code', daysTogether: 5, score: 5 }],
+  eras: [],
+  observations: [],
+  records: [],
+  sessionCount: 7,
+  activeDays: 3,
+};
+
+describe('generateObservations', () => {
+  it('is deterministic and prioritizes the late-night app fact', () => {
+    const first = generateObservations(summary);
+    const second = generateObservations(summary);
+
+    expect(second).toEqual(first);
+    expect(first[0]).toMatchObject({
+      id: 'night-owl',
+      text: 'Your 2 AM app was Discord.',
+    });
+  });
+
+  it('includes exact period growth and power-couple copy', () => {
+    const result = generateObservations(summary);
+
+    expect(result.map((item) => item.text)).toContain('Minecraft usage increased 41% this week.');
+    expect(result.map((item) => item.text)).toContain('Chrome + VS Code were your power couple.');
+  });
+});

@@ -1,0 +1,23 @@
+:root {
+  color-scheme: light;
+  --paper: #f6f6f1;
+  --clean-paper: #ffffff;
+  --ink: #151515;
+  --soft-ink: #353535;
+  --muted: #73736d;
+  --line: #deded7;
+  --red: #ff6038;
+  --lilac: #aa9dff;
+  --acid: #c9f227;
+  --yellow: #ffd43b;
+  --cobalt: #4256f4;
+  --pink: #ff9fc9;
+  --display: 'Archivo Variable', Archivo, 'Arial Narrow', sans-serif;
+  --body: 'Instrument Sans Variable', 'Segoe UI', sans-serif;
+  --mono: 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+  --rule: 1px solid var(--line);
+  --shadow: 0 18px 44px rgba(21, 21, 21, .12);
+  font-family: var(--body);
+  font-synthesis: none;
+  text-rendering: geometricPrecision;
+}

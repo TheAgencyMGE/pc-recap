@@ -1,0 +1,49 @@
+* { box-sizing: border-box; }
+html, body, #root { width: 100%; height: 100%; margin: 0; }
+body { overflow: hidden; color: var(--ink); background: var(--paper); font-family: var(--body); -webkit-font-smoothing: antialiased; }
+button, input, select { color: inherit; font: inherit; }
+button { border: 0; background: none; cursor: pointer; }
+button:disabled { cursor: default; }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 3px solid var(--cobalt); outline-offset: 3px; }
+h1, h2, h3, p, blockquote, figure, dl, dd { margin: 0; }
+h1, h2, h3, strong, b { font-family: var(--display); }
+em { font-style: italic; }
+svg { flex: none; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { border: 2px solid transparent; border-radius: 999px; background: #bbbcb6; background-clip: padding-box; }
+
+.page { width: min(1240px, 100%); min-height: 100%; margin: 0 auto; padding: 42px clamp(24px, 4.5vw, 64px) 84px; }
+.simple-page-heading { display: flex; min-height: 62px; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 30px; }
+.simple-page-heading h1 { font: 820 clamp(40px, 5.2vw, 68px)/.9 var(--display); letter-spacing: -.055em; }
+.simple-page-heading > span { color: var(--muted); font-size: 14px; text-transform: capitalize; }
+.simple-page-heading--split { align-items: center; }
+.eyebrow, .editorial-heading > span, .page-heading > .eyebrow { font: 700 10px/1.2 var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+.editorial-heading, .page-heading { display: grid; gap: 10px; margin-bottom: 30px; }
+.editorial-heading h1, .page-heading h1 { max-width: 900px; font: 820 clamp(44px, 5.5vw, 72px)/.9 var(--display); letter-spacing: -.055em; }
+.editorial-heading p, .page-heading p { max-width: 520px; color: var(--soft-ink); line-height: 1.45; }
+.page-heading--split { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
+
+.primary-button, .back-button, .icon-button { display: inline-flex; min-height: 42px; align-items: center; justify-content: center; gap: 8px; padding: 0 17px; border-radius: 999px; background: var(--ink); color: white; font-weight: 720; transition: transform .16s ease, background .16s ease; }
+.primary-button:hover, .back-button:hover { background: var(--cobalt); transform: translateY(-1px); }
+.primary-button--large { min-height: 52px; padding: 0 22px; font-size: 16px; }
+.back-button { margin-bottom: 22px; background: var(--clean-paper); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line); }
+.app-icon { display: inline-grid; width: 40px; height: 40px; flex: none; place-items: center; overflow: hidden; border-radius: 10px; background: var(--app-color, var(--lilac)); color: var(--ink); font: 800 12px/1 var(--display); box-shadow: 0 3px 10px rgba(21,21,21,.12); }
+.app-icon img { width: 100%; height: 100%; padding: 5px; object-fit: contain; background: var(--clean-paper); }
+.app-icon--small { width: 28px; height: 28px; border-radius: 7px; font-size: 9px; }
+.app-icon--large { width: 112px; height: 112px; border-radius: 24px; font-size: 32px; }
+.app-icon--large img { padding: 14px; }
+.empty-state { display: grid; min-height: 230px; place-items: center; align-content: center; gap: 10px; width: 100%; padding: 40px; border-radius: 22px; background: var(--clean-paper); text-align: center; }
+.empty-state svg { width: 32px; height: 32px; }
+.empty-state h2 { font: 750 27px/1 var(--display); }
+.empty-state p { max-width: 480px; color: var(--muted); line-height: 1.5; }
+.empty-state--compact { min-height: 190px; margin-top: 24px; }
+.fatal-state, .loading-state { display: grid; width: 100%; height: 100%; place-items: center; align-content: center; gap: 18px; padding: 40px; background: var(--paper); text-align: center; }
+.fatal-state h1 { font: 820 58px/.9 var(--display); letter-spacing: -.05em; }
+.fatal-state p { color: var(--muted); }
+.loading-state svg { animation: spin .9s steps(8) infinite; }
+.loading-state span { font-weight: 700; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
