@@ -2,7 +2,7 @@
 
 All notable changes to PC Wrapped are documented here.
 
-## [1.0.0] - 2026-08-08
+## [1.0.0] Beta - 2026-08-08
 
 ### Added
 

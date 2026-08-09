@@ -4,6 +4,9 @@ PC Wrapped turns real computer activity into a private history of your digital l
 
 ![PC Wrapped cover shelf](website/og.png)
 
+> [!IMPORTANT]
+> **PC Wrapped 1.0 is a public beta for Windows 10/11 x64.** The installer is currently unsigned, updates are installed manually from [GitHub Releases](https://github.com/TheAgencyMGE/pc-wrapped/releases), and beta users may encounter bugs. [Report a bug](https://github.com/TheAgencyMGE/pc-wrapped/issues/new?template=bug_report.yml) or [suggest an improvement](https://github.com/TheAgencyMGE/pc-wrapped/issues/new?template=feature_request.yml).
+
 ## What it does
 
 - Records foreground application usage and session duration on Windows.
@@ -18,11 +21,13 @@ PC Wrapped never creates demo activity or placeholder statistics. A new archive 
 
 ## Download
 
-The current Windows installer is available from [GitHub Releases](https://github.com/TheAgencyMGE/pc-wrapped/releases/latest).
+The current Windows beta installer is available from the [PC Wrapped 1.0.0 Beta release](https://github.com/TheAgencyMGE/pc-wrapped/releases/tag/v1.0.0).
 
 Requirements: Windows 10 or Windows 11, x64.
 
 > Windows may show a SmartScreen warning because the installer is not yet signed with a publicly trusted Authenticode certificate.
+
+PC Wrapped does not update automatically yet. Install newer beta versions manually from GitHub Releases.
 
 ## Privacy
 
@@ -92,4 +97,4 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. Activity 
 
 Copyright © 2026 Ryan Panda. All rights reserved.
 
-No open-source license has been granted yet. The source is being prepared for public review; reuse or redistribution requires permission until a license is added.
+No open-source license has been granted. The source is publicly viewable, but permission to use, copy, modify, or redistribute it is not granted unless a license is added or the copyright holder gives permission.
