@@ -13,6 +13,12 @@
 .caption-strip dt { display: flex; align-items: center; gap: 7px; margin-bottom: 7px; color: var(--muted); font-size: 11px; }
 .caption-strip dt svg { width: 13px; height: 13px; }
 .caption-strip dd { overflow: hidden; font: 740 18px/1.1 var(--display); text-overflow: ellipsis; white-space: nowrap; }
+.stat-ribbon { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; margin-top: 24px; overflow: hidden; border-radius: 20px; background: var(--line); }
+.stat-card { position: relative; display: flex; min-width: 0; min-height: 124px; flex-direction: column; padding: 18px 20px; background: var(--clean-paper); }
+.stat-card::before { position: absolute; top: 0; right: 20px; left: 20px; height: 3px; background: var(--stat-accent, transparent); content: ''; }
+.stat-card > span { color: var(--muted); font: 650 10px var(--mono); letter-spacing: .04em; text-transform: uppercase; }
+.stat-card > strong { margin-top: auto; overflow-wrap: anywhere; font: 760 clamp(18px, 2vw, 27px)/.95 var(--display); letter-spacing: -.035em; }
+.stat-card > small { margin-top: 8px; color: var(--muted); font-size: 10px; line-height: 1.25; }
 .today-spread, .period-spread { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(280px, .65fr); gap: 24px; margin-top: 30px; }
 .track-sheet, .print-chart-section, .period-print, .app-liner-notes { overflow: hidden; border-radius: 22px; background: var(--clean-paper); box-shadow: 0 8px 24px rgba(21,21,21,.06); }
 .track-sheet > header, .print-chart-section > header, .period-print > header { display: flex; min-height: 70px; align-items: end; justify-content: space-between; padding: 18px 22px; border-bottom: 1px solid var(--line); }
@@ -39,6 +45,18 @@
 .spark-bars__item { display: flex; min-width: 5px; height: 100%; flex: 1; flex-direction: column; justify-content: flex-end; gap: 6px; }
 .spark-bars__item i { display: block; min-height: 2px; border-radius: 5px 5px 2px 2px; }
 .spark-bars__item span { overflow: hidden; color: var(--muted); font: 600 8px var(--mono); text-align: center; }
+.bar-chart { position: relative; margin: 0; padding: 24px 22px 16px; }
+.bar-chart__plot { position: relative; display: flex; height: 210px; align-items: flex-end; gap: 7px; padding-top: 38px; border-bottom: 1px solid var(--line); }
+.bar-chart__plot::before, .bar-chart__plot::after { position: absolute; right: 0; left: 0; height: 1px; background: color-mix(in srgb, var(--line) 70%, transparent); content: ''; pointer-events: none; }
+.bar-chart__plot::before { top: 42%; }
+.bar-chart__plot::after { top: 71%; }
+.bar-chart__bucket { display: flex; min-width: 0; height: 100%; flex: 1; flex-direction: column; justify-content: flex-end; }
+.bar-chart__bar { z-index: 1; width: 100%; min-height: 0; transform-origin: bottom; border: 0; border-radius: 5px 5px 1px 1px; box-shadow: none; }
+.bar-chart__bar:hover, .bar-chart__bar:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; filter: saturate(1.15); }
+.bar-chart__bucket > span { height: 20px; margin-top: 7px; overflow: hidden; color: var(--muted); font: 600 8px/1 var(--mono); text-align: center; white-space: nowrap; }
+.bar-chart__tooltip { position: absolute; z-index: 3; top: 0; display: flex; min-width: max-content; transform: translateX(-50%) rotate(-1deg); gap: 8px; padding: 8px 10px; border: 1px solid var(--ink); background: var(--yellow); color: var(--ink); box-shadow: 3px 3px 0 var(--ink); font: 650 10px var(--mono); }
+.bar-chart__tooltip span { color: #4d4d4d; }
+.bar-chart figcaption { display: flex; justify-content: space-between; gap: 16px; padding-top: 12px; color: var(--muted); font: 600 9px/1.35 var(--mono); }
 .period-cover { grid-template-columns: .78fr 1.22fr; min-height: 300px; }
 .period-cover > div { display: flex; flex-direction: column; justify-content: flex-end; padding: 32px; }
 .period-cover > div:first-child p { margin-top: 10px; font-weight: 700; }
@@ -56,6 +74,6 @@
 @media (max-width: 900px) {
   .today-cover, .period-cover, .today-spread, .period-spread { grid-template-columns: 1fr; }
   .today-cover__number, .period-cover > div:first-child { min-height: 230px; }
-  .caption-strip { grid-template-columns: repeat(2, 1fr); }
+  .caption-strip, .stat-ribbon { grid-template-columns: repeat(2, 1fr); }
   .liner-facts { grid-template-columns: 1fr; }
 }

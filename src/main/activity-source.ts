@@ -1,6 +1,7 @@
 import { basename } from 'node:path';
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { createInterface, type Interface } from 'node:readline';
+import { chooseHostedApplication } from './tracking/app-identity.js';
 
 export interface ActiveWindowInfo {
   name: string;
@@ -57,15 +58,18 @@ export class WindowsActivitySource implements ActivitySource {
       if (!request) return;
       clearTimeout(request.timer);
       try {
-        const result = JSON.parse(line.trim()) as ActiveWindowInfo & { error?: string };
+        const result = JSON.parse(line.trim()) as ActiveWindowInfo & { error?: string; children?: ActiveWindowInfo[] };
         if (result.error) request.reject(new Error(result.error));
         else if (!result.name && !result.executable) request.resolve(null);
-        else request.resolve({
+        else request.resolve(chooseHostedApplication({
           name: friendlyName(result.name || basename(result.path ?? '', '.exe')),
           executable: result.executable || basename(result.path ?? ''),
           path: result.path || undefined,
           title: result.title || undefined,
-        });
+        }, (result.children ?? []).map((child) => ({
+          ...child,
+          name: friendlyName(child.name || basename(child.path ?? '', '.exe')),
+        }))));
       } catch {
         request.reject(new Error('Windows returned an unreadable activity sample.'));
       }
@@ -114,7 +118,16 @@ while (($request = [Console]::In.ReadLine()) -ne $null) {
     $path = ''
     try { $path = $process.Path } catch {}
     $executable = if ($path) { [IO.Path]::GetFileName($path) } else { $process.ProcessName + '.exe' }
-    [pscustomobject]@{ name = $process.ProcessName; executable = $executable; path = $path; title = [PCRecapForeground]::GetTitle() } | ConvertTo-Json -Compress
+    $children = @()
+    if ($process.ProcessName -eq 'ApplicationFrameHost') {
+      try {
+        $children = @(Get-CimInstance Win32_Process -Filter "ParentProcessId = $($process.Id)" -ErrorAction Stop | ForEach-Object {
+          $childPath = $_.ExecutablePath
+          [pscustomobject]@{ name = $_.Name -replace '\.exe$',''; executable = $_.Name; path = $childPath }
+        })
+      } catch {}
+    }
+    [pscustomobject]@{ name = $process.ProcessName; executable = $executable; path = $path; title = [PCRecapForeground]::GetTitle(); children = $children } | ConvertTo-Json -Compress -Depth 3
   } catch {
     [pscustomobject]@{ error = $_.Exception.Message } | ConvertTo-Json -Compress
   }

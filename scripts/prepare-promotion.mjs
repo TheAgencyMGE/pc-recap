@@ -50,7 +50,7 @@ Download the free beta at pcrecap.online
 
 I wanted something that remembered my computer life without treating every minute like a productivity score.
 
-PC Recap records which application is active and turns that history into daily, weekly, monthly, yearly, and all-time visual recaps. It starts building your archive after installation. It does not record screenshots, keystrokes, files, clipboard contents, or browser history, and the desktop app does not upload activity data.
+PC Recap records which application is active and turns that history into daily, weekly, monthly, yearly, and all-time visual recaps. It can also recover clearly labeled historical clues when you choose a source. It does not record screenshots, keystrokes, file contents, or clipboard contents, and the desktop app does not upload activity data.
 
 The ${version} Windows beta is available at https://pcrecap.online/
 
@@ -119,6 +119,12 @@ async function main() {
     /v\d+\.\d+\.\d+ beta · x64/,
     `v${metadata.version} beta · x64`,
     'visible release label',
+  );
+  html = replaceRequired(
+    html,
+    /PC Recap \d+\.\d+\.\d+ Beta/g,
+    `PC Recap ${metadata.version} Beta`,
+    'visible download-panel version',
   );
   await writeFile(htmlPath, html);
 

@@ -1,0 +1,58 @@
+.replay-page { max-width: 1180px; }
+.replay-heading { display: flex; align-items: end; justify-content: space-between; gap: 24px; }
+.replay-heading small { font: 720 10px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+.replay-heading h1 { margin-top: 7px; font: 840 clamp(46px, 7vw, 82px)/.85 var(--display); letter-spacing: -.06em; }
+.replay-heading strong { font: 800 clamp(28px, 4vw, 48px)/1 var(--display); }
+.replay-heading > div:last-child { display: grid; justify-items: end; gap: 10px; }
+.replay-heading > div:last-child button { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 0 12px; border-radius: 999px; background: var(--acid); font-weight: 750; }
+.replay-controls { display: flex; justify-content: space-between; align-items: center; gap: 18px; margin: 34px 0 18px; }
+.replay-filters { display: flex; flex-wrap: wrap; gap: 7px; }
+.replay-filters button { display: inline-flex; min-height: 36px; align-items: center; gap: 7px; padding: 0 13px; border-radius: 999px; background: #e9e9e3; font-weight: 700; }
+.replay-filters button.is-active { background: var(--ink); color: var(--clean-paper); }
+.replay-filters i { width: 9px; height: 9px; border-radius: 50%; }
+.replay-controls > label { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
+.replay-controls select { height: 36px; padding: 0 30px 0 10px; border: 1px solid var(--line); border-radius: 9px; background: var(--clean-paper); }
+.replay-ribbon-wrap { padding: 24px; border-radius: 24px; background: var(--ink); color: var(--clean-paper); box-shadow: var(--shadow); }
+.replay-hours { display: flex; justify-content: space-between; margin-bottom: 12px; color: #aaa; font: 650 9px var(--mono); }
+.replay-ribbon { position: relative; height: 168px; overflow: hidden; border-radius: 14px; background: repeating-linear-gradient(90deg, #282828 0, #282828 calc(100% / 24 - 1px), #3c3c3c calc(100% / 24)); }
+.replay-segment { position: absolute; top: 26px; min-width: 4px; height: 116px; overflow: hidden; padding: 10px 8px; border: 2px solid var(--ink); border-radius: 9px; background: var(--segment-color); color: var(--ink); text-align: left; transition: filter .15s ease, transform .15s ease; }
+.replay-segment:hover, .replay-segment:focus-visible { z-index: 2; filter: saturate(1.18) brightness(1.05); transform: translateY(-5px); outline: 3px solid var(--clean-paper); outline-offset: 2px; }
+.replay-segment span { display: block; overflow: hidden; font-size: 11px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+.replay-marker { position: absolute; z-index: 3; top: 8px; width: 9px; height: 152px; border-radius: 999px; background: var(--acid); box-shadow: 0 0 0 2px var(--ink); }
+.replay-tooltip { display: flex; min-height: 48px; align-items: center; gap: 12px; padding-top: 13px; color: #bbb; font-size: 12px; }
+.replay-tooltip b { color: var(--clean-paper); }
+.replay-facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }
+.replay-facts article { display: grid; grid-template-columns: 28px 1fr; align-items: center; gap: 11px; min-height: 84px; padding: 15px; border-radius: 16px; background: var(--clean-paper); box-shadow: 0 7px 20px rgba(21,21,21,.05); }
+.replay-facts span { display: grid; gap: 4px; }
+.replay-facts small { color: var(--muted); }
+.replay-facts b { font-size: 15px; }
+.replay-notes { margin-top: 32px; }
+.replay-notes h2 { margin-bottom: 12px; font: 800 30px/1 var(--display); }
+.replay-notes article, .replay-notes > button { display: grid; width: 100%; grid-template-columns: minmax(140px, .3fr) 1fr; gap: 20px; padding: 15px 2px; border-bottom: 1px solid var(--line); text-align: left; }
+.replay-notes span { color: var(--soft-ink); }
+.replay-loading { display: flex; min-height: 60vh; align-items: center; justify-content: center; gap: 10px; }
+.replay-loading svg { animation: spin 1s linear infinite; }
+.memory-pin-editor { display: grid; grid-template-columns: minmax(180px, .7fr) minmax(240px, 1.3fr); gap: 14px; margin: 24px 0; padding: 20px; border-radius: 20px; background: var(--lilac); box-shadow: 0 9px 26px rgba(21,21,21,.1); }
+.memory-pin-editor > header { grid-column: 1 / -1; display: grid; grid-template-columns: 28px 1fr auto; align-items: center; gap: 10px; }
+.memory-pin-editor h2 { font: 800 25px/1 var(--display); }
+.memory-pin-editor > header button { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 50%; background: rgba(255,255,255,.5); }
+.memory-pin-editor > label { display: grid; gap: 6px; color: var(--soft-ink); font-size: 11px; }
+.memory-pin-editor input, .memory-pin-editor textarea { width: 100%; padding: 10px 11px; border: 1px solid rgba(21,21,21,.15); border-radius: 10px; background: var(--clean-paper); color: var(--ink); }
+.memory-pin-editor textarea { min-height: 82px; resize: vertical; }
+.memory-pin-editor__options { grid-column: 1 / -1; display: grid; grid-template-columns: 100px 1fr; align-items: center; gap: 14px; }
+.memory-pin-editor__options > label { display: grid; gap: 5px; font-size: 10px; }
+.memory-pin-editor__options input[type='color'] { height: 40px; padding: 4px; }
+.memory-pin-editor__include { display: flex !important; grid-template-columns: auto 1fr; align-items: center; gap: 9px !important; }
+.memory-pin-editor__include input { width: 18px; height: 18px; accent-color: var(--cobalt); }
+.memory-pin-editor__include span { display: grid; gap: 2px; }
+.memory-pin-editor__include small { color: var(--soft-ink); }
+.memory-pin-editor > p { grid-column: 1 / -1; color: #8a1800; font-weight: 700; }
+.memory-pin-editor > footer { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 9px; }
+.memory-pin-editor > footer button { display: inline-flex; align-items: center; gap: 7px; }
+.memory-pin-delete { padding: 0 12px; border-radius: 999px; background: var(--red); font-weight: 750; }
+@media (max-width: 900px) {
+  .replay-facts { grid-template-columns: repeat(2, 1fr); }
+  .replay-controls { align-items: flex-start; flex-direction: column; }
+  .memory-pin-editor { grid-template-columns: 1fr; }
+  .memory-pin-editor > * { grid-column: 1 !important; }
+}

@@ -23,6 +23,18 @@ describe('BackupService', () => {
       startedAt: '2024-06-02T12:00:00.000Z', endedAt: '2024-06-02T12:45:00.000Z',
       durationSeconds: 2_700, machineId: 'laptop',
     });
+    source.commitHistoryBatch({
+      batch: { id: 'portable-batch', sourceKind: 'windows_recovery', sourceFingerprint: 'portable-clue', importedAt: '2024-06-03T00:00:00.000Z', exactSessionCount: 0, recoveredEventCount: 1 },
+      sessions: [],
+      recoveredEvents: [{
+        id: 'portable-event', appName: 'Blender', eventType: 'installed', occurredAt: '2024-05-01T12:00:00.000Z',
+        sourceKind: 'windows_installed_apps', confidence: 'medium', importBatchId: 'portable-batch',
+      }],
+    });
+    source.saveMemoryPin({
+      id: 'portable-pin', title: 'Built PC Recap', note: 'First beta', start: '2024-06-02T00:00:00.000Z', end: '2024-06-03T00:00:00.000Z',
+      color: '#4256f4', includeInRecaps: false, createdAt: '2024-06-02T00:00:00.000Z', updatedAt: '2024-06-02T00:00:00.000Z',
+    });
     const archive = new BackupService(source).exportBuffer(new Date('2025-01-01T00:00:00.000Z'));
     const exported = JSON.parse(gunzipSync(archive).toString('utf8')) as { manifest: { product: string } };
     const target = makeRepository();
@@ -30,9 +42,11 @@ describe('BackupService', () => {
     const result = await new BackupService(target).importBuffer(archive);
 
     expect(exported.manifest.product).toBe('PC Recap');
-    expect(result).toEqual({ importedSessions: 1, skippedSessions: 0 });
+    expect(result).toEqual({ importedSessions: 1, skippedSessions: 0, importedRecoveredEvents: 1, importedMemoryPins: 1 });
     expect(target.querySessions('2024-01-01T00:00:00.000Z', '2025-01-01T00:00:00.000Z'))
       .toEqual([expect.objectContaining({ id: 'portable-session', appName: 'Obsidian' })]);
+    expect(target.listRecoveredEvents()).toEqual([expect.objectContaining({ id: 'portable-event', appName: 'Blender' })]);
+    expect(target.listMemoryPins()).toEqual([expect.objectContaining({ id: 'portable-pin', title: 'Built PC Recap' })]);
   });
 
   it('rejects an archive with a schema version newer than the app understands', async () => {
@@ -56,7 +70,7 @@ describe('BackupService', () => {
       },
     }), 'utf8'));
 
-    await expect(new BackupService(target).importBuffer(archive)).resolves.toEqual({ importedSessions: 0, skippedSessions: 1 });
+    await expect(new BackupService(target).importBuffer(archive)).resolves.toEqual({ importedSessions: 0, skippedSessions: 1, importedRecoveredEvents: 0, importedMemoryPins: 0 });
     expect(target.getAllSessions()).toEqual([]);
   });
 

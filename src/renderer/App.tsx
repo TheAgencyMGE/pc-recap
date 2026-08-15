@@ -5,6 +5,7 @@ import type { PCRecapAPI } from '../shared/ipc';
 import type {
   AppDetail as AppDetailData, Category, DashboardData, OnThisDayEntry,
   PeriodKind, PeriodSummary, TrackedApp, TrackingSettings,
+  RecapStoryData,
 } from '../shared/types';
 import { AppIconProvider } from './components/AppIcon';
 import { InteriorHeader } from './components/InteriorHeader';
@@ -18,8 +19,11 @@ import { Dashboard } from './pages/Dashboard';
 import { OnThisDay } from './pages/OnThisDay';
 import { PeriodView } from './pages/PeriodView';
 import { Settings } from './pages/Settings';
+import { HistoryRecovery } from './pages/HistoryRecovery';
 import { Timeline } from './pages/Timeline';
 import { YearlyRecap } from './pages/YearlyRecap';
+import { DayReplay } from './pages/replay/DayReplay';
+import { RecapStudio } from './pages/recap-studio/RecapStudio';
 import type { RouteId } from './routes';
 
 const PERIOD_ROUTES = new Set<RouteId>(['today', 'week', 'month', 'year', 'all-time', 'decade']);
@@ -27,10 +31,12 @@ const HOME_PERIODS: PeriodKind[] = ['today', 'week', 'month', 'year', 'all-time'
 
 const routeTitle = (route: RouteId, detail?: AppDetailData | null) => {
   if (route.startsWith('app:')) return detail?.app.name ?? 'App';
+  if (route.startsWith('day:')) return 'Day Replay';
   const titles: Partial<Record<RouteId, string>> = {
     today: 'Today', week: 'Week', month: 'Month', 'all-time': 'All time', decade: 'Decade',
     timeline: 'Timeline', 'on-this-day': 'On this day', achievements: 'Records',
-    categories: 'Categories', settings: 'Settings',
+    categories: 'Categories', settings: 'Settings', 'history-recovery': 'Recover history',
+    'recap-studio': 'Recap Studio',
   };
   return titles[route] ?? 'PC Recap';
 };
@@ -44,6 +50,7 @@ export function App({ api = rendererApi }: { api?: PCRecapAPI }) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [onThisDay, setOnThisDay] = useState<OnThisDayEntry[]>([]);
   const [appDetail, setAppDetail] = useState<AppDetailData | null>();
+  const [recapStory, setRecapStory] = useState<RecapStoryData>();
   const [error, setError] = useState('');
   const [revision, setRevision] = useState(0);
   const reload = useCallback(() => setRevision((value) => value + 1), []);
@@ -81,10 +88,12 @@ export function App({ api = rendererApi }: { api?: PCRecapAPI }) {
   useEffect(() => api.onTrackingStatus((status) => setData((current) => current ? { ...current, trackingStatus: status } : current)), [api]);
 
   const toggleTracking = useCallback(async () => {
-    if (!data) return;
-    const status = await api.setTrackingEnabled(data.trackingStatus.state !== 'tracking');
+    if (!data || !settings) return;
+    const trackingEnabled = !settings.trackingEnabled;
+    const status = await api.setTrackingEnabled(trackingEnabled);
     setData({ ...data, trackingStatus: status });
-  }, [api, data]);
+    setSettings({ ...settings, trackingEnabled });
+  }, [api, data, settings]);
 
   const page = useMemo(() => {
     if (!data || !settings) return null;
@@ -95,17 +104,21 @@ export function App({ api = rendererApi }: { api?: PCRecapAPI }) {
       apps={apps}
       onThisDay={onThisDay}
       status={data.trackingStatus}
+      trackingEnabled={settings.trackingEnabled}
       onNavigate={setRoute}
       onToggleTracking={() => { void toggleTracking(); }}
     />;
     if (PERIOD_ROUTES.has(route) && data.summary.sessionCount === 0) return <EmptyArchive api={api} isArchiveEmpty={apps.length === 0} status={data.trackingStatus.state} onChanged={reload} />;
     if (route === 'today') return <Dashboard summary={data.summary} timeline={data.timeline} onNavigate={setRoute} />;
     if (route === 'week' || route === 'month' || route === 'all-time' || route === 'decade') return <PeriodView summary={data.summary} onNavigate={setRoute} />;
-    if (route === 'timeline') return <Timeline api={api} />;
+    if (route === 'timeline') return <Timeline api={api} onNavigate={setRoute} />;
     if (route === 'on-this-day') return <OnThisDay entries={onThisDay} />;
     if (route === 'achievements') return <Achievements achievements={data.achievements} />;
     if (route === 'categories') return <Categories api={api} categories={categories} apps={apps} onChanged={reload} />;
-    if (route === 'settings') return <Settings api={api} settings={settings} onChanged={reload} />;
+    if (route === 'settings') return <Settings api={api} settings={settings} onChanged={reload} onNavigate={setRoute} />;
+    if (route === 'history-recovery') return <HistoryRecovery api={api} onChanged={reload} />;
+    if (route === 'recap-studio') return <RecapStudio api={api} onPlay={setRecapStory} />;
+    if (route.startsWith('day:')) return <DayReplay api={api} day={route.slice(4)} />;
     if (route.startsWith('app:')) return appDetail ? <AppDetail detail={appDetail} onSetExcluded={async (excluded) => {
       await api.setAppExcluded(appDetail.app.id, excluded);
       reload();
@@ -116,6 +129,7 @@ export function App({ api = rendererApi }: { api?: PCRecapAPI }) {
   if (error) return <div className="fatal-state"><h1>Could not open PC Recap.</h1><p>{error}</p><button className="primary-button" onClick={reload}>Try again</button></div>;
   if (!data || !settings) return <Loading />;
   if (!settings.onboardingComplete) return <Onboarding onComplete={async (patch) => { setSettings(await api.updateSettings(patch)); reload(); }} />;
+  if (recapStory) return <AppIconProvider api={api}><YearlyRecap api={api} summary={recapStory.summary} timeline={recapStory.timeline} selection={recapStory.selection} recoveredClues={recapStory.recoveredClues} pins={recapStory.pins} onClose={() => setRecapStory(undefined)} /></AppIconProvider>;
   if (route === 'year' && data.summary.sessionCount > 0) return <AppIconProvider api={api}><YearlyRecap api={api} summary={data.summary} timeline={data.timeline} onClose={() => setRoute('home')} /></AppIconProvider>;
 
   if (route === 'home') return <AppIconProvider api={api}>{page}</AppIconProvider>;

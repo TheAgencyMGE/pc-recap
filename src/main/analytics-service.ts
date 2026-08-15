@@ -1,17 +1,21 @@
 import { summarizeSessions } from '../shared/analytics.js';
-import { localDayKey, localMonthKey, splitSessionByLocalDay, splitSessionByLocalHour } from '../shared/calendar.js';
+import { clipSessionToRange, localDayKey, localMonthKey, splitSessionByLocalDay, splitSessionByLocalHour } from '../shared/calendar.js';
 import { getPeriodRange } from '../shared/periods.js';
 import type {
   Achievement,
   ActivitySession,
   AppDetail,
   DashboardData,
+  DayReplayData,
   OnThisDayEntry,
   PeriodKind,
   PeriodSummary,
+  RecapSelection,
+  RecapStoryData,
   RecordItem,
   TimeBucket,
   TrackingStatus,
+  LiveActivitySession,
 } from '../shared/types.js';
 import type { ActivityRepository } from './database.js';
 
@@ -20,15 +24,36 @@ export class AnalyticsService {
     private readonly repository: ActivityRepository,
     private readonly getTrackingStatus: () => TrackingStatus,
     private readonly now: () => Date = () => new Date(),
+    private readonly getLiveSession: () => LiveActivitySession | undefined = () => undefined,
   ) {}
 
   getSummary(kind: PeriodKind, year?: number): PeriodSummary {
     const range = getPeriodRange(kind, this.now(), year);
     return summarizeSessions(
-      this.repository.querySessions(range.start, range.end),
-      this.repository.querySessions(range.previousStart, range.previousEnd),
-      { kind, label: range.label, rangeStart: range.start, rangeEnd: range.end },
+      this.querySessionsWithLive(range.start, range.end),
+      this.querySessionsWithLive(range.previousStart, range.previousEnd),
+      {
+        kind, label: range.label, rangeStart: range.start, rangeEnd: range.end,
+        isComplete: range.isComplete, comparisonLabel: range.comparisonLabel,
+        lifecycleSessions: this.archiveSessionsWithLive(), lifecycleAsOf: this.now(),
+      },
     );
+  }
+
+  private querySessionsWithLive(start: string, end: string): ActivitySession[] {
+    const sessions = this.repository.querySessions(start, end);
+    const live = this.getLiveSession();
+    if (!live || sessions.some((session) => session.id === live.id)) return sessions;
+    const clipped = clipSessionToRange(live, start, end);
+    return clipped ? [...sessions, clipped].sort((a, b) => a.startedAt.localeCompare(b.startedAt)) : sessions;
+  }
+
+  private archiveSessionsWithLive(): ActivitySession[] {
+    const sessions = this.repository.getAllSessions();
+    const live = this.getLiveSession();
+    return live && !sessions.some((session) => session.id === live.id)
+      ? [...sessions, live].sort((a, b) => a.startedAt.localeCompare(b.startedAt))
+      : sessions;
   }
 
   getDashboard(kind: PeriodKind = 'today', year?: number): DashboardData {
@@ -37,6 +62,80 @@ export class AnalyticsService {
       timeline: this.repository.getTimeline('month', kind === 'year' && year ? String(year) : String(this.now().getFullYear())),
       achievements: this.getAchievements(),
       trackingStatus: this.getTrackingStatus(),
+    };
+  }
+
+  getDayReplay(day: string): DayReplayData {
+    const range = localDayRange(day);
+    const apps = new Map(this.repository.listApps().map((app) => [app.id, app]));
+    const segments = this.querySessionsWithLive(range.start, range.end).map((session) => ({
+      id: session.id,
+      appId: session.appId,
+      appName: session.appName,
+      categoryId: session.categoryId,
+      startedAt: session.startedAt,
+      endedAt: session.endedAt,
+      durationSeconds: session.durationSeconds,
+      color: apps.get(session.appId)?.color ?? '#7D8493',
+    })).sort((a, b) => a.startedAt.localeCompare(b.startedAt));
+    const byHour = Array.from({ length: 24 }, () => 0);
+    for (const segment of segments) {
+      for (const allocation of splitSessionByLocalHour(segment)) byHour[allocation.hour] += allocation.seconds;
+    }
+    const idleGaps = segments.slice(1).flatMap((segment, index) => {
+      const previous = segments[index];
+      const milliseconds = new Date(segment.startedAt).getTime() - new Date(previous.endedAt).getTime();
+      return milliseconds > 0 ? [{
+        startedAt: previous.endedAt,
+        endedAt: segment.startedAt,
+        durationSeconds: Math.round(milliseconds / 1_000),
+      }] : [];
+    });
+    const summarized = summarizeSessions(segments, [], {
+      kind: 'today', label: day, rangeStart: range.start, rangeEnd: range.end, isComplete: range.end <= this.now().toISOString(),
+    });
+    return {
+      day,
+      firstActivity: segments[0]?.startedAt,
+      lastActivity: segments.at(-1)?.endedAt,
+      busiestHour: segments.length ? byHour.indexOf(Math.max(...byHour)) : undefined,
+      longestSegment: [...segments].sort((a, b) => b.durationSeconds - a.durationSeconds)[0],
+      appSwitches: summarized.relationships.reduce((sum, relationship) => sum + relationship.transitions, 0),
+      totalSeconds: segments.reduce((sum, segment) => sum + segment.durationSeconds, 0),
+      segments,
+      idleGaps,
+      relationships: summarized.relationships,
+      recoveredClues: this.repository.listRecoveredEvents().filter((event) => localDayKey(event.occurredAt) === day),
+      pins: this.repository.listMemoryPins(range.start, range.end),
+    };
+  }
+
+  getRecap(selection: RecapSelection): RecapStoryData {
+    const start = Date.parse(selection.start);
+    const end = Date.parse(selection.end);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) throw new Error('Choose a valid recap range.');
+    const duration = end - start;
+    const previousStart = new Date(start - duration).toISOString();
+    const sessions = this.querySessionsWithLive(selection.start, selection.end);
+    const summaryKind: PeriodKind = selection.kind === 'week' ? 'week'
+      : selection.kind === 'month' ? 'month'
+        : selection.kind === 'year' ? 'year'
+          : selection.kind === 'decade' ? 'decade'
+            : selection.kind === 'day' ? 'today' : 'all-time';
+    return {
+      selection,
+      summary: summarizeSessions(sessions, this.querySessionsWithLive(previousStart, selection.start), {
+        kind: summaryKind,
+        label: selection.label,
+        rangeStart: selection.start,
+        rangeEnd: selection.end,
+        isComplete: selection.complete,
+        comparisonLabel: `Previous ${selection.label.toLowerCase()}`,
+        lifecycleSessions: this.archiveSessionsWithLive(), lifecycleAsOf: this.now(),
+      }),
+      timeline: monthlyTimeline(sessions),
+      recoveredClues: this.repository.listRecoveredEvents().filter((event) => event.occurredAt >= selection.start && event.occurredAt < selection.end),
+      pins: this.repository.listMemoryPins(selection.start, selection.end),
     };
   }
 
@@ -79,7 +178,7 @@ export class AnalyticsService {
   }
 
   getAchievements(): Achievement[] {
-    const sessions = this.repository.getAllSessions();
+    const sessions = this.repository.getAllSessions().sort((a, b) => a.startedAt.localeCompare(b.startedAt));
     const total = sessions.reduce((sum, item) => sum + item.durationSeconds, 0);
     const days = new Set(sessions.flatMap((item) => splitSessionByLocalDay(item).map((allocation) => localDayKey(allocation.startedAt)))).size;
     const apps = new Set(sessions.map((item) => item.appId)).size;
@@ -94,10 +193,48 @@ export class AnalyticsService {
       ['night-owl', 'Night owl', 'Spend 10 hours computing after midnight.', 'moon-star', night, 36_000, '#8D87FF'],
       ['one-thousand-hours', '1,000-hour club', 'Record one thousand hours of PC life.', 'hourglass', total, 3_600_000, '#FF746A'],
     ] as const;
-    return definitions.map(([id, title, description, icon, progress, target, accent]) => ({
-      id, title, description, icon, progress: Math.min(progress, target), target, accent,
-      unlockedAt: progress >= target ? sessions[0]?.startedAt ?? this.now().toISOString() : undefined,
-    }));
+    const calculatedUnlocks = this.calculateAchievementUnlocks(sessions);
+    return definitions.map(([id, title, description, icon, progress, target, accent]) => {
+      if (progress >= target && calculatedUnlocks[id]) this.repository.saveAchievementUnlock(id, calculatedUnlocks[id]);
+      return {
+        id, title, description, icon, progress: Math.min(progress, target), target, accent,
+        unlockedAt: progress >= target ? this.repository.getAchievementUnlock(id) ?? calculatedUnlocks[id] : undefined,
+      };
+    });
+  }
+
+  private calculateAchievementUnlocks(sessions: ActivitySession[]): Record<string, string> {
+    const unlocks: Record<string, string> = {};
+    if (sessions[0]) unlocks['first-memory'] = sessions[0].startedAt;
+
+    const firstByDay = new Map<string, string>();
+    for (const session of sessions) {
+      for (const allocation of splitSessionByLocalDay(session)) {
+        const day = localDayKey(allocation.startedAt);
+        const existing = firstByDay.get(day);
+        if (!existing || allocation.startedAt < existing) firstByDay.set(day, allocation.startedAt);
+      }
+    }
+    const dayStarts = [...firstByDay.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([, startedAt]) => startedAt);
+    if (dayStarts[6]) unlocks['week-in-life'] = dayStarts[6];
+    if (dayStarts[364]) unlocks['time-capsule'] = dayStarts[364];
+
+    const appFirsts = new Map<string, string>();
+    for (const session of sessions) if (!appFirsts.has(session.appId)) appFirsts.set(session.appId, session.startedAt);
+    const appStarts = [...appFirsts.values()].sort((a, b) => a.localeCompare(b));
+    if (appStarts[9]) unlocks['many-worlds'] = appStarts[9];
+
+    unlocks['night-owl'] = thresholdTimestamp(
+      sessions.flatMap((session) => splitSessionByLocalHour(session)
+        .filter(({ hour }) => hour < 4)
+        .map(({ startedAt, seconds }) => ({ startedAt, seconds }))),
+      36_000,
+    ) ?? '';
+    unlocks['one-thousand-hours'] = thresholdTimestamp(
+      sessions.map((session) => ({ startedAt: session.startedAt, seconds: session.durationSeconds })),
+      3_600_000,
+    ) ?? '';
+    return unlocks;
   }
 
   getOnThisDay(): OnThisDayEntry[] {
@@ -112,6 +249,7 @@ export class AnalyticsService {
     const years = new Map<number, ActivitySession[]>();
     for (const item of sessions.filter((session) => localDayKey(session.startedAt).slice(4) === suffix)) {
       const year = Number(localDayKey(item.startedAt).slice(0, 4));
+      if (year === now.getFullYear()) continue;
       years.set(year, [...(years.get(year) ?? []), item]);
     }
     return [...years.entries()].sort(([a], [b]) => b - a).map(([year, items]) => {
@@ -127,4 +265,50 @@ export class AnalyticsService {
       };
     });
   }
+}
+
+function localDayRange(day: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day);
+  if (!match) throw new Error('Choose a valid day.');
+  const start = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  if (localDayKey(start) !== day) throw new Error('Choose a valid day.');
+  const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 1);
+  return { start: start.toISOString(), end: end.toISOString() };
+}
+
+function monthlyTimeline(sessions: ActivitySession[]): import('../shared/types.js').TimelineBucket[] {
+  const groups = new Map<string, { seconds: number; apps: Map<string, number>; categoryId: string }>();
+  for (const session of sessions) {
+    for (const allocation of splitSessionByLocalDay(session)) {
+      const key = localMonthKey(allocation.startedAt);
+      const group = groups.get(key) ?? { seconds: 0, apps: new Map(), categoryId: session.categoryId };
+      group.seconds += allocation.seconds;
+      group.apps.set(session.appName, (group.apps.get(session.appName) ?? 0) + allocation.seconds);
+      groups.set(key, group);
+    }
+  }
+  const max = Math.max(1, ...[...groups.values()].map((group) => group.seconds));
+  return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([key, group]) => ({
+    key,
+    label: new Intl.DateTimeFormat(undefined, { month: 'long' }).format(new Date(Number(key.slice(0, 4)), Number(key.slice(5)) - 1, 1)),
+    seconds: group.seconds,
+    topApp: [...group.apps.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? '',
+    categoryId: group.categoryId,
+    intensity: group.seconds / max,
+  }));
+}
+
+function thresholdTimestamp(
+  allocations: Array<{ startedAt: string; seconds: number }>,
+  targetSeconds: number,
+): string | undefined {
+  let accumulated = 0;
+  for (const allocation of [...allocations].sort((a, b) => a.startedAt.localeCompare(b.startedAt))) {
+    if (accumulated + allocation.seconds >= targetSeconds) {
+      const secondsIntoAllocation = targetSeconds - accumulated;
+      return new Date(new Date(allocation.startedAt).getTime() + secondsIntoAllocation * 1_000).toISOString();
+    }
+    accumulated += allocation.seconds;
+  }
+  return undefined;
 }

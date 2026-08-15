@@ -5,7 +5,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ActivityRepository } from './database';
-import type { ActivitySession } from '../shared/types';
+import type { ActivitySession, OpenSessionCheckpoint } from '../shared/types';
 
 const openRepositories: ActivityRepository[] = [];
 const temporaryDirectories: string[] = [];
@@ -55,6 +55,78 @@ describe('ActivityRepository', () => {
       idleThresholdSeconds: 600,
       sampleIntervalSeconds: 10,
     });
+  });
+
+  it('round-trips an open session checkpoint without finalizing activity', () => {
+    const store = repository();
+    const checkpoint: OpenSessionCheckpoint = {
+      sessionId: 'open-session-id',
+      machineId: 'pc',
+      appId: 'code',
+      appName: 'Visual Studio Code',
+      executable: 'Code.exe',
+      categoryId: 'coding',
+      startedAt: '2026-08-15T10:00:00.000Z',
+      lastSampleAt: '2026-08-15T10:00:30.000Z',
+      checkpointedAt: '2026-08-15T10:00:30.000Z',
+    };
+
+    store.saveOpenSessionCheckpoint(checkpoint);
+
+    expect(store.getOpenSessionCheckpoint('pc')).toEqual(checkpoint);
+    expect(store.getAllSessions()).toHaveLength(0);
+    store.clearOpenSessionCheckpoint('pc');
+    expect(store.getOpenSessionCheckpoint('pc')).toBeUndefined();
+  });
+
+  it('resolves canonical aliases by normalized executable path', () => {
+    const store = repository();
+
+    store.upsertApplicationAlias({
+      sourceExecutable: 'C:\\Program Files\\Microsoft VS Code\\Code.exe',
+      canonicalAppId: 'visual-studio-code',
+      canonicalName: 'Visual Studio Code',
+      updatedAt: '2026-08-15T10:00:00.000Z',
+    });
+
+    expect(store.resolveApplicationAlias('c:\\program files\\microsoft vs code\\CODE.EXE')).toMatchObject({
+      canonicalAppId: 'visual-studio-code',
+      canonicalName: 'Visual Studio Code',
+    });
+  });
+
+  it('stores session provenance without changing duration totals', () => {
+    const store = repository();
+    store.insertSession({ ...sample, sourceKind: 'activitywatch', confidence: 'imported_exact' });
+
+    expect(store.getAllSessions()).toEqual([
+      expect.objectContaining({
+        durationSeconds: 5_400,
+        sourceKind: 'activitywatch',
+        confidence: 'imported_exact',
+      }),
+    ]);
+  });
+
+  it('persists the first chronological achievement unlock', () => {
+    const store = repository();
+
+    store.saveAchievementUnlock('week-in-life', '2026-08-07T09:00:00.000Z');
+    store.saveAchievementUnlock('week-in-life', '2026-08-08T09:00:00.000Z');
+
+    expect(store.getAchievementUnlock('week-in-life')).toBe('2026-08-07T09:00:00.000Z');
+  });
+
+  it('deletes a custom category only after reassigning its applications', () => {
+    const store = repository();
+    store.upsertCategory({ id: 'research', name: 'Research', color: '#123456', icon: 'book', isDefault: false });
+    store.insertSession({ ...sample, appId: 'paper', appName: 'Paper', categoryId: 'research' });
+
+    store.deleteCategory('research', 'work');
+
+    expect(store.getCategories().some((category) => category.id === 'research')).toBe(false);
+    expect(store.listApps().find((app) => app.id === 'paper')?.categoryId).toBe('work');
+    expect(() => store.deleteCategory('work', 'other')).toThrow(/default/i);
   });
 
   it('returns joined application metadata in chronological range queries', () => {
@@ -110,11 +182,74 @@ describe('ActivityRepository', () => {
   it('erases all history across raw and rollup tables', () => {
     const store = repository();
     store.insertSession(sample);
+    store.commitHistoryBatch({
+      batch: { id: 'batch-delete', sourceKind: 'windows_recovery', sourceFingerprint: 'delete-me', importedAt: '2025-03-15T00:00:00.000Z', exactSessionCount: 0, recoveredEventCount: 1 },
+      sessions: [],
+      recoveredEvents: [{ id: 'event-delete', appName: 'Blender', eventType: 'installed', occurredAt: '2025-03-01T00:00:00.000Z', sourceKind: 'windows_installed_apps', confidence: 'medium', importBatchId: 'batch-delete' }],
+    });
+    store.saveMemoryPin({
+      id: 'pin-delete', title: 'Delete me', note: '', start: '2025-03-01T00:00:00.000Z', end: '2025-03-02T00:00:00.000Z',
+      color: '#4256f4', includeInRecaps: false, createdAt: '2025-03-01T00:00:00.000Z', updatedAt: '2025-03-01T00:00:00.000Z',
+    });
+    store.upsertApplicationAlias({
+      sourceExecutable: 'C:\\Users\\person\\SecretTool.exe', canonicalAppId: 'secret-tool', canonicalName: 'Secret Tool', updatedAt: '2025-03-01T00:00:00.000Z',
+    });
 
     store.deleteAllHistory();
 
     expect(store.getAllSessions()).toEqual([]);
+    expect(store.listRecoveredEvents()).toEqual([]);
+    expect(store.listMemoryPins()).toEqual([]);
     expect(store.getDailyRollups('2025-03-01', '2025-03-31')).toEqual([]);
+    expect(store.resolveApplicationAlias('C:\\Users\\person\\SecretTool.exe')).toBeUndefined();
+  });
+
+  it('rolls back an entire backup restore when a late record is invalid', () => {
+    const store = repository();
+    const snapshot = {
+      apps: [{ id: 'backup-app', name: 'Backup App', executable: 'backup.exe', categoryId: 'other', color: '#7d8493', firstSeenAt: sample.startedAt, lastSeenAt: sample.endedAt }],
+      sessions: [{ ...sample, id: 'backup-session', appId: 'backup-app', appName: 'Backup App', categoryId: 'other' }],
+      categories: [], settings: store.getSettings(), recoveredEvents: [],
+      memoryPins: [{ id: 'bad-pin', title: 'Invalid', note: '', start: sample.startedAt, end: sample.startedAt, color: '#4256f4', includeInRecaps: false, createdAt: sample.startedAt, updatedAt: sample.startedAt }],
+    };
+
+    expect(() => store.importSnapshot(snapshot)).toThrow(/Memory Pin range/i);
+    expect(store.getAllSessions()).toEqual([]);
+    expect(store.listApps()).toEqual([]);
+  });
+
+  it('creates, updates, queries, and deletes local Memory Pins', () => {
+    const store = repository();
+    const pin = {
+      id: 'pin-college', title: 'Started college', note: 'First day',
+      start: '2026-09-23T00:00:00.000Z', end: '2026-09-24T00:00:00.000Z', color: '#4256f4',
+      includeInRecaps: false, createdAt: '2026-08-15T00:00:00.000Z', updatedAt: '2026-08-15T00:00:00.000Z',
+    };
+
+    expect(store.saveMemoryPin(pin)).toMatchObject({ id: 'pin-college', title: 'Started college' });
+    store.saveMemoryPin({ ...pin, note: 'Move-in and first class', includeInRecaps: true, updatedAt: '2026-08-16T00:00:00.000Z' });
+    expect(store.listMemoryPins('2026-09-23T00:00:00.000Z', '2026-09-24T00:00:00.000Z')).toEqual([
+      expect.objectContaining({ note: 'Move-in and first class', includeInRecaps: true }),
+    ]);
+    store.deleteMemoryPin('pin-college');
+    expect(store.listMemoryPins()).toEqual([]);
+  });
+
+  it('repairs known lower-case application names without touching historical duration', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'pc-recap-app-name-migration-'));
+    temporaryDirectories.push(directory);
+    const location = join(directory, 'archive.db');
+    const initial = new ActivityRepository(location);
+    initial.insertSession(
+      { ...sample, id: 'opera-session', appId: 'opera-exe', appName: 'opera', durationSeconds: 5_400 },
+      { executable: 'opera.exe' },
+    );
+    initial.close();
+
+    const migrated = new ActivityRepository(location);
+    openRepositories.push(migrated);
+    expect(migrated.listApps()).toEqual([expect.objectContaining({ id: 'opera-exe', name: 'Opera' })]);
+    expect(migrated.getAllSessions()).toEqual([expect.objectContaining({ id: 'opera-session', durationSeconds: 5_400 })]);
   });
 
   it('purges synthetic history left by pre-production builds during migration', () => {

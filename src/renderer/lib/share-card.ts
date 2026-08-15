@@ -1,5 +1,5 @@
 import type { PCRecapAPI } from '../../shared/ipc';
-import type { PeriodSummary } from '../../shared/types';
+import type { MemoryPin, PeriodSummary } from '../../shared/types';
 
 export type ShareCardFormat = 'portrait' | 'story';
 
@@ -7,14 +7,18 @@ export const getShareCardDimensions = (format: ShareCardFormat) => (
   format === 'story' ? { width: 1080, height: 1920 } : { width: 1080, height: 1350 }
 );
 
-export const getShareCardModel = (summary: PeriodSummary) => ({
+export const getShareCardModel = (summary: PeriodSummary, pins: MemoryPin[] = []) => {
+  const memory = pins.find((pin) => pin.includeInRecaps)?.title;
+  return ({
   year: summary.label,
   hours: Math.round(summary.totalSeconds / 3600).toLocaleString(),
   favorite: summary.topApps[0]?.name ?? '',
   favoriteHours: Math.round((summary.topApps[0]?.seconds ?? 0) / 3600).toLocaleString(),
   apps: summary.topApps.slice(0, 3).map((app) => app.name),
   observation: summary.observations[0]?.text ?? '',
-});
+  ...(memory ? { memory } : {}),
+  });
+};
 
 export const getShareCardFileName = (summaryLabel: string, format: ShareCardFormat) => (
   `PC-Recap-${summaryLabel}-${format}.png`
@@ -45,8 +49,8 @@ function writeRecapText(
   lines.forEach((text, index) => context.fillText(text, x, y + index * lineHeight));
 }
 
-function renderCard(summary: PeriodSummary, format: ShareCardFormat) {
-  const model = getShareCardModel(summary);
+function renderCard(summary: PeriodSummary, format: ShareCardFormat, pins: MemoryPin[] = []) {
+  const model = getShareCardModel(summary, pins);
   const { width, height } = getShareCardDimensions(format);
   const canvas = document.createElement('canvas');
   canvas.width = width;
@@ -97,9 +101,10 @@ function renderCard(summary: PeriodSummary, format: ShareCardFormat) {
     context.fillRect(margin + 100, y + 22, Math.max(80, 600 - index * 110), 6);
   });
 
-  if (model.observation) {
+  const personalLine = model.memory ?? model.observation;
+  if (personalLine) {
     context.font = `750 ${long ? 52 : 39}px "Archivo Variable", Archivo, sans-serif`;
-    writeRecapText(context, model.observation, margin, long ? 1320 : 955, width - 330, long ? 64 : 49, 3);
+    writeRecapText(context, personalLine, margin, long ? 1320 : 955, width - 330, long ? 64 : 49, 3);
   }
 
   context.font = `800 ${long ? 42 : 34}px "Archivo Variable", Archivo, sans-serif`;
@@ -113,7 +118,7 @@ function renderCard(summary: PeriodSummary, format: ShareCardFormat) {
   return canvas;
 }
 
-export async function saveShareCard(summary: PeriodSummary, api: PCRecapAPI, format: ShareCardFormat = 'portrait') {
-  const canvas = renderCard(summary, format);
+export async function saveShareCard(summary: PeriodSummary, api: PCRecapAPI, format: ShareCardFormat = 'portrait', pins: MemoryPin[] = []) {
+  const canvas = renderCard(summary, format, pins);
   return api.saveShareCard(canvas.toDataURL('image/png'), getShareCardFileName(summary.label, format));
 }

@@ -21,6 +21,7 @@ describe('CollectionHome', () => {
       apps={apps}
       onThisDay={onThisDay}
       status={dashboard.trackingStatus}
+      trackingEnabled
       onNavigate={onNavigate}
       onToggleTracking={() => undefined}
     /></AppIconProvider>);
@@ -28,15 +29,22 @@ describe('CollectionHome', () => {
     expect(screen.getByRole('heading', { name: 'Your recaps' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'From the archive' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Your apps' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Next Your apps' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Categories' })).toBeEnabled();
     expect(screen.queryByText(/private edition|local archive|side a|side b|tracking visual studio code/i)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Search' }));
-    fireEvent.change(screen.getByRole('searchbox', { name: 'Search apps' }), { target: { value: 'Visual Studio' } });
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search PC Recap' }), { target: { value: 'Visual Studio' } });
     expect(screen.getByRole('button', { name: /open visual studio code/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /open browser/i })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /open visual studio code/i }));
+    expect(onNavigate).toHaveBeenCalledWith('app:code');
 
     fireEvent.click(screen.getByRole('button', { name: /open this week/i }));
     expect(onNavigate).toHaveBeenCalledWith('week');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Categories' }));
+    expect(onNavigate).toHaveBeenCalledWith('categories');
   });
 
   it('omits empty archive and app shelves without inventing covers', async () => {
@@ -51,6 +59,7 @@ describe('CollectionHome', () => {
       apps={[]}
       onThisDay={[]}
       status={{ state: 'tracking' }}
+      trackingEnabled
       onNavigate={() => undefined}
       onToggleTracking={() => undefined}
     /></AppIconProvider>);

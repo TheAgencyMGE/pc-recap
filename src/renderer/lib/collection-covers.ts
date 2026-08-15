@@ -59,6 +59,10 @@ export function buildArchiveCovers(
   achievements: Achievement[],
 ): CollectionCoverModel[] {
   const covers: CollectionCoverModel[] = [];
+  if (timeline.length) covers.push({
+    id: 'archive-studio', kind: 'utility', title: 'Recap Studio', route: 'recap-studio',
+    value: 'Play any era', colors: themeForPeriod('year', 'recap-studio'),
+  });
   if (onThisDay.length) covers.push({
     id: 'archive-on-this-day', kind: 'archive', title: 'On this day', route: 'on-this-day',
     value: `${onThisDay.length} ${onThisDay.length === 1 ? 'year' : 'years'}`,

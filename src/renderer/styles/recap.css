@@ -6,6 +6,11 @@
 .yearly-recap--era { background: var(--pink); }
 .yearly-recap--memory { background: var(--cobalt); color: var(--clean-paper); }
 .yearly-recap--record { background: var(--ink); color: var(--clean-paper); }
+.yearly-recap--relationship { background: var(--acid); }
+.yearly-recap--rhythm { background: var(--yellow); }
+.yearly-recap--lifecycle { background: var(--pink); }
+.yearly-recap--clue { background: var(--clean-paper); }
+.yearly-recap--pin { background: var(--lilac); }
 .yearly-recap--finale { background: var(--paper); }
 .recap-header { position: relative; z-index: 5; display: grid; grid-template-columns: 150px 1fr 90px; align-items: center; gap: 26px; height: 66px; padding: 0 22px; border-bottom: 2px solid currentColor; }
 .recap-header > button { display: flex; align-items: center; gap: 8px; color: inherit; font-weight: 750; }
@@ -85,4 +90,52 @@
   .recap-mini-chart li:nth-child(2) { border-right: 0; }
   .finale-card { display: none; }
   .recap-months, .recap-era-stamp, .recap-memory-ticket { opacity: .25; }
+}
+
+.recap-studio { max-width: 1120px; }
+.recap-studio__heading { display: flex; align-items: end; justify-content: space-between; margin-bottom: 38px; }
+.recap-studio__heading small { font: 720 10px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+.recap-studio__heading h1 { margin-top: 8px; font: 850 clamp(56px, 8vw, 100px)/.8 var(--display); letter-spacing: -.07em; }
+.recap-studio__heading > svg { width: 68px; height: 68px; color: var(--cobalt); }
+.recap-studio section > h2 { margin-bottom: 14px; font: 800 26px/1 var(--display); }
+.recap-studio__years > div { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 13px; }
+.recap-studio__years > div button { display: grid; grid-template-columns: 1fr auto; grid-template-rows: 1fr auto; min-height: 210px; padding: 18px; border-radius: 20px; background: var(--lilac); text-align: left; box-shadow: 0 9px 24px rgba(21,21,21,.08); }
+.recap-studio__years > div button:nth-child(2n) { background: var(--yellow); }
+.recap-studio__years button span { grid-column: 1 / -1; font: 850 54px/.8 var(--display); letter-spacing: -.06em; }
+.recap-studio__years button strong { align-self: end; }
+.recap-studio__years button svg { align-self: end; }
+.recap-studio__seasons { margin-top: 38px; }
+.recap-studio__seasons > header { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 14px; }
+.recap-studio__seasons > header h2 { margin: 0; }
+.recap-studio__seasons > header label { display: flex; align-items: center; gap: 8px; color: var(--muted); font: 650 10px var(--mono); }
+.recap-studio__seasons select { height: 34px; padding: 0 9px; border: 1px solid var(--line); border-radius: 9px; background: var(--clean-paper); color: var(--ink); }
+.recap-studio__decades { margin-top: 38px; }
+.recap-studio__decades > div { display: flex; flex-wrap: wrap; gap: 10px; }
+.recap-studio__decades button { display: grid; grid-template-columns: 1fr auto; gap: 4px 20px; min-width: 190px; padding: 16px; border-radius: 16px; background: var(--yellow); text-align: left; box-shadow: 0 6px 18px rgba(21,21,21,.05); }
+.recap-studio__decades button span { grid-column: 1 / -1; font: 800 21px var(--display); }
+.recap-studio__decades button strong { color: var(--soft-ink); }
+.recap-studio__decades button svg { width: 17px; }
+.recap-studio__quick { margin-top: 28px; }
+.recap-studio__quick > div { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+.recap-studio__quick button { display: flex; min-height: 58px; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 16px; border-radius: 16px; background: var(--clean-paper); box-shadow: 0 6px 18px rgba(21,21,21,.05); font-weight: 760; text-align: left; }
+.recap-studio__quick button:hover { transform: translateY(-2px); background: var(--acid); }
+.recap-studio__quick svg { width: 17px; }
+.recap-studio__seasons > div { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.recap-studio__seasons button { display: grid; grid-template-columns: 1fr auto; min-height: 86px; align-items: center; padding: 15px; border-radius: 16px; background: var(--clean-paper); box-shadow: 0 6px 18px rgba(21,21,21,.05); text-align: left; }
+.recap-studio__seasons button b, .recap-studio__seasons button span { grid-column: 1; }
+.recap-studio__seasons button svg { grid-column: 2; grid-row: 1 / 3; }
+.recap-studio__seasons button:disabled { opacity: .35; }
+.recap-studio__custom { display: grid; grid-template-columns: 40px 1fr 150px 150px auto; align-items: end; gap: 14px; margin-top: 38px; padding: 20px; border-radius: 20px; background: var(--ink); color: var(--clean-paper); }
+.recap-studio__custom h2 { margin: 0 !important; }
+.recap-studio__custom p { margin-top: 4px; color: #aaa; font-size: 12px; }
+.recap-studio__custom label { display: grid; gap: 6px; color: #aaa; font-size: 10px; }
+.recap-studio__custom input { height: 40px; padding: 0 9px; border: 0; border-radius: 9px; background: var(--clean-paper); color: var(--ink); }
+.recap-studio__custom-actions { display: flex; gap: 7px; }
+.recap-studio__custom-actions > button { min-height: 40px; padding: 0 12px; border-radius: 999px; background: #333; color: var(--clean-paper); font-weight: 750; }
+.recap-studio__custom .primary-button { min-height: 40px; background: var(--acid); color: var(--ink); }
+@media (max-width: 900px) {
+  .recap-studio__seasons > div { grid-template-columns: repeat(2, 1fr); }
+  .recap-studio__quick > div { grid-template-columns: repeat(2, 1fr); }
+  .recap-studio__custom { grid-template-columns: 32px 1fr; }
+  .recap-studio__custom label, .recap-studio__custom-actions { grid-column: 2; }
 }

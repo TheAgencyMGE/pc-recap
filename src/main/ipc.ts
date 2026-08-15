@@ -3,11 +3,12 @@ import { basename } from 'node:path';
 import { app, dialog, ipcMain } from 'electron';
 import type { BrowserWindow, IpcMainInvokeEvent } from 'electron';
 import { BACKUP_EXTENSION, LEGACY_BACKUP_EXTENSIONS, PRODUCT_NAME } from '../shared/brand.js';
-import type { Category, PeriodKind, TrackingSettings } from '../shared/types.js';
+import type { Category, MemoryPin, PeriodKind, RecapSelection, TrackingSettings } from '../shared/types.js';
 import type { AnalyticsService } from './analytics-service.js';
 import type { BackupService } from './backup.js';
 import type { ActivityRepository } from './database.js';
 import type { AppIconService } from './app-icon-service.js';
+import type { HistoryRecoveryService } from './history-recovery-service.js';
 import type { ActivityTracker } from './tracker.js';
 
 interface IpcDependencies {
@@ -16,6 +17,8 @@ interface IpcDependencies {
   tracker: ActivityTracker;
   backup: BackupService;
   icons: AppIconService;
+  history: HistoryRecoveryService;
+  eraseHistory: () => Promise<void>;
   getMainWindow: () => BrowserWindow | null;
   trustedRendererUrl: string;
 }
@@ -26,7 +29,7 @@ const safeYear = (value: unknown) => typeof value === 'number' && value >= 1970 
 const cleanName = (value: string) => basename(value).replace(/[^a-zA-Z0-9 ._-]/g, '').slice(0, 80) || 'PC-Recap.png';
 
 export function registerIpcHandlers({
-  repository, analytics, tracker, backup, icons, getMainWindow, trustedRendererUrl,
+  repository, analytics, tracker, backup, icons, history, eraseHistory, getMainWindow, trustedRendererUrl,
 }: IpcDependencies) {
   const handle = (channel: string, listener: (...args: any[]) => unknown) => {
     ipcMain.handle(channel, (event, ...args) => {
@@ -41,6 +44,8 @@ export function registerIpcHandlers({
     const safeLevel = level === 'year' || level === 'day' ? level : 'month';
     return repository.getTimeline(safeLevel, typeof anchor === 'string' ? anchor.slice(0, 10) : undefined);
   });
+  handle('day-replay:get', (day) => analytics.getDayReplay(/^\d{4}-\d{2}-\d{2}$/.test(String(day)) ? String(day) : 'invalid'));
+  handle('recap:get', (selection) => analytics.getRecap(sanitizeRecapSelection(selection)));
   handle('apps:list', () => repository.listApps());
   handle('app:detail', (appId) => analytics.getAppDetail(String(appId).slice(0, 200)));
   handle('app:icon', (appId) => icons.getDataUrl(String(appId).slice(0, 200)));
@@ -52,6 +57,7 @@ export function registerIpcHandlers({
     const keys: Array<keyof TrackingSettings> = [
       'trackingEnabled', 'launchAtStartup', 'minimizeToTray', 'captureWindowTitles',
       'sampleIntervalSeconds', 'idleThresholdSeconds', 'excludedExecutables',
+      'includedExecutables',
       'onboardingComplete',
     ];
     for (const key of keys) if (Object.hasOwn(patch ?? {}, key)) (allowed as Record<string, unknown>)[key] = patch[key];
@@ -64,11 +70,18 @@ export function registerIpcHandlers({
     if (!category?.id || !category.name || !/^#[0-9a-f]{6}$/i.test(category.color)) throw new Error('Category details are invalid.');
     return repository.upsertCategory({ ...category, id: category.id.slice(0, 50), name: category.name.slice(0, 40) });
   });
+  handle('category:update', (category: Category) => {
+    if (!category?.id || !category.name?.trim() || !/^#[0-9a-f]{6}$/i.test(category.color)) throw new Error('Category details are invalid.');
+    return repository.updateCategory({ ...category, id: category.id.slice(0, 50), name: category.name.trim().slice(0, 40) });
+  });
+  handle('category:delete', (categoryId, reassignToCategoryId) => repository.deleteCategory(
+    String(categoryId).slice(0, 50), String(reassignToCategoryId).slice(0, 50),
+  ));
   handle('app:set-category', (appId, categoryId) => repository.setAppCategory(String(appId), String(categoryId)));
   handle('app:set-excluded', (appId, excluded) => repository.setAppExcluded(String(appId), Boolean(excluded)));
   handle('tracking:status', () => tracker.getStatus());
-  handle('tracking:set', (enabled) => {
-    if (enabled) tracker.resume(); else tracker.pause();
+  handle('tracking:set', async (enabled) => {
+    if (enabled) await tracker.resume(); else await tracker.pause();
     return tracker.getStatus();
   });
   handle('backup:export', async () => {
@@ -95,6 +108,27 @@ export function registerIpcHandlers({
       return { ok: false, error: error instanceof Error ? error.message : 'Import failed.' };
     }
   });
+  handle('history:preview-file', async () => {
+    const selected = await dialog.showOpenDialog({
+      title: 'Choose a tracker history export',
+      properties: ['openFile'],
+      filters: [
+        { name: 'Supported history exports', extensions: ['json', 'csv', 'tsv', 'txt', 'db', 'sqlite', 'sqlite3'] },
+        { name: 'All files', extensions: ['*'] },
+      ],
+    });
+    if (selected.canceled || !selected.filePaths[0]) return null;
+    return history.previewFile(selected.filePaths[0]);
+  });
+  handle('history:scan-windows', (includeBrowserHistory) => history.scanWindows(Boolean(includeBrowserHistory)));
+  handle('history:commit-import', (previewId) => history.commit(String(previewId).slice(0, 100)));
+  handle('history:cancel-preview', (previewId) => history.cancel(String(previewId).slice(0, 100)));
+  handle('memory-pins:list', (start, end) => repository.listMemoryPins(
+    typeof start === 'string' ? start.slice(0, 40) : undefined,
+    typeof end === 'string' ? end.slice(0, 40) : undefined,
+  ));
+  handle('memory-pins:save', (pin) => repository.saveMemoryPin(sanitizeMemoryPin(pin)));
+  handle('memory-pins:delete', (id) => repository.deleteMemoryPin(String(id).slice(0, 200)));
   handle('share:save', async (dataUrl: string, suggestedName: string) => {
     if (typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/png;base64,') || dataUrl.length > 15_000_000) {
       return { ok: false, error: 'The share card is invalid.' };
@@ -108,8 +142,45 @@ export function registerIpcHandlers({
     await writeFile(selected.filePath, Buffer.from(dataUrl.split(',')[1], 'base64'));
     return { ok: true, path: selected.filePath };
   });
-  handle('history:delete-all', () => repository.deleteAllHistory());
+  handle('history:delete-all', () => eraseHistory());
   handle('app:version', () => app.getVersion());
+}
+
+function sanitizeRecapSelection(value: unknown): RecapSelection {
+  const selection = value as Partial<RecapSelection> | null;
+  const kinds = new Set<RecapSelection['kind']>(['day', 'week', 'month', 'year', 'season', 'decade', 'custom']);
+  if (!selection || !kinds.has(selection.kind as RecapSelection['kind'])) throw new Error('Recap selection is invalid.');
+  const start = String(selection.start ?? '');
+  const end = String(selection.end ?? '');
+  const startTime = Date.parse(start);
+  const endTime = Date.parse(end);
+  if (!Number.isFinite(startTime) || !Number.isFinite(endTime) || endTime <= startTime || endTime - startTime > 100 * 366 * 24 * 60 * 60 * 1_000) {
+    throw new Error('Recap selection is invalid.');
+  }
+  return {
+    kind: selection.kind as RecapSelection['kind'],
+    start: new Date(startTime).toISOString(),
+    end: new Date(endTime).toISOString(),
+    label: String(selection.label ?? 'Custom recap').slice(0, 80),
+    complete: Boolean(selection.complete),
+  };
+}
+
+function sanitizeMemoryPin(value: unknown): MemoryPin {
+  const pin = value as Partial<MemoryPin> | null;
+  if (!pin) throw new Error('Memory Pin is invalid.');
+  const now = new Date().toISOString();
+  return {
+    id: String(pin.id ?? '').slice(0, 200),
+    title: String(pin.title ?? '').trim().slice(0, 80),
+    note: String(pin.note ?? '').trim().slice(0, 500),
+    start: String(pin.start ?? '').slice(0, 40),
+    end: String(pin.end ?? '').slice(0, 40),
+    color: /^#[0-9a-f]{6}$/i.test(String(pin.color)) ? String(pin.color) : '#4256f4',
+    includeInRecaps: Boolean(pin.includeInRecaps),
+    createdAt: Number.isFinite(Date.parse(String(pin.createdAt))) ? new Date(String(pin.createdAt)).toISOString() : now,
+    updatedAt: now,
+  };
 }
 
 function assertTrustedSender(event: IpcMainInvokeEvent, window: BrowserWindow | null, trustedRendererUrl: string) {

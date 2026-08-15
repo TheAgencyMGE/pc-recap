@@ -5,13 +5,18 @@ PC Recap turns real computer activity into a visual history of your digital life
 ![PC Recap cover shelf](website/og.png)
 
 > [!IMPORTANT]
-> **PC Recap 1.0.1 is a public beta for Windows 10/11 x64.** The installer is currently unsigned, updates are installed manually from [GitHub Releases](https://github.com/TheAgencyMGE/pc-recap/releases), and beta users may encounter bugs. [Report a bug](https://github.com/TheAgencyMGE/pc-recap/issues/new?template=bug_report.yml) or [suggest an improvement](https://github.com/TheAgencyMGE/pc-recap/issues/new?template=feature_request.yml).
+> **PC Recap 1.1.0 is a public beta for Windows 10/11 x64.** The installer is currently unsigned, updates are installed manually from [GitHub Releases](https://github.com/TheAgencyMGE/pc-recap/releases), and beta users may encounter bugs. [Report a bug](https://github.com/TheAgencyMGE/pc-recap/issues/new?template=bug_report.yml) or [suggest an improvement](https://github.com/TheAgencyMGE/pc-recap/issues/new?template=feature_request.yml).
 
 ## What it does
 
 - Records foreground application usage and session duration on Windows.
 - Builds Today, Week, Month, Year, All-Time, Decade, and On This Day recaps.
 - Finds deterministic observations, app pairings, streaks, records, and usage eras without AI services.
+- Replays individual days on a proportional, interactive timeline with exact local-clock labels.
+- Builds historical, seasonal, and custom stories in Recap Studio.
+- Imports exact ActivityWatch and ManicTime intervals, plus clearly separated RescueTime and WakaTime context.
+- Recovers opt-in Windows installation, launch, Prefetch, Activity History, and browser-domain clues without converting clues into usage time.
+- Adds local Memory Pins that stay out of stories and share cards unless explicitly included.
 - Keeps history in local SQLite storage with per-app exclusions.
 - Exports and merges versioned `.pcr` backups across computers.
 - Runs from the system tray and continues collecting when the window is closed.
@@ -21,7 +26,7 @@ PC Recap never creates demo activity or placeholder statistics. A new archive is
 
 ## Download
 
-The current Windows beta installer is available from the [PC Recap 1.0.1 Beta release](https://github.com/TheAgencyMGE/pc-recap/releases/tag/v1.0.1).
+The current Windows beta installer is available from the [PC Recap 1.1.0 Beta release](https://github.com/TheAgencyMGE/pc-recap/releases/tag/v1.1.0).
 
 Requirements: Windows 10 or Windows 11, x64.
 
@@ -32,7 +37,8 @@ PC Recap does not update automatically yet. Install newer beta versions manually
 ## Privacy
 
 - No account, telemetry, advertising identifier, cloud sync, or external AI API.
-- No keystrokes, screenshots, clipboard contents, files, or browser history.
+- No keystrokes, screenshots, clipboard contents, or file contents.
+- Browser-domain recovery is off by default and runs only after explicit consent; recovered clues never count as usage duration.
 - Window titles are off by default.
 - Tracking can be paused immediately and individual executables can be excluded.
 - All history can be exported or erased from the app.
@@ -60,6 +66,7 @@ npm run test:run
 npm run typecheck
 npm run smoke:activity
 npm run build
+npm run smoke:visual
 ```
 
 Create the Windows installer:
@@ -81,7 +88,7 @@ This refreshes versioned download links and sitemap dates, validates the static 
 ```text
 Windows foreground bridge
           |
-ActivityTracker -> SQLite repository -> daily rollups / backups
+ActivityTracker -> SQLite repository -> daily rollups / recovery / backups
                                   |
                  analytics + deterministic rules
                                   |
@@ -90,9 +97,9 @@ ActivityTracker -> SQLite repository -> daily rollups / backups
                     React renderer experience
 ```
 
-- `src/main` — Electron lifecycle, tray, Windows activity collection, SQLite, backups, and IPC.
+- `src/main` — Electron lifecycle, tray, Windows activity collection, SQLite, historical recovery, backups, and IPC.
 - `src/shared` — domain contracts, period math, analytics, and the deterministic observation engine.
-- `src/renderer` — React UI, archive visualizations, Yearly Recap, and share cards.
+- `src/renderer` — React UI, archive visualizations, Day Replay, Recap Studio, Memory Pins, and share cards.
 - `website` — dependency-free product and download site for static hosting.
 - `scripts` — activity and website verification utilities.
 

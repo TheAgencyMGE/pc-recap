@@ -33,14 +33,28 @@ export function generateObservations(summary: PeriodSummary): Observation[] {
   }
 
   const strongestChange = summary.topApps
-    .filter((app) => app.changePercent !== undefined && Math.abs(app.changePercent) >= 10)
+    .map((app) => ({
+      ...app,
+      previousSeconds: app.previousSeconds ?? (
+        app.changePercent !== undefined && app.changePercent !== -100
+          ? Math.round(app.seconds / (1 + app.changePercent / 100))
+          : 0
+      ),
+    }))
+    .filter((app) => app.changePercent !== undefined
+      && Math.abs(app.changePercent) >= 10
+      && app.seconds >= 600
+      && Math.abs(app.seconds - app.previousSeconds) >= 600)
     .sort((a, b) => Math.abs(b.changePercent ?? 0) - Math.abs(a.changePercent ?? 0))[0];
   if (strongestChange?.changePercent !== undefined) {
     const direction = strongestChange.changePercent >= 0 ? 'increased' : 'fell';
+    const hasStableBaseline = strongestChange.previousSeconds >= 600;
     observations.push({
       id: `change-${strongestChange.appId}`,
       eyebrow: 'Plot twist',
-      text: `${strongestChange.name} usage ${direction} ${Math.abs(strongestChange.changePercent)}% ${periodCopy(summary.kind)}.`,
+      text: hasStableBaseline
+        ? `${strongestChange.name} usage ${direction} ${Math.abs(strongestChange.changePercent)}% ${periodCopy(summary.kind)}.`
+        : `${strongestChange.name} went from ${formatMinutes(strongestChange.previousSeconds)} to ${formatMinutes(strongestChange.seconds)} ${periodCopy(summary.kind)}.`,
       detail: `${formatMinutes(strongestChange.seconds)} in the current chapter.`,
       accent: strongestChange.color,
       priority: 90,
@@ -49,11 +63,14 @@ export function generateObservations(summary: PeriodSummary): Observation[] {
 
   const pair = summary.appPairs[0];
   if (pair && pair.daysTogether >= 2) {
+    const relationship = summary.relationships.find((item) => samePair(item, pair));
     observations.push({
       id: `pair-${pair.appA}-${pair.appB}`,
       eyebrow: 'Always together',
       text: `${pair.appA} + ${pair.appB} were your power couple.`,
-      detail: `They shared ${pair.daysTogether} active days.`,
+      detail: relationship
+        ? `You switched between them ${relationship.transitions} times across ${relationship.distinctDays} days.`
+        : `They appeared together across ${pair.daysTogether} active days.`,
       accent: '#5AB7FF',
       priority: 80,
     });
@@ -82,4 +99,12 @@ export function generateObservations(summary: PeriodSummary): Observation[] {
   }
 
   return observations.sort((a, b) => b.priority - a.priority || a.id.localeCompare(b.id));
+}
+
+function samePair(
+  left: Pick<PeriodSummary['relationships'][number], 'appA' | 'appB'>,
+  right: Pick<PeriodSummary['appPairs'][number], 'appA' | 'appB'>,
+) {
+  return (left.appA === right.appA && left.appB === right.appB)
+    || (left.appA === right.appB && left.appB === right.appA);
 }

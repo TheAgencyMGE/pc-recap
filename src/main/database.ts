@@ -1,13 +1,21 @@
 import Database from 'better-sqlite3';
+import { createHash } from 'node:crypto';
 import type {
   ActivitySession,
+  ApplicationAlias,
   Category,
+  ImportBatch,
+  MemoryPin,
+  OpenSessionCheckpoint,
+  RecoveredEvent,
+  RecoveredEventInput,
   TimelineBucket,
   TrackedApp,
   TrackingSettings,
 } from '../shared/types.js';
 import { DEFAULT_SETTINGS } from '../shared/types.js';
 import { clipSessionToRange, localDayKey, localMonthKey, localYearKey, splitSessionByLocalDay } from '../shared/calendar.js';
+import { normalizeApplication } from './tracking/app-identity.js';
 
 interface SessionRow {
   id: string;
@@ -19,6 +27,10 @@ interface SessionRow {
   duration_seconds: number;
   window_title: string | null;
   machine_id: string;
+  source_kind: ActivitySession['sourceKind'];
+  confidence: ActivitySession['confidence'];
+  source_record_id: string | null;
+  import_batch_id: string | null;
 }
 
 interface AppRow {
@@ -46,6 +58,14 @@ export interface BackupSnapshot {
   sessions: ActivitySession[];
   categories: Category[];
   settings: TrackingSettings;
+  recoveredEvents?: RecoveredEvent[];
+  memoryPins?: MemoryPin[];
+}
+
+export interface HistoryBatchInput {
+  batch: ImportBatch;
+  sessions: Array<{ session: ActivitySession; app?: Partial<TrackedApp> }>;
+  recoveredEvents: Array<RecoveredEventInput & Pick<RecoveredEvent, 'id' | 'importBatchId'>>;
 }
 
 const DEFAULT_CATEGORIES: Category[] = [
@@ -70,6 +90,10 @@ const sessionFromRow = (row: SessionRow): ActivitySession => ({
   durationSeconds: row.duration_seconds,
   windowTitle: row.window_title ?? undefined,
   machineId: row.machine_id,
+  sourceKind: row.source_kind,
+  confidence: row.confidence,
+  sourceRecordId: row.source_record_id ?? undefined,
+  importBatchId: row.import_batch_id ?? undefined,
 });
 
 const appFromRow = (row: AppRow): TrackedApp => ({
@@ -89,14 +113,21 @@ export class ActivityRepository {
 
   constructor(location: string) {
     this.database = new Database(location);
-    this.migrate();
+    try {
+      this.migrate();
+    } catch (error) {
+      this.database.close();
+      throw error;
+    }
   }
 
   private migrate() {
+    this.database.pragma('foreign_keys = ON');
+    this.database.pragma('journal_mode = WAL');
+    this.database.pragma('synchronous = NORMAL');
+    this.database.exec('BEGIN IMMEDIATE');
+    try {
     this.database.exec(`
-      PRAGMA foreign_keys = ON;
-      PRAGMA journal_mode = WAL;
-      PRAGMA synchronous = NORMAL;
       CREATE TABLE IF NOT EXISTS schema_migrations (
         version INTEGER PRIMARY KEY,
         applied_at TEXT NOT NULL
@@ -127,6 +158,10 @@ export class ActivityRepository {
         duration_seconds INTEGER NOT NULL CHECK(duration_seconds >= 0),
         window_title TEXT,
         machine_id TEXT NOT NULL DEFAULT 'local',
+        source_kind TEXT NOT NULL DEFAULT 'pc_recap',
+        confidence TEXT NOT NULL DEFAULT 'recorded',
+        source_record_id TEXT,
+        import_batch_id TEXT,
         day TEXT NOT NULL
       );
       CREATE INDEX IF NOT EXISTS idx_sessions_started ON activity_sessions(started_at);
@@ -162,6 +197,63 @@ export class ActivityRepository {
         imported_at TEXT NOT NULL,
         session_count INTEGER NOT NULL
       ) WITHOUT ROWID;
+      CREATE TABLE IF NOT EXISTS open_session_checkpoints (
+        machine_id TEXT PRIMARY KEY,
+        session_id TEXT NOT NULL,
+        app_id TEXT NOT NULL,
+        app_name TEXT NOT NULL,
+        executable TEXT NOT NULL,
+        path TEXT,
+        category_id TEXT NOT NULL,
+        started_at TEXT NOT NULL,
+        last_sample_at TEXT NOT NULL,
+        checkpointed_at TEXT NOT NULL,
+        window_title TEXT
+      ) WITHOUT ROWID;
+      CREATE TABLE IF NOT EXISTS application_aliases (
+        source_executable TEXT PRIMARY KEY,
+        canonical_app_id TEXT NOT NULL,
+        canonical_name TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      ) WITHOUT ROWID;
+      CREATE TABLE IF NOT EXISTS import_batches (
+        id TEXT PRIMARY KEY,
+        source_kind TEXT NOT NULL,
+        source_fingerprint TEXT NOT NULL UNIQUE,
+        imported_at TEXT NOT NULL,
+        exact_session_count INTEGER NOT NULL DEFAULT 0,
+        recovered_event_count INTEGER NOT NULL DEFAULT 0
+      ) WITHOUT ROWID;
+      CREATE TABLE IF NOT EXISTS recovered_events (
+        id TEXT PRIMARY KEY,
+        app_id TEXT,
+        app_name TEXT NOT NULL,
+        event_type TEXT NOT NULL,
+        occurred_at TEXT NOT NULL,
+        source_kind TEXT NOT NULL,
+        confidence TEXT NOT NULL,
+        detail TEXT,
+        import_batch_id TEXT REFERENCES import_batches(id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_recovered_events_occurred ON recovered_events(occurred_at);
+      CREATE TABLE IF NOT EXISTS memory_pins (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        note TEXT NOT NULL DEFAULT '',
+        start_at TEXT NOT NULL,
+        end_at TEXT NOT NULL,
+        color TEXT NOT NULL,
+        include_in_recaps INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_memory_pins_range ON memory_pins(start_at, end_at);
+    `);
+    this.ensureSessionProvenanceColumns();
+    this.ensureCheckpointSessionIdColumn();
+    this.database.exec(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_source_record
+        ON activity_sessions(source_kind, source_record_id) WHERE source_record_id IS NOT NULL;
     `);
     this.removeLegacySyntheticHistory();
     const insertCategory = this.database.prepare(`
@@ -170,7 +262,13 @@ export class ActivityRepository {
     for (const category of DEFAULT_CATEGORIES) {
       insertCategory.run(category.id, category.name, category.color, category.icon, category.isDefault ? 1 : 0);
     }
+    this.normalizeKnownApplicationNames();
     this.migrateCalendarRollups();
+      this.database.exec('COMMIT');
+    } catch (error) {
+      this.database.exec('ROLLBACK');
+      throw error;
+    }
   }
 
   close() {
@@ -178,13 +276,40 @@ export class ActivityRepository {
   }
 
   insertSession(session: ActivitySession, app?: Partial<TrackedApp>): boolean {
+    this.database.exec('BEGIN IMMEDIATE');
+    try {
+      const inserted = this.insertSessionWithinTransaction(session, app);
+      if (!inserted) {
+        this.database.exec('ROLLBACK');
+        return false;
+      }
+      this.database.exec('COMMIT');
+      return true;
+    } catch (error) {
+      this.database.exec('ROLLBACK');
+      throw error;
+    }
+  }
+
+  finalizeOpenSession(session: ActivitySession, app: Partial<TrackedApp>, machineId: string): boolean {
+    this.database.exec('BEGIN IMMEDIATE');
+    try {
+      const inserted = session.durationSeconds > 0 ? this.insertSessionWithinTransaction(session, app) : false;
+      this.database.prepare('DELETE FROM open_session_checkpoints WHERE machine_id = ?').run(machineId);
+      this.database.exec('COMMIT');
+      return inserted;
+    } catch (error) {
+      this.database.exec('ROLLBACK');
+      throw error;
+    }
+  }
+
+  private insertSessionWithinTransaction(session: ActivitySession, app?: Partial<TrackedApp>): boolean {
     const executable = app?.executable ?? `${session.appName.toLowerCase().replaceAll(' ', '-')}.exe`;
     const color = app?.color ?? DEFAULT_CATEGORIES.find((item) => item.id === session.categoryId)?.color ?? '#7D8493';
     const firstSeen = app?.firstSeenAt ?? session.startedAt;
     const lastSeen = app?.lastSeenAt ?? session.endedAt;
-    this.database.exec('BEGIN IMMEDIATE');
-    try {
-      this.database.prepare(`
+    this.database.prepare(`
         INSERT INTO applications(id, name, executable, path, category_id, color, first_seen_at, last_seen_at, is_excluded)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
@@ -196,35 +321,138 @@ export class ActivityRepository {
         session.appId, session.appName, executable, app?.path ?? null, session.categoryId, color,
         firstSeen, lastSeen, app?.isExcluded ? 1 : 0,
       );
-      const durationSeconds = Math.max(0, Math.round(session.durationSeconds));
-      const normalizedSession = { ...session, durationSeconds };
-      const inserted = this.database.prepare(`
+    const durationSeconds = Math.max(0, Math.round(session.durationSeconds));
+    const normalizedSession = { ...session, durationSeconds };
+    const inserted = this.database.prepare(`
         INSERT OR IGNORE INTO activity_sessions(
-          id, app_id, started_at, ended_at, duration_seconds, window_title, machine_id, day
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          id, app_id, started_at, ended_at, duration_seconds, window_title, machine_id,
+          source_kind, confidence, source_record_id, import_batch_id, day
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         session.id, session.appId, session.startedAt, session.endedAt, durationSeconds,
-        session.windowTitle ?? null, session.machineId ?? 'local', localDayKey(session.startedAt),
+        session.windowTitle ?? null, session.machineId ?? 'local', session.sourceKind ?? 'pc_recap',
+        session.confidence ?? 'recorded', session.sourceRecordId ?? null, session.importBatchId ?? null,
+        localDayKey(session.startedAt),
       );
-      if (Number(inserted.changes) === 0) {
-        this.database.exec('ROLLBACK');
-        return false;
-      }
-      for (const allocation of splitSessionByLocalDay(normalizedSession)) {
-        this.addRollupAllocation(session.appId, allocation);
-      }
+    if (Number(inserted.changes) === 0) return false;
+    for (const allocation of splitSessionByLocalDay(normalizedSession)) {
+      this.addRollupAllocation(session.appId, allocation);
+    }
+    return true;
+  }
+
+  commitHistoryBatch(input: HistoryBatchInput) {
+    this.database.exec('BEGIN IMMEDIATE');
+    try {
+      const result = this.commitHistoryBatchWithinTransaction(input);
       this.database.exec('COMMIT');
-      return true;
+      return result;
     } catch (error) {
       this.database.exec('ROLLBACK');
       throw error;
     }
   }
 
+  private commitHistoryBatchWithinTransaction(input: HistoryBatchInput) {
+    const batchInsert = this.database.prepare(`
+      INSERT OR IGNORE INTO import_batches(
+        id, source_kind, source_fingerprint, imported_at, exact_session_count, recovered_event_count
+      ) VALUES (?, ?, ?, ?, ?, ?)
+    `).run(
+      input.batch.id, input.batch.sourceKind, input.batch.sourceFingerprint, input.batch.importedAt,
+      input.batch.exactSessionCount, input.batch.recoveredEventCount,
+    );
+    if (Number(batchInsert.changes) === 0) {
+      return { importedSessions: 0, duplicates: input.sessions.length, recoveredEvents: 0, batchId: input.batch.id };
+    }
+    let importedSessions = 0;
+    for (const item of input.sessions) {
+      if (this.insertSessionWithinTransaction({ ...item.session, importBatchId: input.batch.id }, item.app)) importedSessions += 1;
+    }
+    const insertEvent = this.database.prepare(`
+      INSERT OR IGNORE INTO recovered_events(
+        id, app_id, app_name, event_type, occurred_at, source_kind, confidence, detail, import_batch_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    let recoveredEvents = 0;
+    for (const event of input.recoveredEvents) {
+      recoveredEvents += Number(insertEvent.run(
+        event.id, event.appId ?? null, event.appName, event.eventType, event.occurredAt,
+        event.sourceKind, event.confidence, event.detail ?? null, input.batch.id,
+      ).changes);
+    }
+    return {
+      importedSessions,
+      duplicates: input.sessions.length - importedSessions,
+      recoveredEvents,
+      batchId: input.batch.id,
+    };
+  }
+
+  listRecoveredEvents(): RecoveredEvent[] {
+    const rows = this.database.prepare(`
+      SELECT id, app_id, app_name, event_type, occurred_at, source_kind, confidence, detail, import_batch_id
+      FROM recovered_events ORDER BY occurred_at ASC, id ASC
+    `).all() as Array<{
+      id: string; app_id: string | null; app_name: string; event_type: RecoveredEvent['eventType'];
+      occurred_at: string; source_kind: string; confidence: RecoveredEvent['confidence'];
+      detail: string | null; import_batch_id: string | null;
+    }>;
+    return rows.map((row) => ({
+      id: row.id,
+      appId: row.app_id ?? undefined,
+      appName: row.app_name,
+      eventType: row.event_type,
+      occurredAt: row.occurred_at,
+      sourceKind: row.source_kind,
+      confidence: row.confidence,
+      detail: row.detail ?? undefined,
+      importBatchId: row.import_batch_id ?? undefined,
+    }));
+  }
+
+  saveMemoryPin(pin: MemoryPin): MemoryPin {
+    validateMemoryPin(pin);
+    this.database.prepare(`
+      INSERT INTO memory_pins(id, title, note, start_at, end_at, color, include_in_recaps, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        title = excluded.title,
+        note = excluded.note,
+        start_at = excluded.start_at,
+        end_at = excluded.end_at,
+        color = excluded.color,
+        include_in_recaps = excluded.include_in_recaps,
+        updated_at = excluded.updated_at
+    `).run(
+      pin.id, pin.title.trim(), pin.note.trim(), pin.start, pin.end, pin.color,
+      pin.includeInRecaps ? 1 : 0, pin.createdAt, pin.updatedAt,
+    );
+    return this.listMemoryPins().find((item) => item.id === pin.id)!;
+  }
+
+  listMemoryPins(start?: string, end?: string): MemoryPin[] {
+    const rows = (start && end ? this.database.prepare(`
+      SELECT * FROM memory_pins WHERE end_at > ? AND start_at < ? ORDER BY start_at, id
+    `).all(start, end) : this.database.prepare('SELECT * FROM memory_pins ORDER BY start_at, id').all()) as Array<{
+      id: string; title: string; note: string; start_at: string; end_at: string; color: string;
+      include_in_recaps: number; created_at: string; updated_at: string;
+    }>;
+    return rows.map((row) => ({
+      id: row.id, title: row.title, note: row.note, start: row.start_at, end: row.end_at,
+      color: row.color, includeInRecaps: Boolean(row.include_in_recaps), createdAt: row.created_at, updatedAt: row.updated_at,
+    }));
+  }
+
+  deleteMemoryPin(id: string) {
+    this.database.prepare('DELETE FROM memory_pins WHERE id = ?').run(id);
+  }
+
   querySessions(start: string, end: string): ActivitySession[] {
     const rows = this.database.prepare(`
       SELECT s.id, s.app_id, a.name AS app_name, a.category_id, s.started_at, s.ended_at,
-             s.duration_seconds, s.window_title, s.machine_id
+             s.duration_seconds, s.window_title, s.machine_id, s.source_kind, s.confidence,
+             s.source_record_id, s.import_batch_id
       FROM activity_sessions s
       JOIN applications a ON a.id = s.app_id
       WHERE s.ended_at > ? AND s.started_at < ?
@@ -288,14 +516,111 @@ export class ActivityRepository {
     }
   }
 
+  saveAchievementUnlock(id: string, unlockedAt: string) {
+    this.database.prepare(`
+      INSERT OR IGNORE INTO achievements(id, unlocked_at, payload) VALUES (?, ?, '{}')
+    `).run(id, unlockedAt);
+  }
+
+  getAchievementUnlock(id: string): string | undefined {
+    const row = this.database.prepare('SELECT unlocked_at FROM achievements WHERE id = ?')
+      .get(id) as { unlocked_at: string } | undefined;
+    return row?.unlocked_at;
+  }
+
+  saveOpenSessionCheckpoint(checkpoint: OpenSessionCheckpoint) {
+    this.database.prepare(`
+      INSERT INTO open_session_checkpoints(
+        machine_id, session_id, app_id, app_name, executable, path, category_id, started_at,
+        last_sample_at, checkpointed_at, window_title
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(machine_id) DO UPDATE SET
+        session_id = excluded.session_id,
+        app_id = excluded.app_id,
+        app_name = excluded.app_name,
+        executable = excluded.executable,
+        path = excluded.path,
+        category_id = excluded.category_id,
+        started_at = excluded.started_at,
+        last_sample_at = excluded.last_sample_at,
+        checkpointed_at = excluded.checkpointed_at,
+        window_title = excluded.window_title
+    `).run(
+      checkpoint.machineId, checkpoint.sessionId, checkpoint.appId, checkpoint.appName, checkpoint.executable,
+      checkpoint.path ?? null, checkpoint.categoryId, checkpoint.startedAt, checkpoint.lastSampleAt,
+      checkpoint.checkpointedAt, checkpoint.windowTitle ?? null,
+    );
+  }
+
+  getOpenSessionCheckpoint(machineId: string): OpenSessionCheckpoint | undefined {
+    const row = this.database.prepare(`
+      SELECT machine_id, session_id, app_id, app_name, executable, path, category_id, started_at,
+             last_sample_at, checkpointed_at, window_title
+      FROM open_session_checkpoints WHERE machine_id = ?
+    `).get(machineId) as {
+      machine_id: string; session_id: string | null; app_id: string; app_name: string; executable: string; path: string | null;
+      category_id: string; started_at: string; last_sample_at: string; checkpointed_at: string;
+      window_title: string | null;
+    } | undefined;
+    if (!row) return undefined;
+    return {
+      sessionId: row.session_id ?? stableCheckpointSessionId(row.machine_id, row.started_at),
+      machineId: row.machine_id,
+      appId: row.app_id,
+      appName: row.app_name,
+      executable: row.executable,
+      path: row.path ?? undefined,
+      categoryId: row.category_id,
+      startedAt: row.started_at,
+      lastSampleAt: row.last_sample_at,
+      checkpointedAt: row.checkpointed_at,
+      windowTitle: row.window_title ?? undefined,
+    };
+  }
+
+  clearOpenSessionCheckpoint(machineId: string) {
+    this.database.prepare('DELETE FROM open_session_checkpoints WHERE machine_id = ?').run(machineId);
+  }
+
+  upsertApplicationAlias(alias: ApplicationAlias) {
+    this.database.prepare(`
+      INSERT INTO application_aliases(source_executable, canonical_app_id, canonical_name, updated_at)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(source_executable) DO UPDATE SET
+        canonical_app_id = excluded.canonical_app_id,
+        canonical_name = excluded.canonical_name,
+        updated_at = excluded.updated_at
+    `).run(alias.sourceExecutable.toLowerCase(), alias.canonicalAppId, alias.canonicalName, alias.updatedAt);
+  }
+
+  resolveApplicationAlias(sourceExecutable: string): ApplicationAlias | undefined {
+    const row = this.database.prepare(`
+      SELECT source_executable, canonical_app_id, canonical_name, updated_at
+      FROM application_aliases WHERE source_executable = ?
+    `).get(sourceExecutable.toLowerCase()) as {
+      source_executable: string; canonical_app_id: string; canonical_name: string; updated_at: string;
+    } | undefined;
+    return row ? {
+      sourceExecutable: row.source_executable,
+      canonicalAppId: row.canonical_app_id,
+      canonicalName: row.canonical_name,
+      updatedAt: row.updated_at,
+    } : undefined;
+  }
+
   updateSettings(patch: Partial<TrackingSettings>): TrackingSettings {
     const current = this.getSettings();
+    const executableList = (value: unknown, fallback: string[]) => (Array.isArray(value) ? value : fallback)
+      .filter((item): item is string => typeof item === 'string')
+      .map((item) => item.trim().toLowerCase().slice(0, 260))
+      .filter(Boolean);
     const next: TrackingSettings = {
       ...current,
       ...patch,
       sampleIntervalSeconds: Math.min(60, Math.max(5, patch.sampleIntervalSeconds ?? current.sampleIntervalSeconds)),
       idleThresholdSeconds: Math.min(3_600, Math.max(60, patch.idleThresholdSeconds ?? current.idleThresholdSeconds)),
-      excludedExecutables: [...new Set(patch.excludedExecutables ?? current.excludedExecutables)].map((item) => item.toLowerCase()),
+      excludedExecutables: [...new Set(executableList(patch.excludedExecutables, current.excludedExecutables))],
+      includedExecutables: [...new Set(executableList(patch.includedExecutables, current.includedExecutables))],
     };
     this.database.prepare(`
       INSERT INTO settings(key, value) VALUES ('tracking', ?)
@@ -317,6 +642,33 @@ export class ActivityRepository {
       ON CONFLICT(id) DO UPDATE SET name = excluded.name, color = excluded.color, icon = excluded.icon
     `).run(category.id, category.name.trim(), category.color, category.icon, category.isDefault ? 1 : 0);
     return category;
+  }
+
+  updateCategory(category: Category): Category {
+    const existing = this.database.prepare('SELECT is_default FROM categories WHERE id = ?')
+      .get(category.id) as { is_default: number } | undefined;
+    if (!existing) throw new Error('Category not found.');
+    return this.upsertCategory({ ...category, isDefault: Boolean(existing.is_default) });
+  }
+
+  deleteCategory(categoryId: string, reassignToCategoryId: string) {
+    if (categoryId === reassignToCategoryId) throw new Error('Choose a different category for reassignment.');
+    const category = this.database.prepare('SELECT is_default FROM categories WHERE id = ?')
+      .get(categoryId) as { is_default: number } | undefined;
+    if (!category) throw new Error('Category not found.');
+    if (category.is_default) throw new Error('Default categories cannot be deleted.');
+    const replacement = this.database.prepare('SELECT 1 FROM categories WHERE id = ?').get(reassignToCategoryId);
+    if (!replacement) throw new Error('Replacement category not found.');
+    this.database.exec('BEGIN IMMEDIATE');
+    try {
+      this.database.prepare('UPDATE applications SET category_id = ? WHERE category_id = ?')
+        .run(reassignToCategoryId, categoryId);
+      this.database.prepare('DELETE FROM categories WHERE id = ?').run(categoryId);
+      this.database.exec('COMMIT');
+    } catch (error) {
+      this.database.exec('ROLLBACK');
+      throw error;
+    }
   }
 
   listApps(): TrackedApp[] {
@@ -359,28 +711,49 @@ export class ActivityRepository {
     }
 
     if (!appsMarked && !sessionsMarked) return;
-    this.database.exec('BEGIN IMMEDIATE');
-    try {
-      if (sessionsMarked) this.database.exec(`DELETE FROM activity_sessions WHERE ${legacyColumn} = 1;`);
-      this.rebuildRollups();
-      if (appsMarked) this.database.exec(`DELETE FROM applications WHERE ${legacyColumn} = 1;`);
-      if (sessionsMarked) this.database.exec(`ALTER TABLE activity_sessions DROP COLUMN ${legacyColumn};`);
-      if (appsMarked) this.database.exec(`ALTER TABLE applications DROP COLUMN ${legacyColumn};`);
-      this.database.exec('COMMIT');
-    } catch (error) {
-      this.database.exec('ROLLBACK');
-      throw error;
+    if (sessionsMarked) this.database.exec(`DELETE FROM activity_sessions WHERE ${legacyColumn} = 1;`);
+    this.rebuildRollups();
+    if (appsMarked) this.database.exec(`DELETE FROM applications WHERE ${legacyColumn} = 1;`);
+    if (sessionsMarked) this.database.exec(`ALTER TABLE activity_sessions DROP COLUMN ${legacyColumn};`);
+    if (appsMarked) this.database.exec(`ALTER TABLE applications DROP COLUMN ${legacyColumn};`);
+  }
+
+  private normalizeKnownApplicationNames() {
+    const rows = this.database.prepare('SELECT id, name, executable, path FROM applications').all() as Array<{
+      id: string;
+      name: string;
+      executable: string;
+      path: string | null;
+    }>;
+    const updateApplication = this.database.prepare('UPDATE applications SET name = ? WHERE id = ?');
+    const updateCheckpoint = this.database.prepare('UPDATE open_session_checkpoints SET app_name = ? WHERE app_id = ?');
+    for (const row of rows) {
+      const friendly = normalizeApplication({ name: row.name, executable: row.executable, path: row.path ?? undefined }).canonicalName;
+      if (friendly === row.name) continue;
+      updateApplication.run(friendly, row.id);
+      updateCheckpoint.run(friendly, row.id);
     }
   }
 
   deleteAllHistory() {
-    this.database.exec(`
-      DELETE FROM daily_app_rollups;
-      DELETE FROM daily_rollups;
-      DELETE FROM activity_sessions;
-      DELETE FROM applications;
-      DELETE FROM achievements;
-    `);
+    this.database.pragma('secure_delete = ON');
+    const erase = this.database.transaction(() => this.database.exec(`
+        DELETE FROM recovered_events;
+        DELETE FROM import_batches;
+        DELETE FROM imports;
+        DELETE FROM open_session_checkpoints;
+        DELETE FROM application_aliases;
+        DELETE FROM memory_pins;
+        DELETE FROM daily_app_rollups;
+        DELETE FROM daily_rollups;
+        DELETE FROM activity_sessions;
+        DELETE FROM applications;
+        DELETE FROM achievements;
+      `));
+    erase();
+    this.database.pragma('wal_checkpoint(TRUNCATE)');
+    this.database.exec('VACUUM');
+    this.database.pragma('wal_checkpoint(TRUNCATE)');
   }
 
   private rebuildRollups() {
@@ -410,20 +783,33 @@ export class ActivityRepository {
     }
   }
 
+  private ensureSessionProvenanceColumns() {
+    const columns = new Set((this.database.prepare('PRAGMA table_info(activity_sessions)').all() as Array<{ name: string }>)
+      .map((column) => column.name));
+    const additions = [
+      ['source_kind', "TEXT NOT NULL DEFAULT 'pc_recap'"],
+      ['confidence', "TEXT NOT NULL DEFAULT 'recorded'"],
+      ['source_record_id', 'TEXT'],
+      ['import_batch_id', 'TEXT'],
+    ] as const;
+    for (const [name, definition] of additions) {
+      if (!columns.has(name)) this.database.exec(`ALTER TABLE activity_sessions ADD COLUMN ${name} ${definition}`);
+    }
+  }
+
+  private ensureCheckpointSessionIdColumn() {
+    const columns = new Set((this.database.prepare('PRAGMA table_info(open_session_checkpoints)').all() as Array<{ name: string }>)
+      .map((column) => column.name));
+    if (!columns.has('session_id')) this.database.exec('ALTER TABLE open_session_checkpoints ADD COLUMN session_id TEXT');
+  }
+
   private migrateCalendarRollups() {
     const version = 2;
     const migrated = this.database.prepare('SELECT 1 FROM schema_migrations WHERE version = ?').get(version);
     if (migrated) return;
-    this.database.exec('BEGIN IMMEDIATE');
-    try {
-      this.rebuildRollups();
-      this.database.prepare('INSERT INTO schema_migrations(version, applied_at) VALUES (?, ?)')
-        .run(version, new Date().toISOString());
-      this.database.exec('COMMIT');
-    } catch (error) {
-      this.database.exec('ROLLBACK');
-      throw error;
-    }
+    this.rebuildRollups();
+    this.database.prepare('INSERT INTO schema_migrations(version, applied_at) VALUES (?, ?)')
+      .run(version, new Date().toISOString());
   }
 
   private addRollupAllocation(appId: string, allocation: { startedAt: string; endedAt: string; seconds: number }) {
@@ -454,11 +840,12 @@ export class ActivityRepository {
       sessions: this.getAllSessions(),
       categories: this.getCategories(),
       settings: this.getSettings(),
+      recoveredEvents: this.listRecoveredEvents(),
+      memoryPins: this.listMemoryPins(),
     };
   }
 
   importSnapshot(snapshot: BackupSnapshot) {
-    for (const category of snapshot.categories ?? []) this.upsertCategory(category);
     let importedSessions = 0;
     const archivedSessions = snapshot.sessions ?? [];
     const realSessions = archivedSessions.filter((session) => !(session as ActivitySession & { isDemo?: boolean }).isDemo);
@@ -466,10 +853,57 @@ export class ActivityRepository {
     const apps = new Map((snapshot.apps ?? [])
       .filter((app) => !(app as TrackedApp & { isDemo?: boolean }).isDemo)
       .map((app) => [app.id, app]));
-    for (const session of realSessions) {
-      if (this.insertSession(session, apps.get(session.appId))) importedSessions += 1;
-      else skippedSessions += 1;
+    const recoveredEvents = snapshot.recoveredEvents ?? [];
+    let importedRecoveredEvents = 0;
+    let importedMemoryPins = 0;
+    for (const pin of snapshot.memoryPins ?? []) validateMemoryPin(pin);
+    this.database.exec('BEGIN IMMEDIATE');
+    try {
+      for (const category of snapshot.categories ?? []) this.upsertCategory(category);
+      for (const session of realSessions) {
+        if (this.insertSessionWithinTransaction(session, apps.get(session.appId))) importedSessions += 1;
+        else skippedSessions += 1;
+      }
+      if (recoveredEvents.length) {
+        const fingerprint = createHash('sha256').update(recoveredEvents.map((event) => event.id).sort().join('\u0000')).digest('hex');
+        const batchId = `backup-batch-${fingerprint.slice(0, 32)}`;
+        importedRecoveredEvents = this.commitHistoryBatchWithinTransaction({
+          batch: {
+            id: batchId,
+            sourceKind: 'pc_recap_backup',
+            sourceFingerprint: `backup-events:${fingerprint}`,
+            importedAt: new Date().toISOString(),
+            exactSessionCount: 0,
+            recoveredEventCount: recoveredEvents.length,
+          },
+          sessions: [],
+          recoveredEvents: recoveredEvents.map((event) => ({ ...event, importBatchId: batchId })),
+        }).recoveredEvents;
+      }
+      for (const pin of snapshot.memoryPins ?? []) {
+        this.saveMemoryPin(pin);
+        importedMemoryPins += 1;
+      }
+      this.database.exec('COMMIT');
+    } catch (error) {
+      this.database.exec('ROLLBACK');
+      throw error;
     }
-    return { importedSessions, skippedSessions };
+    return { importedSessions, skippedSessions, importedRecoveredEvents, importedMemoryPins };
+  }
+}
+
+function stableCheckpointSessionId(machineId: string, startedAt: string) {
+  return `session-${createHash('sha256').update(`${machineId}:${startedAt}`).digest('hex').slice(0, 32)}`;
+}
+
+function validateMemoryPin(pin: MemoryPin) {
+  if (!pin.id?.trim() || pin.id.length > 200 || !pin.title?.trim() || pin.title.trim().length > 80 || pin.note.length > 500) {
+    throw new Error('Memory Pin text is invalid.');
+  }
+  const start = Date.parse(pin.start);
+  const end = Date.parse(pin.end);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start || !/^#[0-9a-f]{6}$/i.test(pin.color)) {
+    throw new Error('Memory Pin range is invalid.');
   }
 }

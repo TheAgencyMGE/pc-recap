@@ -26,6 +26,7 @@ export function createTestApi(overrides: Partial<TrackingSettings> = {}): PCReca
   ];
   let settings: TrackingSettings = { ...DEFAULT_SETTINGS, onboardingComplete: true, ...overrides };
   let status: TrackingStatus = { state: 'tracking', activeApp: 'Visual Studio Code', since: sessions[0].startedAt };
+  let memoryPins: import('../../shared/types').MemoryPin[] = [];
 
   const summary = (kind: PeriodKind, year?: number) => {
     const range = getPeriodRange(kind, now, year);
@@ -48,6 +49,30 @@ export function createTestApi(overrides: Partial<TrackingSettings> = {}): PCReca
     getDashboard: async (kind = 'today', year) => ({ summary: summary(kind, year), timeline: timeline('month', kind === 'year' ? String(year ?? now.getFullYear()) : String(now.getFullYear())), achievements: [], trackingStatus: status }),
     getSummary: async (kind, year) => summary(kind, year),
     getTimeline: async (level, anchor) => timeline(level, anchor),
+    getDayReplay: async (day) => {
+      const daySessions = sessions.filter((session) => localDayKey(session.startedAt) === day);
+      return {
+        day,
+        firstActivity: daySessions[0]?.startedAt,
+        lastActivity: daySessions.at(-1)?.endedAt,
+        busiestHour: daySessions[0] ? new Date(daySessions[0].startedAt).getHours() : undefined,
+        longestSegment: undefined,
+        appSwitches: Math.max(0, daySessions.length - 1),
+        totalSeconds: daySessions.reduce((sum, session) => sum + session.durationSeconds, 0),
+        segments: daySessions.map((session) => ({ ...session, color: apps.find((app) => app.id === session.appId)?.color ?? '#7D8493' })),
+        idleGaps: [], relationships: [], recoveredClues: [], pins: memoryPins.filter((pin) => localDayKey(pin.start) === day),
+      };
+    },
+    getRecap: async (selection) => ({
+      selection,
+      summary: summarizeSessions(
+        sessions.map((session) => clipSessionToRange(session, selection.start, selection.end)).filter((session): session is ActivitySession => Boolean(session)),
+        [],
+        { kind: selection.kind === 'year' ? 'year' : 'all-time', label: selection.label, rangeStart: selection.start, rangeEnd: selection.end, isComplete: selection.complete },
+      ),
+      timeline: timeline('month', selection.start.slice(0, 4)),
+      recoveredClues: [], pins: memoryPins.filter((pin) => pin.end > selection.start && pin.start < selection.end),
+    }),
     getAppDetail: async () => null,
     getAppIcon: async () => null,
     listApps: async () => sessions.length ? apps : [],
@@ -57,13 +82,31 @@ export function createTestApi(overrides: Partial<TrackingSettings> = {}): PCReca
     updateSettings: async (patch) => (settings = { ...settings, ...patch }),
     getCategories: async () => categories,
     saveCategory: async (category) => category,
+    updateCategory: async (category) => category,
+    deleteCategory: async () => undefined,
     setAppCategory: async () => undefined,
     setAppExcluded: async () => undefined,
     getTrackingStatus: async () => status,
-    setTrackingEnabled: async (enabled) => (status = { state: enabled ? 'tracking' : 'paused' }),
+    setTrackingEnabled: async (enabled) => {
+      settings = { ...settings, trackingEnabled: enabled };
+      return (status = { state: enabled ? 'tracking' : 'paused' });
+    },
     onTrackingStatus: () => () => undefined,
     exportBackup: async () => ({ ok: true, path: 'test.pcr' }),
     importBackup: async () => ({ ok: true, importedSessions: 0 }),
+    previewHistoryFile: async () => null,
+    scanWindowsHistory: async () => ({
+      id: 'test-preview', sourceKind: 'windows_recovery', sourceLabel: 'This PC', exactSessions: [],
+      exactSessionCount: 0, recoveredEvents: [], recoveredEventCount: 0, warnings: [], sources: [],
+    }),
+    commitHistoryImport: async () => ({ importedSessions: 0, duplicates: 0, recoveredEvents: 0 }),
+    cancelHistoryPreview: async () => undefined,
+    listMemoryPins: async (start, end) => memoryPins.filter((pin) => !start || !end || (pin.end > start && pin.start < end)),
+    saveMemoryPin: async (pin) => {
+      memoryPins = [...memoryPins.filter((item) => item.id !== pin.id), pin];
+      return pin;
+    },
+    deleteMemoryPin: async (id) => { memoryPins = memoryPins.filter((pin) => pin.id !== id); },
     saveShareCard: async () => ({ ok: true, path: 'test.png' }),
     deleteAllHistory: async () => { sessions = []; },
     getVersion: async () => 'test',

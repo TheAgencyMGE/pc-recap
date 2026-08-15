@@ -40,4 +40,15 @@ describe('getShareCardModel', () => {
     const summary = await api.getSummary('year', new Date().getFullYear());
     expect(getShareCardModel({ ...summary, observations: [] }).observation).toBe('');
   });
+
+  it('keeps Memory Pins off share cards unless the user opts one in', async () => {
+    const api = createTestApi();
+    const summary = await api.getSummary('year', new Date().getFullYear());
+    const pin = {
+      id: 'pin', title: 'Started college', note: '', start: summary.rangeStart, end: summary.rangeEnd,
+      color: '#4256f4', includeInRecaps: false, createdAt: summary.rangeStart, updatedAt: summary.rangeStart,
+    };
+    expect(getShareCardModel(summary, [pin])).not.toHaveProperty('memory');
+    expect(getShareCardModel(summary, [{ ...pin, includeInRecaps: true }])).toMatchObject({ memory: 'Started college' });
+  });
 });

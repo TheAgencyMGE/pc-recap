@@ -20,4 +20,6 @@ coverage/
 Thumbs.db
 .idea/
 .vscode/
+.worktrees/
+video/
 *.code-workspace

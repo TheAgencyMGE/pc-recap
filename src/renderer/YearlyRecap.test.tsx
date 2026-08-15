@@ -11,11 +11,11 @@ describe('YearlyRecap', () => {
     const [summary, timeline] = await Promise.all([api.getSummary('year', year), api.getTimeline('month', String(year))]);
     render(<AppIconProvider api={api}><YearlyRecap api={api} summary={summary} timeline={timeline} onClose={() => undefined} /></AppIconProvider>);
 
-    expect(screen.getByRole('heading', { name: new RegExp(`this was your ${year}`, 'i') })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: new RegExp(`your ${year} so far`, 'i') })).toBeInTheDocument();
     expect(screen.queryByText(/private playback|annual edition|pcw|wrapped/i)).not.toBeInTheDocument();
     fireEvent.keyDown(window, { key: 'ArrowRight' });
     expect(await screen.findByRole('heading', { name: /hours, recorded/i })).toBeInTheDocument();
     fireEvent.keyDown(window, { key: 'ArrowLeft' });
-    expect(await screen.findByRole('heading', { name: new RegExp(`this was your ${year}`, 'i') })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: new RegExp(`your ${year} so far`, 'i') })).toBeInTheDocument();
   });
 });
