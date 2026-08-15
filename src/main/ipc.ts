@@ -43,6 +43,7 @@ export function registerIpcHandlers({
     const safeLevel = level === 'year' || level === 'day' ? level : 'month';
     return repository.getTimeline(safeLevel, typeof anchor === 'string' ? anchor.slice(0, 10) : undefined);
   });
+  handle('day-replay:get', (day) => analytics.getDayReplay(/^\d{4}-\d{2}-\d{2}$/.test(String(day)) ? String(day) : 'invalid'));
   handle('apps:list', () => repository.listApps());
   handle('app:detail', (appId) => analytics.getAppDetail(String(appId).slice(0, 200)));
   handle('app:icon', (appId) => icons.getDataUrl(String(appId).slice(0, 200)));

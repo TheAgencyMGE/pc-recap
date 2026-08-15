@@ -78,4 +78,33 @@ describe('AnalyticsService local calendar semantics', () => {
       .toBe('2026-08-07T09:00:00.000Z');
     expect(repository.getAchievementUnlock('week-in-life')).toBe('2026-08-07T09:00:00.000Z');
   });
+
+  it('builds a chronological Day Replay with local-clock facts and clues', () => {
+    const repository = new ActivityRepository(':memory:');
+    repositories.push(repository);
+    repository.insertSession({
+      id: 'chrome-morning', appId: 'chrome', appName: 'Chrome', categoryId: 'browsing',
+      startedAt: new Date(2026, 7, 15, 9, 0).toISOString(), endedAt: new Date(2026, 7, 15, 9, 30).toISOString(), durationSeconds: 1_800,
+    });
+    repository.insertSession({
+      id: 'code-morning', appId: 'code', appName: 'Visual Studio Code', categoryId: 'coding',
+      startedAt: new Date(2026, 7, 15, 10, 0).toISOString(), endedAt: new Date(2026, 7, 15, 11, 0).toISOString(), durationSeconds: 3_600,
+    });
+    repository.commitHistoryBatch({
+      batch: { id: 'day-clue-batch', sourceKind: 'windows_recovery', sourceFingerprint: 'day-clue', importedAt: new Date(2026, 7, 15, 12).toISOString(), exactSessionCount: 0, recoveredEventCount: 1 },
+      sessions: [],
+      recoveredEvents: [{ id: 'day-clue', appName: 'Blender', eventType: 'installed', occurredAt: new Date(2026, 7, 15, 12).toISOString(), sourceKind: 'windows_installed_apps', confidence: 'medium', importBatchId: 'day-clue-batch' }],
+    });
+    const service = new AnalyticsService(repository, () => ({ state: 'tracking' }), () => new Date(2026, 7, 15, 13));
+
+    const result = service.getDayReplay('2026-08-15');
+
+    expect(result).toMatchObject({
+      day: '2026-08-15', firstActivity: new Date(2026, 7, 15, 9).toISOString(), busiestHour: 10,
+      appSwitches: 1,
+    });
+    expect(result.segments.map((segment) => segment.appName)).toEqual(['Chrome', 'Visual Studio Code']);
+    expect(result.idleGaps[0]).toMatchObject({ durationSeconds: 1_800 });
+    expect(result.recoveredClues).toEqual([expect.objectContaining({ appName: 'Blender' })]);
+  });
 });

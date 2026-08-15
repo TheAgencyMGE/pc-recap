@@ -6,6 +6,7 @@ import type {
   ActivitySession,
   AppDetail,
   DashboardData,
+  DayReplayData,
   OnThisDayEntry,
   PeriodKind,
   PeriodSummary,
@@ -50,6 +51,51 @@ export class AnalyticsService {
       timeline: this.repository.getTimeline('month', kind === 'year' && year ? String(year) : String(this.now().getFullYear())),
       achievements: this.getAchievements(),
       trackingStatus: this.getTrackingStatus(),
+    };
+  }
+
+  getDayReplay(day: string): DayReplayData {
+    const range = localDayRange(day);
+    const apps = new Map(this.repository.listApps().map((app) => [app.id, app]));
+    const segments = this.querySessionsWithLive(range.start, range.end).map((session) => ({
+      id: session.id,
+      appId: session.appId,
+      appName: session.appName,
+      categoryId: session.categoryId,
+      startedAt: session.startedAt,
+      endedAt: session.endedAt,
+      durationSeconds: session.durationSeconds,
+      color: apps.get(session.appId)?.color ?? '#7D8493',
+    })).sort((a, b) => a.startedAt.localeCompare(b.startedAt));
+    const byHour = Array.from({ length: 24 }, () => 0);
+    for (const segment of segments) {
+      for (const allocation of splitSessionByLocalHour(segment)) byHour[allocation.hour] += allocation.seconds;
+    }
+    const idleGaps = segments.slice(1).flatMap((segment, index) => {
+      const previous = segments[index];
+      const milliseconds = new Date(segment.startedAt).getTime() - new Date(previous.endedAt).getTime();
+      return milliseconds > 0 ? [{
+        startedAt: previous.endedAt,
+        endedAt: segment.startedAt,
+        durationSeconds: Math.round(milliseconds / 1_000),
+      }] : [];
+    });
+    const summarized = summarizeSessions(segments, [], {
+      kind: 'today', label: day, rangeStart: range.start, rangeEnd: range.end, isComplete: range.end <= this.now().toISOString(),
+    });
+    return {
+      day,
+      firstActivity: segments[0]?.startedAt,
+      lastActivity: segments.at(-1)?.endedAt,
+      busiestHour: segments.length ? byHour.indexOf(Math.max(...byHour)) : undefined,
+      longestSegment: [...segments].sort((a, b) => b.durationSeconds - a.durationSeconds)[0],
+      appSwitches: segments.slice(1).filter((segment, index) => segment.appId !== segments[index].appId).length,
+      totalSeconds: segments.reduce((sum, segment) => sum + segment.durationSeconds, 0),
+      segments,
+      idleGaps,
+      relationships: summarized.relationships,
+      recoveredClues: this.repository.listRecoveredEvents().filter((event) => localDayKey(event.occurredAt) === day),
+      pins: [],
     };
   }
 
@@ -179,6 +225,15 @@ export class AnalyticsService {
       };
     });
   }
+}
+
+function localDayRange(day: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day);
+  if (!match) throw new Error('Choose a valid day.');
+  const start = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  if (localDayKey(start) !== day) throw new Error('Choose a valid day.');
+  const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 1);
+  return { start: start.toISOString(), end: end.toISOString() };
 }
 
 function thresholdTimestamp(

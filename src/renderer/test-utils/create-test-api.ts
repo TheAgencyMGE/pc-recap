@@ -48,6 +48,20 @@ export function createTestApi(overrides: Partial<TrackingSettings> = {}): PCReca
     getDashboard: async (kind = 'today', year) => ({ summary: summary(kind, year), timeline: timeline('month', kind === 'year' ? String(year ?? now.getFullYear()) : String(now.getFullYear())), achievements: [], trackingStatus: status }),
     getSummary: async (kind, year) => summary(kind, year),
     getTimeline: async (level, anchor) => timeline(level, anchor),
+    getDayReplay: async (day) => {
+      const daySessions = sessions.filter((session) => localDayKey(session.startedAt) === day);
+      return {
+        day,
+        firstActivity: daySessions[0]?.startedAt,
+        lastActivity: daySessions.at(-1)?.endedAt,
+        busiestHour: daySessions[0] ? new Date(daySessions[0].startedAt).getHours() : undefined,
+        longestSegment: undefined,
+        appSwitches: Math.max(0, daySessions.length - 1),
+        totalSeconds: daySessions.reduce((sum, session) => sum + session.durationSeconds, 0),
+        segments: daySessions.map((session) => ({ ...session, color: apps.find((app) => app.id === session.appId)?.color ?? '#7D8493' })),
+        idleGaps: [], relationships: [], recoveredClues: [], pins: [],
+      };
+    },
     getAppDetail: async () => null,
     getAppIcon: async () => null,
     listApps: async () => sessions.length ? apps : [],

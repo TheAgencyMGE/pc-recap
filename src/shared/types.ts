@@ -142,6 +142,50 @@ export interface HistoryImportResult {
   batchId?: string;
 }
 
+export interface MemoryPin {
+  id: string;
+  title: string;
+  note: string;
+  start: string;
+  end: string;
+  color: string;
+  includeInRecaps: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DayReplaySegment {
+  id: string;
+  appId: string;
+  appName: string;
+  categoryId: string;
+  startedAt: string;
+  endedAt: string;
+  durationSeconds: number;
+  color: string;
+}
+
+export interface DayReplayGap {
+  startedAt: string;
+  endedAt: string;
+  durationSeconds: number;
+}
+
+export interface DayReplayData {
+  day: string;
+  firstActivity?: string;
+  lastActivity?: string;
+  busiestHour?: number;
+  longestSegment?: DayReplaySegment;
+  appSwitches: number;
+  totalSeconds: number;
+  segments: DayReplaySegment[];
+  idleGaps: DayReplayGap[];
+  relationships: AppRelationship[];
+  recoveredClues: RecoveredEvent[];
+  pins: MemoryPin[];
+}
+
 export interface AppUsage {
   appId: string;
   name: string;

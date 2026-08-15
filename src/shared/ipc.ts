@@ -4,6 +4,7 @@ import type {
   BackupResult,
   Category,
   DashboardData,
+  DayReplayData,
   HistoryImportResult,
   HistoryPreviewView,
   OnThisDayEntry,
@@ -19,6 +20,7 @@ export interface PCRecapAPI {
   getDashboard(kind?: PeriodKind, year?: number): Promise<DashboardData>;
   getSummary(kind: PeriodKind, year?: number): Promise<PeriodSummary>;
   getTimeline(level: 'year' | 'month' | 'day', anchor?: string): Promise<TimelineBucket[]>;
+  getDayReplay(day: string): Promise<DayReplayData>;
   getAppDetail(appId: string): Promise<AppDetail | null>;
   getAppIcon(appId: string): Promise<string | null>;
   listApps(): Promise<TrackedApp[]>;
