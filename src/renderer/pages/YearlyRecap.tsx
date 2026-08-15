@@ -2,24 +2,30 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { ArrowLeft, ArrowRight, Download, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { PCRecapAPI } from '../../shared/ipc';
-import type { PeriodSummary, TimelineBucket } from '../../shared/types';
+import type { MemoryPin, PeriodSummary, RecapSelection, RecoveredEvent, TimelineBucket } from '../../shared/types';
 import { AppIcon } from '../components/AppIcon';
 import { formatDuration } from '../lib/format';
 import { saveShareCard } from '../lib/share-card';
-import { buildRecapScenes, formatRecapTotal, type RecapSceneId } from '../lib/recap-scenes';
+import { buildRecapHeading, buildRecapScenes, formatRecapTotal, type RecapSceneId } from '../lib/recap-scenes';
 
 interface Props {
   api: PCRecapAPI;
   summary: PeriodSummary;
   timeline: TimelineBucket[];
   onClose: () => void;
+  selection?: RecapSelection;
+  recoveredClues?: RecoveredEvent[];
+  pins?: MemoryPin[];
 }
 
 function SceneKicker({ children }: { children: React.ReactNode }) {
   return <span className="recap-kicker">{children}</span>;
 }
 
-function Scene({ id, summary, timeline, api }: { id: RecapSceneId; summary: PeriodSummary; timeline: TimelineBucket[]; api: PCRecapAPI }) {
+function Scene({ id, summary, timeline, api, selection, recoveredClues = [], pins = [] }: {
+  id: RecapSceneId; summary: PeriodSummary; timeline: TimelineBucket[]; api: PCRecapAPI;
+  selection: RecapSelection; recoveredClues?: RecoveredEvent[]; pins?: MemoryPin[];
+}) {
   const [saved, setSaved] = useState('');
   const favorite = summary.topApps[0];
   const maxCategory = Math.max(...summary.categories.map((category) => category.seconds), 1);
@@ -27,10 +33,15 @@ function Scene({ id, summary, timeline, api }: { id: RecapSceneId; summary: Peri
   const era = summary.eras[0];
   const observation = summary.observations[0];
   const total = formatRecapTotal(summary.totalSeconds);
+  const relationship = summary.relationships[0];
+  const routine = summary.routines[0];
+  const lifecycle = summary.lifecycle[0];
+  const clue = recoveredClues[0];
+  const pin = pins.find((item) => item.includeInRecaps);
 
   if (id === 'cover') return (
     <section className="recap-scene recap-scene--cover">
-      <h1>This was your <em>{summary.label}.</em></h1>
+      <h1>{buildRecapHeading(selection)}</h1>
       <div className="recap-cover-mark" aria-hidden="true"><span>PC</span><b>{summary.label}</b><i>RECAP</i></div>
     </section>
   );
@@ -64,7 +75,7 @@ function Scene({ id, summary, timeline, api }: { id: RecapSceneId; summary: Peri
   if (id === 'categories') return (
     <section className="recap-scene recap-scene--categories">
       <SceneKicker>Categories</SceneKicker>
-      <h1>Your year had range.</h1>
+      <h1>This recap had range.</h1>
       <div className="recap-category-stack" aria-label="Category usage">
         {summary.categories.filter((category) => category.seconds > 0).slice(0, 5).map((category, index) => (
           <div key={category.categoryId} style={{ '--category-size': `${Math.max(24, (category.seconds / maxCategory) * 100)}%`, '--category-color': category.color } as React.CSSProperties}>
@@ -104,6 +115,26 @@ function Scene({ id, summary, timeline, api }: { id: RecapSceneId; summary: Peri
     </section>
   );
 
+  if (id === 'relationship' && relationship) return (
+    <section className="recap-scene recap-scene--relationship"><SceneKicker>Power pair</SceneKicker><h1>{relationship.appA} + {relationship.appB}</h1><p>{relationship.transitions.toLocaleString()} close handoffs across {relationship.distinctDays.toLocaleString()} days.</p></section>
+  );
+
+  if (id === 'rhythm' && routine) return (
+    <section className="recap-scene recap-scene--rhythm"><SceneKicker>Repeat play</SceneKicker><h1>{routine.apps.join(' → ')}</h1><p>This sequence returned {routine.occurrences.toLocaleString()} times across {routine.distinctDays.toLocaleString()} days.</p></section>
+  );
+
+  if (id === 'lifecycle' && lifecycle) return (
+    <section className="recap-scene recap-scene--lifecycle"><SceneKicker>{lifecycle.kind.replace('-', ' ')}</SceneKicker><h1>{lifecycle.appName}</h1><p>{lifecycle.kind === 'comeback' && lifecycle.gapDays ? `Returned after ${lifecycle.gapDays} days away.` : `A real ${lifecycle.kind.replace('-', ' ')} from this recap.`}</p></section>
+  );
+
+  if (id === 'clue' && clue) return (
+    <section className="recap-scene recap-scene--clue"><SceneKicker>Recovered clue</SceneKicker><h1>{clue.appName}</h1><p>{clue.detail ?? `${clue.eventType.replace('-', ' ')} on ${new Date(clue.occurredAt).toLocaleDateString()}.`} This clue did not add usage time.</p></section>
+  );
+
+  if (id === 'pin' && pin) return (
+    <section className="recap-scene recap-scene--pin"><SceneKicker>Your memory</SceneKicker><h1>{pin.title}</h1>{pin.note && <p>{pin.note}</p>}</section>
+  );
+
   if (id === 'record' && summary.longestSession) return (
     <section className="recap-scene recap-scene--record">
       <SceneKicker>Longest session</SceneKicker>
@@ -116,7 +147,7 @@ function Scene({ id, summary, timeline, api }: { id: RecapSceneId; summary: Peri
 
   return (
     <section className="recap-scene recap-scene--finale">
-      <SceneKicker>Your year</SceneKicker>
+      <SceneKicker>Your recap</SceneKicker>
       <h1>Keep the<br /><em>memory.</em></h1>
       <div className="finale-card">
         <span>{summary.label}</span>
@@ -139,8 +170,10 @@ function Scene({ id, summary, timeline, api }: { id: RecapSceneId; summary: Peri
   );
 }
 
-export function YearlyRecap({ api, summary, timeline, onClose }: Props) {
-  const sceneIds = useMemo(() => buildRecapScenes(summary, timeline), [summary, timeline]);
+export function YearlyRecap({ api, summary, timeline, onClose, selection = {
+  kind: 'year', start: summary.rangeStart, end: summary.rangeEnd, label: summary.label, complete: summary.isComplete,
+}, recoveredClues = [], pins = [] }: Props) {
+  const sceneIds = useMemo(() => buildRecapScenes(summary, timeline, { recoveredClues, pins }), [pins, recoveredClues, summary, timeline]);
   const [scene, setScene] = useState(0);
   const reduceMotion = useReducedMotion();
   const next = useCallback(() => setScene((value) => Math.min(sceneIds.length - 1, value + 1)), [sceneIds.length]);
@@ -168,7 +201,7 @@ export function YearlyRecap({ api, summary, timeline, onClose }: Props) {
       </header>
       <AnimatePresence mode="wait">
         <motion.main key={sceneId} initial={reduceMotion ? false : { opacity: 0, x: 80 }} animate={{ opacity: 1, x: 0 }} exit={reduceMotion ? undefined : { opacity: 0, x: -80 }} transition={{ duration: reduceMotion ? 0 : 0.45, ease: [0.22, 1, 0.36, 1] }}>
-          <Scene id={sceneId} summary={summary} timeline={timeline} api={api} />
+          <Scene id={sceneId} summary={summary} timeline={timeline} api={api} selection={selection} recoveredClues={recoveredClues} pins={pins} />
         </motion.main>
       </AnimatePresence>
       <footer className="recap-controls">

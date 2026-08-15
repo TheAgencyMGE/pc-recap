@@ -62,6 +62,16 @@ export function createTestApi(overrides: Partial<TrackingSettings> = {}): PCReca
         idleGaps: [], relationships: [], recoveredClues: [], pins: [],
       };
     },
+    getRecap: async (selection) => ({
+      selection,
+      summary: summarizeSessions(
+        sessions.map((session) => clipSessionToRange(session, selection.start, selection.end)).filter((session): session is ActivitySession => Boolean(session)),
+        [],
+        { kind: selection.kind === 'year' ? 'year' : 'all-time', label: selection.label, rangeStart: selection.start, rangeEnd: selection.end, isComplete: selection.complete },
+      ),
+      timeline: timeline('month', selection.start.slice(0, 4)),
+      recoveredClues: [], pins: [],
+    }),
     getAppDetail: async () => null,
     getAppIcon: async () => null,
     listApps: async () => sessions.length ? apps : [],

@@ -186,6 +186,22 @@ export interface DayReplayData {
   pins: MemoryPin[];
 }
 
+export interface RecapSelection {
+  kind: 'day' | 'week' | 'month' | 'year' | 'season' | 'decade' | 'custom';
+  start: string;
+  end: string;
+  label: string;
+  complete: boolean;
+}
+
+export interface RecapStoryData {
+  selection: RecapSelection;
+  summary: PeriodSummary;
+  timeline: TimelineBucket[];
+  recoveredClues: RecoveredEvent[];
+  pins: MemoryPin[];
+}
+
 export interface AppUsage {
   appId: string;
   name: string;

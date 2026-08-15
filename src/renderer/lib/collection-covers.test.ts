@@ -44,4 +44,9 @@ describe('collection cover models', () => {
     }));
     expect(covers.at(-1)).toEqual(expect.objectContaining({ route: 'categories', title: 'Categories' }));
   });
+
+  it('offers Recap Studio once the archive has recorded history', () => {
+    const covers = buildArchiveCovers([{ key: '2026', label: '2026', seconds: 60, topApp: 'Code', categoryId: 'coding', intensity: 1 }], [], []);
+    expect(covers[0]).toEqual(expect.objectContaining({ route: 'recap-studio', title: 'Recap Studio' }));
+  });
 });

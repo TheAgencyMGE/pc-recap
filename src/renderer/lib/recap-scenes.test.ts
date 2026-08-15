@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createTestApi } from '../test-utils/create-test-api';
-import { buildRecapScenes, formatRecapTotal } from './recap-scenes';
+import { buildRecapHeading, buildRecapScenes, formatRecapTotal } from './recap-scenes';
 
 describe('buildRecapScenes', () => {
   it('keeps the core story grounded in a non-empty summary', async () => {
@@ -14,6 +14,8 @@ describe('buildRecapScenes', () => {
       'favorite',
       'categories',
       'memory',
+      'relationship',
+      'lifecycle',
       'record',
       'finale',
     ]);
@@ -48,5 +50,10 @@ describe('buildRecapScenes', () => {
   it('uses minutes for a young archive instead of displaying zero hours', () => {
     expect(formatRecapTotal(120)).toEqual({ value: '2', unit: 'minutes' });
     expect(formatRecapTotal(5_400)).toEqual({ value: '2', unit: 'hours' });
+  });
+
+  it('uses present tense for an open period and retrospective tense once complete', () => {
+    expect(buildRecapHeading({ kind: 'year', start: '2026-01-01T00:00:00.000Z', end: '2026-08-15T00:00:00.000Z', label: '2026', complete: false })).toBe('Your 2026 so far.');
+    expect(buildRecapHeading({ kind: 'year', start: '2025-01-01T00:00:00.000Z', end: '2026-01-01T00:00:00.000Z', label: '2025', complete: true })).toBe('This was your 2025.');
   });
 });

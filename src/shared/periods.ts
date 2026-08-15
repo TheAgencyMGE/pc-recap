@@ -1,4 +1,4 @@
-import type { PeriodKind, PeriodRange } from './types.js';
+import type { PeriodKind, PeriodRange, RecapSelection } from './types.js';
 
 const iso = (date: Date) => date.toISOString();
 const localDate = (year: number, month: number, day: number) => new Date(year, month, day);
@@ -73,5 +73,38 @@ export function getPeriodRange(kind: PeriodKind, now = new Date(), selectedYear?
     previousEnd: iso(previousEnd),
     isComplete,
     comparisonLabel,
+  };
+}
+
+export function yearRecapSelection(year: number, now = new Date()): RecapSelection {
+  const start = localDate(year, 0, 1);
+  const boundary = localDate(year + 1, 0, 1);
+  const complete = now.getTime() >= boundary.getTime();
+  return { kind: 'year', start: iso(start), end: iso(complete ? boundary : now), label: String(year), complete };
+}
+
+export function seasonRecapSelection(year: number, season: 'Winter' | 'Spring' | 'Summer' | 'Fall', now = new Date()): RecapSelection {
+  const ranges = { Winter: [0, 2], Spring: [2, 5], Summer: [5, 8], Fall: [8, 11] } as const;
+  const [startMonth, endMonth] = ranges[season];
+  const start = localDate(year, startMonth, 1);
+  const boundary = localDate(year, endMonth, 1);
+  const complete = now.getTime() >= boundary.getTime();
+  return { kind: 'season', start: iso(start), end: iso(complete ? boundary : now), label: `${season} ${year}`, complete };
+}
+
+export function customRecapSelection(startDay: string, endDay: string): RecapSelection {
+  const parse = (value: string) => {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+    if (!match) throw new Error('Choose a valid date range.');
+    return localDate(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  };
+  const start = parse(startDay);
+  const endInclusive = parse(endDay);
+  const end = localDate(endInclusive.getFullYear(), endInclusive.getMonth(), endInclusive.getDate() + 1);
+  if (end <= start) throw new Error('The custom recap must end after it starts.');
+  return {
+    kind: 'custom', start: iso(start), end: iso(end),
+    label: `${monthName(start.getMonth(), 'short')} ${start.getDate()} to ${monthName(endInclusive.getMonth(), 'short')} ${endInclusive.getDate()}`,
+    complete: end.getTime() <= Date.now(),
   };
 }

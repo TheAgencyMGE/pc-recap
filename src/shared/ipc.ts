@@ -10,6 +10,8 @@ import type {
   OnThisDayEntry,
   PeriodKind,
   PeriodSummary,
+  RecapSelection,
+  RecapStoryData,
   TimelineBucket,
   TrackedApp,
   TrackingSettings,
@@ -21,6 +23,7 @@ export interface PCRecapAPI {
   getSummary(kind: PeriodKind, year?: number): Promise<PeriodSummary>;
   getTimeline(level: 'year' | 'month' | 'day', anchor?: string): Promise<TimelineBucket[]>;
   getDayReplay(day: string): Promise<DayReplayData>;
+  getRecap(selection: RecapSelection): Promise<RecapStoryData>;
   getAppDetail(appId: string): Promise<AppDetail | null>;
   getAppIcon(appId: string): Promise<string | null>;
   listApps(): Promise<TrackedApp[]>;

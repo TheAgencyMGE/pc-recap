@@ -10,6 +10,8 @@ import type {
   OnThisDayEntry,
   PeriodKind,
   PeriodSummary,
+  RecapSelection,
+  RecapStoryData,
   RecordItem,
   TimeBucket,
   TrackingStatus,
@@ -95,6 +97,34 @@ export class AnalyticsService {
       idleGaps,
       relationships: summarized.relationships,
       recoveredClues: this.repository.listRecoveredEvents().filter((event) => localDayKey(event.occurredAt) === day),
+      pins: [],
+    };
+  }
+
+  getRecap(selection: RecapSelection): RecapStoryData {
+    const start = Date.parse(selection.start);
+    const end = Date.parse(selection.end);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) throw new Error('Choose a valid recap range.');
+    const duration = end - start;
+    const previousStart = new Date(start - duration).toISOString();
+    const sessions = this.querySessionsWithLive(selection.start, selection.end);
+    const summaryKind: PeriodKind = selection.kind === 'week' ? 'week'
+      : selection.kind === 'month' ? 'month'
+        : selection.kind === 'year' ? 'year'
+          : selection.kind === 'decade' ? 'decade'
+            : selection.kind === 'day' ? 'today' : 'all-time';
+    return {
+      selection,
+      summary: summarizeSessions(sessions, this.querySessionsWithLive(previousStart, selection.start), {
+        kind: summaryKind,
+        label: selection.label,
+        rangeStart: selection.start,
+        rangeEnd: selection.end,
+        isComplete: selection.complete,
+        comparisonLabel: `Previous ${selection.label.toLowerCase()}`,
+      }),
+      timeline: monthlyTimeline(sessions),
+      recoveredClues: this.repository.listRecoveredEvents().filter((event) => event.occurredAt >= selection.start && event.occurredAt < selection.end),
       pins: [],
     };
   }
@@ -234,6 +264,28 @@ function localDayRange(day: string) {
   if (localDayKey(start) !== day) throw new Error('Choose a valid day.');
   const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 1);
   return { start: start.toISOString(), end: end.toISOString() };
+}
+
+function monthlyTimeline(sessions: ActivitySession[]): import('../shared/types.js').TimelineBucket[] {
+  const groups = new Map<string, { seconds: number; apps: Map<string, number>; categoryId: string }>();
+  for (const session of sessions) {
+    for (const allocation of splitSessionByLocalDay(session)) {
+      const key = localMonthKey(allocation.startedAt);
+      const group = groups.get(key) ?? { seconds: 0, apps: new Map(), categoryId: session.categoryId };
+      group.seconds += allocation.seconds;
+      group.apps.set(session.appName, (group.apps.get(session.appName) ?? 0) + allocation.seconds);
+      groups.set(key, group);
+    }
+  }
+  const max = Math.max(1, ...[...groups.values()].map((group) => group.seconds));
+  return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([key, group]) => ({
+    key,
+    label: new Intl.DateTimeFormat('en-US', { month: 'long' }).format(new Date(Number(key.slice(0, 4)), Number(key.slice(5)) - 1, 1)),
+    seconds: group.seconds,
+    topApp: [...group.apps.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? '',
+    categoryId: group.categoryId,
+    intensity: group.seconds / max,
+  }));
 }
 
 function thresholdTimestamp(

@@ -3,7 +3,7 @@ import { basename } from 'node:path';
 import { app, dialog, ipcMain } from 'electron';
 import type { BrowserWindow, IpcMainInvokeEvent } from 'electron';
 import { BACKUP_EXTENSION, LEGACY_BACKUP_EXTENSIONS, PRODUCT_NAME } from '../shared/brand.js';
-import type { Category, PeriodKind, TrackingSettings } from '../shared/types.js';
+import type { Category, PeriodKind, RecapSelection, TrackingSettings } from '../shared/types.js';
 import type { AnalyticsService } from './analytics-service.js';
 import type { BackupService } from './backup.js';
 import type { ActivityRepository } from './database.js';
@@ -44,6 +44,7 @@ export function registerIpcHandlers({
     return repository.getTimeline(safeLevel, typeof anchor === 'string' ? anchor.slice(0, 10) : undefined);
   });
   handle('day-replay:get', (day) => analytics.getDayReplay(/^\d{4}-\d{2}-\d{2}$/.test(String(day)) ? String(day) : 'invalid'));
+  handle('recap:get', (selection) => analytics.getRecap(sanitizeRecapSelection(selection)));
   handle('apps:list', () => repository.listApps());
   handle('app:detail', (appId) => analytics.getAppDetail(String(appId).slice(0, 200)));
   handle('app:icon', (appId) => icons.getDataUrl(String(appId).slice(0, 200)));
@@ -135,6 +136,26 @@ export function registerIpcHandlers({
   });
   handle('history:delete-all', () => repository.deleteAllHistory());
   handle('app:version', () => app.getVersion());
+}
+
+function sanitizeRecapSelection(value: unknown): RecapSelection {
+  const selection = value as Partial<RecapSelection> | null;
+  const kinds = new Set<RecapSelection['kind']>(['day', 'week', 'month', 'year', 'season', 'decade', 'custom']);
+  if (!selection || !kinds.has(selection.kind as RecapSelection['kind'])) throw new Error('Recap selection is invalid.');
+  const start = String(selection.start ?? '');
+  const end = String(selection.end ?? '');
+  const startTime = Date.parse(start);
+  const endTime = Date.parse(end);
+  if (!Number.isFinite(startTime) || !Number.isFinite(endTime) || endTime <= startTime || endTime - startTime > 100 * 366 * 24 * 60 * 60 * 1_000) {
+    throw new Error('Recap selection is invalid.');
+  }
+  return {
+    kind: selection.kind as RecapSelection['kind'],
+    start: new Date(startTime).toISOString(),
+    end: new Date(endTime).toISOString(),
+    label: String(selection.label ?? 'Custom recap').slice(0, 80),
+    complete: Boolean(selection.complete),
+  };
 }
 
 function assertTrustedSender(event: IpcMainInvokeEvent, window: BrowserWindow | null, trustedRendererUrl: string) {

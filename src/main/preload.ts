@@ -7,6 +7,7 @@ const api: PCRecapAPI = {
   getSummary: (kind, year) => ipcRenderer.invoke('summary:get', kind, year),
   getTimeline: (level, anchor) => ipcRenderer.invoke('timeline:get', level, anchor),
   getDayReplay: (day) => ipcRenderer.invoke('day-replay:get', day),
+  getRecap: (selection) => ipcRenderer.invoke('recap:get', selection),
   getAppDetail: (appId) => ipcRenderer.invoke('app:detail', appId),
   getAppIcon: (appId) => ipcRenderer.invoke('app:icon', appId),
   listApps: () => ipcRenderer.invoke('apps:list'),

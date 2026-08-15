@@ -23,6 +23,7 @@ const DESTINATIONS: SearchItem[] = [
   ['achievements', 'Records', 'Archive', 'achievements', 'achievements streaks'],
   ['categories', 'Categories', 'Organize', 'categories', 'manage apps'],
   ['history-recovery', 'Recover older history', 'Archive', 'history-recovery', 'import tracker windows'],
+  ['recap-studio', 'Recap Studio', 'Stories', 'recap-studio', 'custom historical season playback'],
   ['settings', 'Settings', 'Controls', 'settings', 'tracking backup privacy'],
 ].map(([id, title, detail, route, keywords]) => ({ id, title, detail, route: route as RouteId, keywords }));
 

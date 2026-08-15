@@ -107,4 +107,26 @@ describe('AnalyticsService local calendar semantics', () => {
     expect(result.idleGaps[0]).toMatchObject({ durationSeconds: 1_800 });
     expect(result.recoveredClues).toEqual([expect.objectContaining({ appName: 'Blender' })]);
   });
+
+  it('builds custom recap stories from only the selected real interval', () => {
+    const repository = new ActivityRepository(':memory:');
+    repositories.push(repository);
+    repository.insertSession({
+      id: 'inside-custom', appId: 'code', appName: 'Code', categoryId: 'coding',
+      startedAt: '2026-06-10T10:00:00.000Z', endedAt: '2026-06-10T11:00:00.000Z', durationSeconds: 3_600,
+    });
+    repository.insertSession({
+      id: 'outside-custom', appId: 'chrome', appName: 'Chrome', categoryId: 'browsing',
+      startedAt: '2026-07-10T10:00:00.000Z', endedAt: '2026-07-10T12:00:00.000Z', durationSeconds: 7_200,
+    });
+    const service = new AnalyticsService(repository, () => ({ state: 'tracking' }));
+
+    const story = service.getRecap({
+      kind: 'custom', start: '2026-06-01T00:00:00.000Z', end: '2026-07-01T00:00:00.000Z', label: 'June cut', complete: true,
+    });
+
+    expect(story.summary).toMatchObject({ totalSeconds: 3_600, label: 'June cut' });
+    expect(story.summary.topApps.map((app) => app.name)).toEqual(['Code']);
+    expect(story.timeline).toEqual([expect.objectContaining({ key: '2026-06', topApp: 'Code' })]);
+  });
 });
