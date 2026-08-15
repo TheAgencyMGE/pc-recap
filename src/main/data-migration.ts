@@ -1,4 +1,4 @@
-import { access, mkdir } from 'node:fs/promises';
+import { access, copyFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
 import { DATABASE_FILE, LEGACY_DATABASE_LOCATIONS } from '../shared/brand.js';
@@ -15,7 +15,11 @@ async function fileExists(path: string) {
 export async function prepareActivityDatabase(currentUserData: string, appData: string) {
   await mkdir(currentUserData, { recursive: true });
   const destination = join(currentUserData, DATABASE_FILE);
-  if (await fileExists(destination)) return destination;
+  if (await fileExists(destination)) {
+    const backup = `${destination}.pre-1.1-backup`;
+    if (!(await fileExists(backup))) await copyFile(destination, backup);
+    return destination;
+  }
 
   const candidates = [
     ...LEGACY_DATABASE_LOCATIONS.map(({ directory, file }) => join(appData, directory, file)),

@@ -41,6 +41,61 @@ export interface ActivitySession {
   durationSeconds: number;
   windowTitle?: string;
   machineId?: string;
+  sourceKind?: SessionSourceKind;
+  confidence?: SessionConfidence;
+  sourceRecordId?: string;
+  importBatchId?: string;
+}
+
+export type SessionSourceKind =
+  | 'pc_recap'
+  | 'pc_recap_backup'
+  | 'activitywatch'
+  | 'manictime'
+  | 'rescuetime'
+  | 'wakatime';
+
+export type SessionConfidence = 'recorded' | 'imported_exact';
+
+export interface OpenSessionCheckpoint {
+  machineId: string;
+  appId: string;
+  appName: string;
+  executable: string;
+  path?: string;
+  categoryId: string;
+  startedAt: string;
+  lastSampleAt: string;
+  checkpointedAt: string;
+  windowTitle?: string;
+}
+
+export interface ApplicationAlias {
+  sourceExecutable: string;
+  canonicalAppId: string;
+  canonicalName: string;
+  updatedAt: string;
+}
+
+export interface RecoveredEvent {
+  id: string;
+  appId?: string;
+  appName: string;
+  eventType: 'installed' | 'launched' | 'recently-used' | 'uninstalled' | 'context';
+  occurredAt: string;
+  sourceKind: string;
+  confidence: 'high' | 'medium' | 'low';
+  detail?: string;
+  importBatchId?: string;
+}
+
+export interface ImportBatch {
+  id: string;
+  sourceKind: string;
+  sourceFingerprint: string;
+  importedAt: string;
+  exactSessionCount: number;
+  recoveredEventCount: number;
 }
 
 export interface AppUsage {

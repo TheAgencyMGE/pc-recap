@@ -5,7 +5,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ActivityRepository } from './database';
-import type { ActivitySession } from '../shared/types';
+import type { ActivitySession, OpenSessionCheckpoint } from '../shared/types';
 
 const openRepositories: ActivityRepository[] = [];
 const temporaryDirectories: string[] = [];
@@ -55,6 +55,56 @@ describe('ActivityRepository', () => {
       idleThresholdSeconds: 600,
       sampleIntervalSeconds: 10,
     });
+  });
+
+  it('round-trips an open session checkpoint without finalizing activity', () => {
+    const store = repository();
+    const checkpoint: OpenSessionCheckpoint = {
+      machineId: 'pc',
+      appId: 'code',
+      appName: 'Visual Studio Code',
+      executable: 'Code.exe',
+      categoryId: 'coding',
+      startedAt: '2026-08-15T10:00:00.000Z',
+      lastSampleAt: '2026-08-15T10:00:30.000Z',
+      checkpointedAt: '2026-08-15T10:00:30.000Z',
+    };
+
+    store.saveOpenSessionCheckpoint(checkpoint);
+
+    expect(store.getOpenSessionCheckpoint('pc')).toEqual(checkpoint);
+    expect(store.getAllSessions()).toHaveLength(0);
+    store.clearOpenSessionCheckpoint('pc');
+    expect(store.getOpenSessionCheckpoint('pc')).toBeUndefined();
+  });
+
+  it('resolves canonical aliases by normalized executable path', () => {
+    const store = repository();
+
+    store.upsertApplicationAlias({
+      sourceExecutable: 'C:\\Program Files\\Microsoft VS Code\\Code.exe',
+      canonicalAppId: 'visual-studio-code',
+      canonicalName: 'Visual Studio Code',
+      updatedAt: '2026-08-15T10:00:00.000Z',
+    });
+
+    expect(store.resolveApplicationAlias('c:\\program files\\microsoft vs code\\CODE.EXE')).toMatchObject({
+      canonicalAppId: 'visual-studio-code',
+      canonicalName: 'Visual Studio Code',
+    });
+  });
+
+  it('stores session provenance without changing duration totals', () => {
+    const store = repository();
+    store.insertSession({ ...sample, sourceKind: 'activitywatch', confidence: 'imported_exact' });
+
+    expect(store.getAllSessions()).toEqual([
+      expect.objectContaining({
+        durationSeconds: 5_400,
+        sourceKind: 'activitywatch',
+        confidence: 'imported_exact',
+      }),
+    ]);
   });
 
   it('returns joined application metadata in chronological range queries', () => {

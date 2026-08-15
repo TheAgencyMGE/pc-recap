@@ -1,7 +1,9 @@
 import Database from 'better-sqlite3';
 import type {
   ActivitySession,
+  ApplicationAlias,
   Category,
+  OpenSessionCheckpoint,
   TimelineBucket,
   TrackedApp,
   TrackingSettings,
@@ -19,6 +21,10 @@ interface SessionRow {
   duration_seconds: number;
   window_title: string | null;
   machine_id: string;
+  source_kind: ActivitySession['sourceKind'];
+  confidence: ActivitySession['confidence'];
+  source_record_id: string | null;
+  import_batch_id: string | null;
 }
 
 interface AppRow {
@@ -70,6 +76,10 @@ const sessionFromRow = (row: SessionRow): ActivitySession => ({
   durationSeconds: row.duration_seconds,
   windowTitle: row.window_title ?? undefined,
   machineId: row.machine_id,
+  sourceKind: row.source_kind,
+  confidence: row.confidence,
+  sourceRecordId: row.source_record_id ?? undefined,
+  importBatchId: row.import_batch_id ?? undefined,
 });
 
 const appFromRow = (row: AppRow): TrackedApp => ({
@@ -127,6 +137,10 @@ export class ActivityRepository {
         duration_seconds INTEGER NOT NULL CHECK(duration_seconds >= 0),
         window_title TEXT,
         machine_id TEXT NOT NULL DEFAULT 'local',
+        source_kind TEXT NOT NULL DEFAULT 'pc_recap',
+        confidence TEXT NOT NULL DEFAULT 'recorded',
+        source_record_id TEXT,
+        import_batch_id TEXT,
         day TEXT NOT NULL
       );
       CREATE INDEX IF NOT EXISTS idx_sessions_started ON activity_sessions(started_at);
@@ -162,7 +176,46 @@ export class ActivityRepository {
         imported_at TEXT NOT NULL,
         session_count INTEGER NOT NULL
       ) WITHOUT ROWID;
+      CREATE TABLE IF NOT EXISTS open_session_checkpoints (
+        machine_id TEXT PRIMARY KEY,
+        app_id TEXT NOT NULL,
+        app_name TEXT NOT NULL,
+        executable TEXT NOT NULL,
+        path TEXT,
+        category_id TEXT NOT NULL,
+        started_at TEXT NOT NULL,
+        last_sample_at TEXT NOT NULL,
+        checkpointed_at TEXT NOT NULL,
+        window_title TEXT
+      ) WITHOUT ROWID;
+      CREATE TABLE IF NOT EXISTS application_aliases (
+        source_executable TEXT PRIMARY KEY,
+        canonical_app_id TEXT NOT NULL,
+        canonical_name TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      ) WITHOUT ROWID;
+      CREATE TABLE IF NOT EXISTS import_batches (
+        id TEXT PRIMARY KEY,
+        source_kind TEXT NOT NULL,
+        source_fingerprint TEXT NOT NULL UNIQUE,
+        imported_at TEXT NOT NULL,
+        exact_session_count INTEGER NOT NULL DEFAULT 0,
+        recovered_event_count INTEGER NOT NULL DEFAULT 0
+      ) WITHOUT ROWID;
+      CREATE TABLE IF NOT EXISTS recovered_events (
+        id TEXT PRIMARY KEY,
+        app_id TEXT,
+        app_name TEXT NOT NULL,
+        event_type TEXT NOT NULL,
+        occurred_at TEXT NOT NULL,
+        source_kind TEXT NOT NULL,
+        confidence TEXT NOT NULL,
+        detail TEXT,
+        import_batch_id TEXT REFERENCES import_batches(id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_recovered_events_occurred ON recovered_events(occurred_at);
     `);
+    this.ensureSessionProvenanceColumns();
     this.removeLegacySyntheticHistory();
     const insertCategory = this.database.prepare(`
       INSERT OR IGNORE INTO categories(id, name, color, icon, is_default) VALUES (?, ?, ?, ?, ?)
@@ -200,11 +253,14 @@ export class ActivityRepository {
       const normalizedSession = { ...session, durationSeconds };
       const inserted = this.database.prepare(`
         INSERT OR IGNORE INTO activity_sessions(
-          id, app_id, started_at, ended_at, duration_seconds, window_title, machine_id, day
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          id, app_id, started_at, ended_at, duration_seconds, window_title, machine_id,
+          source_kind, confidence, source_record_id, import_batch_id, day
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         session.id, session.appId, session.startedAt, session.endedAt, durationSeconds,
-        session.windowTitle ?? null, session.machineId ?? 'local', localDayKey(session.startedAt),
+        session.windowTitle ?? null, session.machineId ?? 'local', session.sourceKind ?? 'pc_recap',
+        session.confidence ?? 'recorded', session.sourceRecordId ?? null, session.importBatchId ?? null,
+        localDayKey(session.startedAt),
       );
       if (Number(inserted.changes) === 0) {
         this.database.exec('ROLLBACK');
@@ -224,7 +280,8 @@ export class ActivityRepository {
   querySessions(start: string, end: string): ActivitySession[] {
     const rows = this.database.prepare(`
       SELECT s.id, s.app_id, a.name AS app_name, a.category_id, s.started_at, s.ended_at,
-             s.duration_seconds, s.window_title, s.machine_id
+             s.duration_seconds, s.window_title, s.machine_id, s.source_kind, s.confidence,
+             s.source_record_id, s.import_batch_id
       FROM activity_sessions s
       JOIN applications a ON a.id = s.app_id
       WHERE s.ended_at > ? AND s.started_at < ?
@@ -286,6 +343,84 @@ export class ActivityRepository {
     } catch {
       return { ...DEFAULT_SETTINGS };
     }
+  }
+
+  saveOpenSessionCheckpoint(checkpoint: OpenSessionCheckpoint) {
+    this.database.prepare(`
+      INSERT INTO open_session_checkpoints(
+        machine_id, app_id, app_name, executable, path, category_id, started_at,
+        last_sample_at, checkpointed_at, window_title
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(machine_id) DO UPDATE SET
+        app_id = excluded.app_id,
+        app_name = excluded.app_name,
+        executable = excluded.executable,
+        path = excluded.path,
+        category_id = excluded.category_id,
+        started_at = excluded.started_at,
+        last_sample_at = excluded.last_sample_at,
+        checkpointed_at = excluded.checkpointed_at,
+        window_title = excluded.window_title
+    `).run(
+      checkpoint.machineId, checkpoint.appId, checkpoint.appName, checkpoint.executable,
+      checkpoint.path ?? null, checkpoint.categoryId, checkpoint.startedAt, checkpoint.lastSampleAt,
+      checkpoint.checkpointedAt, checkpoint.windowTitle ?? null,
+    );
+  }
+
+  getOpenSessionCheckpoint(machineId: string): OpenSessionCheckpoint | undefined {
+    const row = this.database.prepare(`
+      SELECT machine_id, app_id, app_name, executable, path, category_id, started_at,
+             last_sample_at, checkpointed_at, window_title
+      FROM open_session_checkpoints WHERE machine_id = ?
+    `).get(machineId) as {
+      machine_id: string; app_id: string; app_name: string; executable: string; path: string | null;
+      category_id: string; started_at: string; last_sample_at: string; checkpointed_at: string;
+      window_title: string | null;
+    } | undefined;
+    if (!row) return undefined;
+    return {
+      machineId: row.machine_id,
+      appId: row.app_id,
+      appName: row.app_name,
+      executable: row.executable,
+      path: row.path ?? undefined,
+      categoryId: row.category_id,
+      startedAt: row.started_at,
+      lastSampleAt: row.last_sample_at,
+      checkpointedAt: row.checkpointed_at,
+      windowTitle: row.window_title ?? undefined,
+    };
+  }
+
+  clearOpenSessionCheckpoint(machineId: string) {
+    this.database.prepare('DELETE FROM open_session_checkpoints WHERE machine_id = ?').run(machineId);
+  }
+
+  upsertApplicationAlias(alias: ApplicationAlias) {
+    this.database.prepare(`
+      INSERT INTO application_aliases(source_executable, canonical_app_id, canonical_name, updated_at)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(source_executable) DO UPDATE SET
+        canonical_app_id = excluded.canonical_app_id,
+        canonical_name = excluded.canonical_name,
+        updated_at = excluded.updated_at
+    `).run(alias.sourceExecutable.toLowerCase(), alias.canonicalAppId, alias.canonicalName, alias.updatedAt);
+  }
+
+  resolveApplicationAlias(sourceExecutable: string): ApplicationAlias | undefined {
+    const row = this.database.prepare(`
+      SELECT source_executable, canonical_app_id, canonical_name, updated_at
+      FROM application_aliases WHERE source_executable = ?
+    `).get(sourceExecutable.toLowerCase()) as {
+      source_executable: string; canonical_app_id: string; canonical_name: string; updated_at: string;
+    } | undefined;
+    return row ? {
+      sourceExecutable: row.source_executable,
+      canonicalAppId: row.canonical_app_id,
+      canonicalName: row.canonical_name,
+      updatedAt: row.updated_at,
+    } : undefined;
   }
 
   updateSettings(patch: Partial<TrackingSettings>): TrackingSettings {
@@ -407,6 +542,20 @@ export class ActivityRepository {
       };
       updateDay.run(localDayKey(session.startedAt), session.id);
       for (const allocation of splitSessionByLocalDay(session)) this.addRollupAllocation(session.appId, allocation);
+    }
+  }
+
+  private ensureSessionProvenanceColumns() {
+    const columns = new Set((this.database.prepare('PRAGMA table_info(activity_sessions)').all() as Array<{ name: string }>)
+      .map((column) => column.name));
+    const additions = [
+      ['source_kind', "TEXT NOT NULL DEFAULT 'pc_recap'"],
+      ['confidence', "TEXT NOT NULL DEFAULT 'recorded'"],
+      ['source_record_id', 'TEXT'],
+      ['import_batch_id', 'TEXT'],
+    ] as const;
+    for (const [name, definition] of additions) {
+      if (!columns.has(name)) this.database.exec(`ALTER TABLE activity_sessions ADD COLUMN ${name} ${definition}`);
     }
   }
 
