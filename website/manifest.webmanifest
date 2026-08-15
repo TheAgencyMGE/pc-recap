@@ -1,0 +1,19 @@
+{
+  "name": "PC Recap",
+  "short_name": "PC Recap",
+  "description": "Windows app usage history, visual recaps, timelines, eras, and records.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "browser",
+  "background_color": "#f6f6f1",
+  "theme_color": "#f6f6f1",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

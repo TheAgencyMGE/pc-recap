@@ -1,5 +1,5 @@
 /*
-  Content-Security-Policy: default-src 'self'; script-src 'self' https://plausible.io; style-src 'self'; img-src 'self'; font-src 'self'; connect-src https://plausible.io; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'none'; upgrade-insecure-requests
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-ueIHn3VHJfkNEA6zO9a5+VEgZwsao5Bpm9Vf/rjD23U=' https://plausible.io; style-src 'self'; img-src 'self'; font-src 'self'; connect-src https://plausible.io; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'none'; upgrade-insecure-requests
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
   Referrer-Policy: strict-origin-when-cross-origin
@@ -12,3 +12,18 @@
 
 /og.png
   Cache-Control: public, max-age=86400
+
+/favicon.svg
+  Cache-Control: public, max-age=604800
+
+/manifest.webmanifest
+  Cache-Control: public, max-age=3600
+
+/sitemap.xml
+  Cache-Control: public, max-age=3600
+
+/robots.txt
+  Cache-Control: public, max-age=3600
+
+/indexnow-key.txt
+  Cache-Control: public, max-age=3600

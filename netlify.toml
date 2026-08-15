@@ -1,0 +1,6 @@
+[build]
+  command = "npm run website:validate"
+  publish = "website"
+
+[build.environment]
+  NODE_VERSION = "22"

@@ -1,6 +1,6 @@
 # PC Recap
 
-PC Recap turns real computer activity into a private history of your digital life: daily snapshots, weekly and monthly recaps, a cinematic Yearly Recap, long-term eras, records, and an archive you can carry between computers.
+PC Recap turns real computer activity into a visual history of your digital life: daily snapshots, weekly and monthly recaps, a cinematic Yearly Recap, long-term eras, records, and an archive you can carry between computers.
 
 ![PC Recap cover shelf](website/og.png)
 
@@ -67,6 +67,14 @@ Create the Windows installer:
 ```powershell
 npm run package
 ```
+
+Prepare the current website, Netlify archive, and release post copy:
+
+```powershell
+npm run promotion:prepare
+```
+
+This refreshes versioned download links and sitemap dates, validates the static site, writes the deployable archive to `artifacts/pc-recap-netlify.zip`, and writes concise platform copy to `marketing/release-posts.md`. After the updated site is live, notify participating search engines with `npm run seo:submit`.
 
 ## Architecture
 
