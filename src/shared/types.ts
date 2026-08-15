@@ -47,6 +47,10 @@ export interface ActivitySession {
   importBatchId?: string;
 }
 
+export interface LiveActivitySession extends ActivitySession {
+  provisional: true;
+}
+
 export type SessionSourceKind =
   | 'pc_recap'
   | 'pc_recap_backup'

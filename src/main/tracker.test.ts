@@ -45,7 +45,7 @@ describe('ActivityTracker', () => {
     await tracker.sample();
 
     expect(repository.getAllSessions()).toEqual([
-      expect.objectContaining({ appName: 'Visual Studio Code', durationSeconds: 20, machineId: 'test-pc' }),
+      expect.objectContaining({ appName: 'Visual Studio Code', durationSeconds: 15, machineId: 'test-pc' }),
       expect.objectContaining({ appName: 'Discord', durationSeconds: 10, machineId: 'test-pc' }),
     ]);
   });
@@ -111,5 +111,71 @@ describe('ActivityTracker', () => {
 
     expect(repository.getAllSessions()).toHaveLength(1);
     expect(tracker.getStatus()).toMatchObject({ state: 'unavailable' });
+  });
+
+  it('exposes provisional activity without writing it into finalized history', async () => {
+    const repository = store();
+    const source = new SequenceSource([
+      { name: 'Visual Studio Code', executable: 'Code.exe', path: 'C:\\Code.exe' },
+    ]);
+    const times = [
+      new Date('2026-08-15T10:00:00.000Z'),
+      new Date('2026-08-15T10:02:00.000Z'),
+    ];
+    const tracker = new ActivityTracker(repository, source, {
+      now: () => times.shift()!, idleSeconds: () => 0, machineId: 'test-pc',
+    });
+
+    await tracker.sample();
+
+    const firstSnapshot = tracker.getLiveSession();
+    const secondSnapshot = tracker.getLiveSession(new Date('2026-08-15T10:02:10.000Z'));
+    expect(firstSnapshot).toMatchObject({
+      appName: 'Visual Studio Code', durationSeconds: 120, provisional: true,
+    });
+    expect(secondSnapshot?.id).toBe(firstSnapshot?.id);
+    expect(repository.getAllSessions()).toEqual([]);
+    expect(repository.getOpenSessionCheckpoint('test-pc')).toMatchObject({ appId: 'code-exe' });
+  });
+
+  it('recovers a crashed session only through its final observed sample', () => {
+    const repository = store();
+    repository.saveOpenSessionCheckpoint({
+      machineId: 'test-pc', appId: 'code-exe', appName: 'Visual Studio Code', executable: 'Code.exe',
+      categoryId: 'coding', startedAt: '2026-08-15T10:00:00.000Z',
+      lastSampleAt: '2026-08-15T10:00:30.000Z', checkpointedAt: '2026-08-15T10:00:31.000Z',
+    });
+
+    new ActivityTracker(repository, new SequenceSource([]), {
+      now: () => new Date('2026-08-15T11:00:00.000Z'), idleSeconds: () => 0, machineId: 'test-pc',
+    });
+
+    expect(repository.getAllSessions()).toEqual([
+      expect.objectContaining({ durationSeconds: 30, startedAt: '2026-08-15T10:00:00.000Z' }),
+    ]);
+    expect(repository.getOpenSessionCheckpoint('test-pc')).toBeUndefined();
+  });
+
+  it('subtracts the full idle interval from an open session', async () => {
+    const repository = store();
+    repository.updateSettings({ idleThresholdSeconds: 60 });
+    const source = new SequenceSource([
+      { name: 'Chrome', executable: 'chrome.exe', path: 'C:\\chrome.exe' },
+    ]);
+    const times = [
+      new Date('2026-08-15T09:59:00.000Z'),
+      new Date('2026-08-15T10:05:10.000Z'),
+    ];
+    const idleValues = [0, 310];
+    const tracker = new ActivityTracker(repository, source, {
+      now: () => times.shift()!, idleSeconds: () => idleValues.shift()!, machineId: 'test-pc',
+    });
+
+    await tracker.sample();
+    await tracker.sample();
+
+    expect(repository.getAllSessions()).toEqual([
+      expect.objectContaining({ durationSeconds: 60, endedAt: '2026-08-15T10:00:00.000Z' }),
+    ]);
   });
 });
