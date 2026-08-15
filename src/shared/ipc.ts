@@ -4,6 +4,8 @@ import type {
   BackupResult,
   Category,
   DashboardData,
+  HistoryImportResult,
+  HistoryPreviewView,
   OnThisDayEntry,
   PeriodKind,
   PeriodSummary,
@@ -35,6 +37,10 @@ export interface PCRecapAPI {
   onTrackingStatus(callback: (status: TrackingStatus) => void): () => void;
   exportBackup(): Promise<BackupResult>;
   importBackup(): Promise<BackupResult>;
+  previewHistoryFile(): Promise<HistoryPreviewView | null>;
+  scanWindowsHistory(includeBrowserHistory: boolean): Promise<HistoryPreviewView>;
+  commitHistoryImport(previewId: string): Promise<HistoryImportResult>;
+  cancelHistoryPreview(previewId: string): Promise<void>;
   saveShareCard(dataUrl: string, suggestedName: string): Promise<BackupResult>;
   deleteAllHistory(): Promise<void>;
   getVersion(): Promise<string>;

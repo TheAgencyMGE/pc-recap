@@ -8,6 +8,7 @@ import type { AnalyticsService } from './analytics-service.js';
 import type { BackupService } from './backup.js';
 import type { ActivityRepository } from './database.js';
 import type { AppIconService } from './app-icon-service.js';
+import type { HistoryRecoveryService } from './history-recovery-service.js';
 import type { ActivityTracker } from './tracker.js';
 
 interface IpcDependencies {
@@ -16,6 +17,7 @@ interface IpcDependencies {
   tracker: ActivityTracker;
   backup: BackupService;
   icons: AppIconService;
+  history: HistoryRecoveryService;
   getMainWindow: () => BrowserWindow | null;
   trustedRendererUrl: string;
 }
@@ -26,7 +28,7 @@ const safeYear = (value: unknown) => typeof value === 'number' && value >= 1970 
 const cleanName = (value: string) => basename(value).replace(/[^a-zA-Z0-9 ._-]/g, '').slice(0, 80) || 'PC-Recap.png';
 
 export function registerIpcHandlers({
-  repository, analytics, tracker, backup, icons, getMainWindow, trustedRendererUrl,
+  repository, analytics, tracker, backup, icons, history, getMainWindow, trustedRendererUrl,
 }: IpcDependencies) {
   const handle = (channel: string, listener: (...args: any[]) => unknown) => {
     ipcMain.handle(channel, (event, ...args) => {
@@ -102,6 +104,21 @@ export function registerIpcHandlers({
       return { ok: false, error: error instanceof Error ? error.message : 'Import failed.' };
     }
   });
+  handle('history:preview-file', async () => {
+    const selected = await dialog.showOpenDialog({
+      title: 'Choose a tracker history export',
+      properties: ['openFile'],
+      filters: [
+        { name: 'Supported history exports', extensions: ['json', 'csv', 'tsv', 'txt', 'db', 'sqlite', 'sqlite3'] },
+        { name: 'All files', extensions: ['*'] },
+      ],
+    });
+    if (selected.canceled || !selected.filePaths[0]) return null;
+    return history.previewFile(selected.filePaths[0]);
+  });
+  handle('history:scan-windows', (includeBrowserHistory) => history.scanWindows(Boolean(includeBrowserHistory)));
+  handle('history:commit-import', (previewId) => history.commit(String(previewId).slice(0, 100)));
+  handle('history:cancel-preview', (previewId) => history.cancel(String(previewId).slice(0, 100)));
   handle('share:save', async (dataUrl: string, suggestedName: string) => {
     if (typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/png;base64,') || dataUrl.length > 15_000_000) {
       return { ok: false, error: 'The share card is invalid.' };

@@ -1,14 +1,15 @@
-import { ArchiveRestore, DatabaseBackup, Download, EyeOff, Info, Power, ShieldCheck, Trash2, Upload } from 'lucide-react';
+import { ArchiveRestore, DatabaseBackup, Download, EyeOff, History, Info, Power, ShieldCheck, Trash2, Upload } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useState } from 'react';
 import type { PCRecapAPI } from '../../shared/ipc';
 import type { TrackingSettings } from '../../shared/types';
+import type { RouteId } from '../routes';
 
 function SettingRow({ icon, title, copy, control }: { icon: React.ReactNode; title: string; copy: string; control: React.ReactNode }) {
   return <div className="setting-row"><span className="setting-row__icon">{icon}</span><span><b>{title}</b><small>{copy}</small></span>{control}</div>;
 }
 
-export function Settings({ api, settings, onChanged }: { api: PCRecapAPI; settings: TrackingSettings; onChanged: () => void }) {
+export function Settings({ api, settings, onChanged, onNavigate }: { api: PCRecapAPI; settings: TrackingSettings; onChanged: () => void; onNavigate: (route: RouteId) => void }) {
   const [message, setMessage] = useState('');
   const update = async (patch: Partial<TrackingSettings>) => { await api.updateSettings(patch); onChanged(); };
   const backup = async (kind: 'export' | 'import') => {
@@ -31,6 +32,7 @@ export function Settings({ api, settings, onChanged }: { api: PCRecapAPI; settin
       </article>
     </div><div>
       <article className="settings-group backup-card"><header><DatabaseBackup /><div><h2>Portable history</h2><p>Carry decades of memories to your next computer.</p></div></header><div className="backup-actions"><button onClick={() => backup('export')}><Download /> <span><b>Export archive</b><small>Encrypted-device-friendly .pcr file</small></span></button><button onClick={() => backup('import')}><Upload /> <span><b>Import archive</b><small>Merges without duplicate sessions</small></span></button></div></article>
+      <button className="history-recovery-link" onClick={() => onNavigate('history-recovery')}><History /><span><b>Recover older history</b><small>Tracker exports and Windows clues</small></span></button>
       <article className="danger-zone"><Trash2 /><div><h2>Erase all history</h2><p>Settings stay. Every app session and record goes.</p></div><button onClick={confirmDelete}>Erase</button></article>
     </div></section>
   </motion.div>;

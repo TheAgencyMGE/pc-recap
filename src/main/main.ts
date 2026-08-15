@@ -10,6 +10,8 @@ import { BackupService } from './backup.js';
 import { ActivityRepository } from './database.js';
 import { prepareActivityDatabase } from './data-migration.js';
 import { registerIpcHandlers } from './ipc.js';
+import { HistoryRecoveryService } from './history-recovery-service.js';
+import { HistoryImportService } from './importers/import-service.js';
 import { isTrustedNavigation, resolveRendererTarget } from './renderer-security.js';
 import { ActivityTracker } from './tracker.js';
 
@@ -113,6 +115,7 @@ app.whenReady().then(async () => {
     analytics,
     tracker,
     backup: new BackupService(repository),
+    history: new HistoryRecoveryService(new HistoryImportService(repository)),
     icons,
     getMainWindow: () => mainWindow,
     trustedRendererUrl: rendererTarget.trustedUrl,

@@ -18,6 +18,7 @@ import { Dashboard } from './pages/Dashboard';
 import { OnThisDay } from './pages/OnThisDay';
 import { PeriodView } from './pages/PeriodView';
 import { Settings } from './pages/Settings';
+import { HistoryRecovery } from './pages/HistoryRecovery';
 import { Timeline } from './pages/Timeline';
 import { YearlyRecap } from './pages/YearlyRecap';
 import type { RouteId } from './routes';
@@ -30,7 +31,7 @@ const routeTitle = (route: RouteId, detail?: AppDetailData | null) => {
   const titles: Partial<Record<RouteId, string>> = {
     today: 'Today', week: 'Week', month: 'Month', 'all-time': 'All time', decade: 'Decade',
     timeline: 'Timeline', 'on-this-day': 'On this day', achievements: 'Records',
-    categories: 'Categories', settings: 'Settings',
+    categories: 'Categories', settings: 'Settings', 'history-recovery': 'Recover history',
   };
   return titles[route] ?? 'PC Recap';
 };
@@ -108,7 +109,8 @@ export function App({ api = rendererApi }: { api?: PCRecapAPI }) {
     if (route === 'on-this-day') return <OnThisDay entries={onThisDay} />;
     if (route === 'achievements') return <Achievements achievements={data.achievements} />;
     if (route === 'categories') return <Categories api={api} categories={categories} apps={apps} onChanged={reload} />;
-    if (route === 'settings') return <Settings api={api} settings={settings} onChanged={reload} />;
+    if (route === 'settings') return <Settings api={api} settings={settings} onChanged={reload} onNavigate={setRoute} />;
+    if (route === 'history-recovery') return <HistoryRecovery api={api} onChanged={reload} />;
     if (route.startsWith('app:')) return appDetail ? <AppDetail detail={appDetail} onSetExcluded={async (excluded) => {
       await api.setAppExcluded(appDetail.app.id, excluded);
       reload();

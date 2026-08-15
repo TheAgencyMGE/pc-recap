@@ -114,6 +114,34 @@ export interface ImportBatch {
   recoveredEventCount: number;
 }
 
+export interface HistorySourceStatus {
+  id: string;
+  label: string;
+  available: boolean;
+  eventCount: number;
+  limitation?: string;
+}
+
+export interface HistoryPreviewView {
+  id: string;
+  sourceKind: string;
+  sourceLabel: string;
+  exactSessions: Array<Pick<ActivitySession, 'appName' | 'startedAt' | 'durationSeconds'>>;
+  exactSessionCount: number;
+  recoveredEvents: RecoveredEventInput[];
+  recoveredEventCount: number;
+  warnings: string[];
+  coverage?: { start: string; end: string };
+  sources: HistorySourceStatus[];
+}
+
+export interface HistoryImportResult {
+  importedSessions: number;
+  duplicates: number;
+  recoveredEvents: number;
+  batchId?: string;
+}
+
 export interface AppUsage {
   appId: string;
   name: string;

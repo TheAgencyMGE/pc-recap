@@ -44,4 +44,15 @@ describe('Windows history recovery', () => {
     expect(result.events).toEqual([]);
     expect(result.warnings[0]).toMatch(/only available on Windows/i);
   });
+
+  it('reads browser history only after explicit consent', async () => {
+    const read = vi.fn().mockResolvedValue([]);
+    const browserReader = { id: 'browser-history', label: 'Browser history', read };
+
+    await scanWindowsHistory({ platform: 'win32', readers: [], browserReader, includeBrowserHistory: false });
+    expect(read).not.toHaveBeenCalled();
+
+    await scanWindowsHistory({ platform: 'win32', readers: [], browserReader, includeBrowserHistory: true });
+    expect(read).toHaveBeenCalledOnce();
+  });
 });

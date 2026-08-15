@@ -1,5 +1,6 @@
 import type { RecoveredEventInput } from '../../shared/types.js';
 import { readWindowsActivityHistoryEvents } from './activity-history.js';
+import { readBrowserHistoryEvents } from './browser-history.js';
 import { readInstalledAppEvents } from './installed-apps.js';
 import { readPrefetchEvents } from './prefetch.js';
 import { readUserAssistEvents } from './user-assist.js';
@@ -23,11 +24,19 @@ const defaultReaders = (): RecoveryReader[] => [
   { id: 'activity-history', label: 'Windows Activity History', read: readWindowsActivityHistoryEvents },
 ];
 
-export async function scanWindowsHistory(options: { platform?: NodeJS.Platform; readers?: RecoveryReader[] } = {}): Promise<RecoveryScanResult> {
+export async function scanWindowsHistory(options: {
+  platform?: NodeJS.Platform;
+  readers?: RecoveryReader[];
+  includeBrowserHistory?: boolean;
+  browserReader?: RecoveryReader;
+} = {}): Promise<RecoveryScanResult> {
   if ((options.platform ?? process.platform) !== 'win32') {
     return { events: [], sources: [], warnings: ['Pre-install history recovery is currently only available on Windows.'] };
   }
-  const readers = options.readers ?? defaultReaders();
+  const readers = [...(options.readers ?? defaultReaders())];
+  if (options.includeBrowserHistory) readers.push(options.browserReader ?? {
+    id: 'browser-history', label: 'Browser history', read: readBrowserHistoryEvents,
+  });
   const settled = await Promise.all(readers.map(async (reader) => {
     try {
       const events = await reader.read();

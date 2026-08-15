@@ -22,6 +22,7 @@ const DESTINATIONS: SearchItem[] = [
   ['on-this-day', 'On this day', 'Archive', 'on-this-day', 'memories nostalgia'],
   ['achievements', 'Records', 'Archive', 'achievements', 'achievements streaks'],
   ['categories', 'Categories', 'Organize', 'categories', 'manage apps'],
+  ['history-recovery', 'Recover older history', 'Archive', 'history-recovery', 'import tracker windows'],
   ['settings', 'Settings', 'Controls', 'settings', 'tracking backup privacy'],
 ].map(([id, title, detail, route, keywords]) => ({ id, title, detail, route: route as RouteId, keywords }));
 

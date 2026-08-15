@@ -181,10 +181,16 @@ describe('ActivityRepository', () => {
   it('erases all history across raw and rollup tables', () => {
     const store = repository();
     store.insertSession(sample);
+    store.commitHistoryBatch({
+      batch: { id: 'batch-delete', sourceKind: 'windows_recovery', sourceFingerprint: 'delete-me', importedAt: '2025-03-15T00:00:00.000Z', exactSessionCount: 0, recoveredEventCount: 1 },
+      sessions: [],
+      recoveredEvents: [{ id: 'event-delete', appName: 'Blender', eventType: 'installed', occurredAt: '2025-03-01T00:00:00.000Z', sourceKind: 'windows_installed_apps', confidence: 'medium', importBatchId: 'batch-delete' }],
+    });
 
     store.deleteAllHistory();
 
     expect(store.getAllSessions()).toEqual([]);
+    expect(store.listRecoveredEvents()).toEqual([]);
     expect(store.getDailyRollups('2025-03-01', '2025-03-31')).toEqual([]);
   });
 

@@ -69,6 +69,13 @@ export function createTestApi(overrides: Partial<TrackingSettings> = {}): PCReca
     onTrackingStatus: () => () => undefined,
     exportBackup: async () => ({ ok: true, path: 'test.pcr' }),
     importBackup: async () => ({ ok: true, importedSessions: 0 }),
+    previewHistoryFile: async () => null,
+    scanWindowsHistory: async () => ({
+      id: 'test-preview', sourceKind: 'windows_recovery', sourceLabel: 'This PC', exactSessions: [],
+      exactSessionCount: 0, recoveredEvents: [], recoveredEventCount: 0, warnings: [], sources: [],
+    }),
+    commitHistoryImport: async () => ({ importedSessions: 0, duplicates: 0, recoveredEvents: 0 }),
+    cancelHistoryPreview: async () => undefined,
     saveShareCard: async () => ({ ok: true, path: 'test.png' }),
     deleteAllHistory: async () => { sessions = []; },
     getVersion: async () => 'test',

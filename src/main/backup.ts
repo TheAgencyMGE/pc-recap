@@ -1,10 +1,10 @@
 import { readFile, stat } from 'node:fs/promises';
 import { gunzip, gzipSync } from 'node:zlib';
-import type { ActivitySession, Category, TrackedApp } from '../shared/types.js';
+import type { ActivitySession, Category, RecoveredEvent, TrackedApp } from '../shared/types.js';
 import { isSupportedBackupProduct, PRODUCT_NAME } from '../shared/brand.js';
 import type { ActivityRepository, BackupSnapshot } from './database.js';
 
-const BACKUP_VERSION = 1;
+const BACKUP_VERSION = 2;
 const DEFAULT_LIMITS = {
   maxCompressedBytes: 64 * 1024 * 1024,
   maxDecodedBytes: 256 * 1024 * 1024,
@@ -101,6 +101,7 @@ function validateArchive(value: unknown): BackupArchive {
     || !value.data.apps.every(isTrackedApp)
     || !value.data.sessions.every(isActivitySession)
     || !value.data.categories.every(isCategory)
+    || (value.data.recoveredEvents !== undefined && (!Array.isArray(value.data.recoveredEvents) || !value.data.recoveredEvents.every(isRecoveredEvent)))
   ) {
     throw invalidBackup();
   }
@@ -153,6 +154,19 @@ function isCategory(value: unknown): value is Category {
     && /^#[0-9a-f]{6}$/i.test(value.color)
     && isString(value.icon, 100)
     && typeof value.isDefault === 'boolean';
+}
+
+function isRecoveredEvent(value: unknown): value is RecoveredEvent {
+  return isRecord(value)
+    && isString(value.id, 200)
+    && isOptionalString(value.appId, 200)
+    && isString(value.appName, 500)
+    && ['installed', 'launched', 'recently-used', 'uninstalled', 'context'].includes(String(value.eventType))
+    && isIsoDate(value.occurredAt)
+    && isString(value.sourceKind, 200)
+    && ['high', 'medium', 'low'].includes(String(value.confidence))
+    && isOptionalString(value.detail, 10_000)
+    && isOptionalString(value.importBatchId, 200);
 }
 
 function invalidBackup() {

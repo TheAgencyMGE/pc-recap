@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3';
+import { createHash } from 'node:crypto';
 import type {
   ActivitySession,
   ApplicationAlias,
@@ -55,6 +56,7 @@ export interface BackupSnapshot {
   sessions: ActivitySession[];
   categories: Category[];
   settings: TrackingSettings;
+  recoveredEvents?: RecoveredEvent[];
 }
 
 export interface HistoryBatchInput {
@@ -634,6 +636,9 @@ export class ActivityRepository {
 
   deleteAllHistory() {
     this.database.exec(`
+      DELETE FROM recovered_events;
+      DELETE FROM import_batches;
+      DELETE FROM open_session_checkpoints;
       DELETE FROM daily_app_rollups;
       DELETE FROM daily_rollups;
       DELETE FROM activity_sessions;
@@ -727,6 +732,7 @@ export class ActivityRepository {
       sessions: this.getAllSessions(),
       categories: this.getCategories(),
       settings: this.getSettings(),
+      recoveredEvents: this.listRecoveredEvents(),
     };
   }
 
@@ -743,6 +749,24 @@ export class ActivityRepository {
       if (this.insertSession(session, apps.get(session.appId))) importedSessions += 1;
       else skippedSessions += 1;
     }
-    return { importedSessions, skippedSessions };
+    const recoveredEvents = snapshot.recoveredEvents ?? [];
+    let importedRecoveredEvents = 0;
+    if (recoveredEvents.length) {
+      const fingerprint = createHash('sha256').update(recoveredEvents.map((event) => event.id).sort().join('\u0000')).digest('hex');
+      const batchId = `backup-batch-${fingerprint.slice(0, 32)}`;
+      importedRecoveredEvents = this.commitHistoryBatch({
+        batch: {
+          id: batchId,
+          sourceKind: 'pc_recap_backup',
+          sourceFingerprint: `backup-events:${fingerprint}`,
+          importedAt: new Date().toISOString(),
+          exactSessionCount: 0,
+          recoveredEventCount: recoveredEvents.length,
+        },
+        sessions: [],
+        recoveredEvents: recoveredEvents.map((event) => ({ ...event, importBatchId: batchId })),
+      }).recoveredEvents;
+    }
+    return { importedSessions, skippedSessions, importedRecoveredEvents };
   }
 }
