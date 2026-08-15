@@ -3,7 +3,7 @@ import { basename } from 'node:path';
 import { app, dialog, ipcMain } from 'electron';
 import type { BrowserWindow, IpcMainInvokeEvent } from 'electron';
 import { BACKUP_EXTENSION, LEGACY_BACKUP_EXTENSIONS, PRODUCT_NAME } from '../shared/brand.js';
-import type { Category, PeriodKind, RecapSelection, TrackingSettings } from '../shared/types.js';
+import type { Category, MemoryPin, PeriodKind, RecapSelection, TrackingSettings } from '../shared/types.js';
 import type { AnalyticsService } from './analytics-service.js';
 import type { BackupService } from './backup.js';
 import type { ActivityRepository } from './database.js';
@@ -121,6 +121,12 @@ export function registerIpcHandlers({
   handle('history:scan-windows', (includeBrowserHistory) => history.scanWindows(Boolean(includeBrowserHistory)));
   handle('history:commit-import', (previewId) => history.commit(String(previewId).slice(0, 100)));
   handle('history:cancel-preview', (previewId) => history.cancel(String(previewId).slice(0, 100)));
+  handle('memory-pins:list', (start, end) => repository.listMemoryPins(
+    typeof start === 'string' ? start.slice(0, 40) : undefined,
+    typeof end === 'string' ? end.slice(0, 40) : undefined,
+  ));
+  handle('memory-pins:save', (pin) => repository.saveMemoryPin(sanitizeMemoryPin(pin)));
+  handle('memory-pins:delete', (id) => repository.deleteMemoryPin(String(id).slice(0, 200)));
   handle('share:save', async (dataUrl: string, suggestedName: string) => {
     if (typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/png;base64,') || dataUrl.length > 15_000_000) {
       return { ok: false, error: 'The share card is invalid.' };
@@ -155,6 +161,23 @@ function sanitizeRecapSelection(value: unknown): RecapSelection {
     end: new Date(endTime).toISOString(),
     label: String(selection.label ?? 'Custom recap').slice(0, 80),
     complete: Boolean(selection.complete),
+  };
+}
+
+function sanitizeMemoryPin(value: unknown): MemoryPin {
+  const pin = value as Partial<MemoryPin> | null;
+  if (!pin) throw new Error('Memory Pin is invalid.');
+  const now = new Date().toISOString();
+  return {
+    id: String(pin.id ?? '').slice(0, 200),
+    title: String(pin.title ?? '').trim().slice(0, 80),
+    note: String(pin.note ?? '').trim().slice(0, 500),
+    start: String(pin.start ?? '').slice(0, 40),
+    end: String(pin.end ?? '').slice(0, 40),
+    color: /^#[0-9a-f]{6}$/i.test(String(pin.color)) ? String(pin.color) : '#4256f4',
+    includeInRecaps: Boolean(pin.includeInRecaps),
+    createdAt: Number.isFinite(Date.parse(String(pin.createdAt))) ? new Date(String(pin.createdAt)).toISOString() : now,
+    updatedAt: now,
   };
 }
 

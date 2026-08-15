@@ -95,6 +95,10 @@ describe('AnalyticsService local calendar semantics', () => {
       sessions: [],
       recoveredEvents: [{ id: 'day-clue', appName: 'Blender', eventType: 'installed', occurredAt: new Date(2026, 7, 15, 12).toISOString(), sourceKind: 'windows_installed_apps', confidence: 'medium', importBatchId: 'day-clue-batch' }],
     });
+    repository.saveMemoryPin({
+      id: 'day-pin', title: 'First beta', note: '', start: new Date(2026, 7, 15).toISOString(), end: new Date(2026, 7, 16).toISOString(),
+      color: '#4256f4', includeInRecaps: false, createdAt: new Date(2026, 7, 15).toISOString(), updatedAt: new Date(2026, 7, 15).toISOString(),
+    });
     const service = new AnalyticsService(repository, () => ({ state: 'tracking' }), () => new Date(2026, 7, 15, 13));
 
     const result = service.getDayReplay('2026-08-15');
@@ -106,6 +110,7 @@ describe('AnalyticsService local calendar semantics', () => {
     expect(result.segments.map((segment) => segment.appName)).toEqual(['Chrome', 'Visual Studio Code']);
     expect(result.idleGaps[0]).toMatchObject({ durationSeconds: 1_800 });
     expect(result.recoveredClues).toEqual([expect.objectContaining({ appName: 'Blender' })]);
+    expect(result.pins).toEqual([expect.objectContaining({ title: 'First beta' })]);
   });
 
   it('builds custom recap stories from only the selected real interval', () => {

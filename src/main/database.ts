@@ -5,6 +5,7 @@ import type {
   ApplicationAlias,
   Category,
   ImportBatch,
+  MemoryPin,
   OpenSessionCheckpoint,
   RecoveredEvent,
   RecoveredEventInput,
@@ -57,6 +58,7 @@ export interface BackupSnapshot {
   categories: Category[];
   settings: TrackingSettings;
   recoveredEvents?: RecoveredEvent[];
+  memoryPins?: MemoryPin[];
 }
 
 export interface HistoryBatchInput {
@@ -225,6 +227,18 @@ export class ActivityRepository {
         import_batch_id TEXT REFERENCES import_batches(id)
       );
       CREATE INDEX IF NOT EXISTS idx_recovered_events_occurred ON recovered_events(occurred_at);
+      CREATE TABLE IF NOT EXISTS memory_pins (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        note TEXT NOT NULL DEFAULT '',
+        start_at TEXT NOT NULL,
+        end_at TEXT NOT NULL,
+        color TEXT NOT NULL,
+        include_in_recaps INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_memory_pins_range ON memory_pins(start_at, end_at);
     `);
     this.ensureSessionProvenanceColumns();
     this.database.exec(`
@@ -362,6 +376,43 @@ export class ActivityRepository {
       detail: row.detail ?? undefined,
       importBatchId: row.import_batch_id ?? undefined,
     }));
+  }
+
+  saveMemoryPin(pin: MemoryPin): MemoryPin {
+    validateMemoryPin(pin);
+    this.database.prepare(`
+      INSERT INTO memory_pins(id, title, note, start_at, end_at, color, include_in_recaps, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        title = excluded.title,
+        note = excluded.note,
+        start_at = excluded.start_at,
+        end_at = excluded.end_at,
+        color = excluded.color,
+        include_in_recaps = excluded.include_in_recaps,
+        updated_at = excluded.updated_at
+    `).run(
+      pin.id, pin.title.trim(), pin.note.trim(), pin.start, pin.end, pin.color,
+      pin.includeInRecaps ? 1 : 0, pin.createdAt, pin.updatedAt,
+    );
+    return this.listMemoryPins().find((item) => item.id === pin.id)!;
+  }
+
+  listMemoryPins(start?: string, end?: string): MemoryPin[] {
+    const rows = (start && end ? this.database.prepare(`
+      SELECT * FROM memory_pins WHERE end_at > ? AND start_at < ? ORDER BY start_at, id
+    `).all(start, end) : this.database.prepare('SELECT * FROM memory_pins ORDER BY start_at, id').all()) as Array<{
+      id: string; title: string; note: string; start_at: string; end_at: string; color: string;
+      include_in_recaps: number; created_at: string; updated_at: string;
+    }>;
+    return rows.map((row) => ({
+      id: row.id, title: row.title, note: row.note, start: row.start_at, end: row.end_at,
+      color: row.color, includeInRecaps: Boolean(row.include_in_recaps), createdAt: row.created_at, updatedAt: row.updated_at,
+    }));
+  }
+
+  deleteMemoryPin(id: string) {
+    this.database.prepare('DELETE FROM memory_pins WHERE id = ?').run(id);
   }
 
   querySessions(start: string, end: string): ActivitySession[] {
@@ -639,6 +690,7 @@ export class ActivityRepository {
       DELETE FROM recovered_events;
       DELETE FROM import_batches;
       DELETE FROM open_session_checkpoints;
+      DELETE FROM memory_pins;
       DELETE FROM daily_app_rollups;
       DELETE FROM daily_rollups;
       DELETE FROM activity_sessions;
@@ -733,6 +785,7 @@ export class ActivityRepository {
       categories: this.getCategories(),
       settings: this.getSettings(),
       recoveredEvents: this.listRecoveredEvents(),
+      memoryPins: this.listMemoryPins(),
     };
   }
 
@@ -767,6 +820,22 @@ export class ActivityRepository {
         recoveredEvents: recoveredEvents.map((event) => ({ ...event, importBatchId: batchId })),
       }).recoveredEvents;
     }
-    return { importedSessions, skippedSessions, importedRecoveredEvents };
+    let importedMemoryPins = 0;
+    for (const pin of snapshot.memoryPins ?? []) {
+      this.saveMemoryPin(pin);
+      importedMemoryPins += 1;
+    }
+    return { importedSessions, skippedSessions, importedRecoveredEvents, importedMemoryPins };
+  }
+}
+
+function validateMemoryPin(pin: MemoryPin) {
+  if (!pin.id?.trim() || pin.id.length > 200 || !pin.title?.trim() || pin.title.trim().length > 80 || pin.note.length > 500) {
+    throw new Error('Memory Pin text is invalid.');
+  }
+  const start = Date.parse(pin.start);
+  const end = Date.parse(pin.end);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start || !/^#[0-9a-f]{6}$/i.test(pin.color)) {
+    throw new Error('Memory Pin range is invalid.');
   }
 }

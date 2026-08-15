@@ -1,6 +1,6 @@
 import { readFile, stat } from 'node:fs/promises';
 import { gunzip, gzipSync } from 'node:zlib';
-import type { ActivitySession, Category, RecoveredEvent, TrackedApp } from '../shared/types.js';
+import type { ActivitySession, Category, MemoryPin, RecoveredEvent, TrackedApp } from '../shared/types.js';
 import { isSupportedBackupProduct, PRODUCT_NAME } from '../shared/brand.js';
 import type { ActivityRepository, BackupSnapshot } from './database.js';
 
@@ -102,6 +102,7 @@ function validateArchive(value: unknown): BackupArchive {
     || !value.data.sessions.every(isActivitySession)
     || !value.data.categories.every(isCategory)
     || (value.data.recoveredEvents !== undefined && (!Array.isArray(value.data.recoveredEvents) || !value.data.recoveredEvents.every(isRecoveredEvent)))
+    || (value.data.memoryPins !== undefined && (!Array.isArray(value.data.memoryPins) || !value.data.memoryPins.every(isMemoryPin)))
   ) {
     throw invalidBackup();
   }
@@ -167,6 +168,17 @@ function isRecoveredEvent(value: unknown): value is RecoveredEvent {
     && ['high', 'medium', 'low'].includes(String(value.confidence))
     && isOptionalString(value.detail, 10_000)
     && isOptionalString(value.importBatchId, 200);
+}
+
+function isMemoryPin(value: unknown): value is MemoryPin {
+  return isRecord(value)
+    && isString(value.id, 200)
+    && isString(value.title, 80)
+    && typeof value.note === 'string' && value.note.length <= 500
+    && isIsoDate(value.start) && isIsoDate(value.end) && Date.parse(value.end) > Date.parse(value.start)
+    && typeof value.color === 'string' && /^#[0-9a-f]{6}$/i.test(value.color)
+    && typeof value.includeInRecaps === 'boolean'
+    && isIsoDate(value.createdAt) && isIsoDate(value.updatedAt);
 }
 
 function invalidBackup() {

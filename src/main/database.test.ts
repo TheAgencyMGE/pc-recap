@@ -186,12 +186,34 @@ describe('ActivityRepository', () => {
       sessions: [],
       recoveredEvents: [{ id: 'event-delete', appName: 'Blender', eventType: 'installed', occurredAt: '2025-03-01T00:00:00.000Z', sourceKind: 'windows_installed_apps', confidence: 'medium', importBatchId: 'batch-delete' }],
     });
+    store.saveMemoryPin({
+      id: 'pin-delete', title: 'Delete me', note: '', start: '2025-03-01T00:00:00.000Z', end: '2025-03-02T00:00:00.000Z',
+      color: '#4256f4', includeInRecaps: false, createdAt: '2025-03-01T00:00:00.000Z', updatedAt: '2025-03-01T00:00:00.000Z',
+    });
 
     store.deleteAllHistory();
 
     expect(store.getAllSessions()).toEqual([]);
     expect(store.listRecoveredEvents()).toEqual([]);
+    expect(store.listMemoryPins()).toEqual([]);
     expect(store.getDailyRollups('2025-03-01', '2025-03-31')).toEqual([]);
+  });
+
+  it('creates, updates, queries, and deletes local Memory Pins', () => {
+    const store = repository();
+    const pin = {
+      id: 'pin-college', title: 'Started college', note: 'First day',
+      start: '2026-09-23T00:00:00.000Z', end: '2026-09-24T00:00:00.000Z', color: '#4256f4',
+      includeInRecaps: false, createdAt: '2026-08-15T00:00:00.000Z', updatedAt: '2026-08-15T00:00:00.000Z',
+    };
+
+    expect(store.saveMemoryPin(pin)).toMatchObject({ id: 'pin-college', title: 'Started college' });
+    store.saveMemoryPin({ ...pin, note: 'Move-in and first class', includeInRecaps: true, updatedAt: '2026-08-16T00:00:00.000Z' });
+    expect(store.listMemoryPins('2026-09-23T00:00:00.000Z', '2026-09-24T00:00:00.000Z')).toEqual([
+      expect.objectContaining({ note: 'Move-in and first class', includeInRecaps: true }),
+    ]);
+    store.deleteMemoryPin('pin-college');
+    expect(store.listMemoryPins()).toEqual([]);
   });
 
   it('purges synthetic history left by pre-production builds during migration', () => {

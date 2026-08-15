@@ -97,7 +97,7 @@ export class AnalyticsService {
       idleGaps,
       relationships: summarized.relationships,
       recoveredClues: this.repository.listRecoveredEvents().filter((event) => localDayKey(event.occurredAt) === day),
-      pins: [],
+      pins: this.repository.listMemoryPins(range.start, range.end),
     };
   }
 
@@ -125,7 +125,7 @@ export class AnalyticsService {
       }),
       timeline: monthlyTimeline(sessions),
       recoveredClues: this.repository.listRecoveredEvents().filter((event) => event.occurredAt >= selection.start && event.occurredAt < selection.end),
-      pins: [],
+      pins: this.repository.listMemoryPins(selection.start, selection.end),
     };
   }
 

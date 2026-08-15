@@ -7,6 +7,7 @@ import type {
   DayReplayData,
   HistoryImportResult,
   HistoryPreviewView,
+  MemoryPin,
   OnThisDayEntry,
   PeriodKind,
   PeriodSummary,
@@ -46,6 +47,9 @@ export interface PCRecapAPI {
   scanWindowsHistory(includeBrowserHistory: boolean): Promise<HistoryPreviewView>;
   commitHistoryImport(previewId: string): Promise<HistoryImportResult>;
   cancelHistoryPreview(previewId: string): Promise<void>;
+  listMemoryPins(start?: string, end?: string): Promise<MemoryPin[]>;
+  saveMemoryPin(pin: MemoryPin): Promise<MemoryPin>;
+  deleteMemoryPin(id: string): Promise<void>;
   saveShareCard(dataUrl: string, suggestedName: string): Promise<BackupResult>;
   deleteAllHistory(): Promise<void>;
   getVersion(): Promise<string>;

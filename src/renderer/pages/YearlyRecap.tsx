@@ -157,11 +157,11 @@ function Scene({ id, summary, timeline, api, selection, recoveredClues = [], pin
       </div>
       <div className="recap-share-actions">
       <button className="recap-share" onClick={async () => {
-        const result = await saveShareCard(summary, api, 'portrait');
+        const result = await saveShareCard(summary, api, 'portrait', pins);
         setSaved(result.ok ? 'Saved to your PC.' : result.canceled ? '' : result.error ?? 'Could not save.');
       }}><Download /> Portrait</button>
       <button className="recap-share recap-share--secondary" onClick={async () => {
-        const result = await saveShareCard(summary, api, 'story');
+        const result = await saveShareCard(summary, api, 'story', pins);
         setSaved(result.ok ? 'Saved to your PC.' : result.canceled ? '' : result.error ?? 'Could not save.');
       }}><Download /> Story</button>
       </div>

@@ -115,9 +115,11 @@
 .recap-studio__custom p { margin-top: 4px; color: #aaa; font-size: 12px; }
 .recap-studio__custom label { display: grid; gap: 6px; color: #aaa; font-size: 10px; }
 .recap-studio__custom input { height: 40px; padding: 0 9px; border: 0; border-radius: 9px; background: var(--clean-paper); color: var(--ink); }
+.recap-studio__custom-actions { display: flex; gap: 7px; }
+.recap-studio__custom-actions > button { min-height: 40px; padding: 0 12px; border-radius: 999px; background: #333; color: var(--clean-paper); font-weight: 750; }
 .recap-studio__custom .primary-button { min-height: 40px; background: var(--acid); color: var(--ink); }
 @media (max-width: 900px) {
   .recap-studio__seasons > div { grid-template-columns: repeat(2, 1fr); }
   .recap-studio__custom { grid-template-columns: 32px 1fr; }
-  .recap-studio__custom label, .recap-studio__custom .primary-button { grid-column: 2; }
+  .recap-studio__custom label, .recap-studio__custom-actions { grid-column: 2; }
 }
