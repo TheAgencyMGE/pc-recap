@@ -63,7 +63,7 @@ export function HistoryRecovery({ api, onChanged }: { api: PCRecapAPI; onChanged
       {preview.sources.length > 0 && <div className="recovery-sources">{preview.sources.map((source) => <div key={source.id} className={source.available ? '' : 'is-unavailable'}><i /> <span><b>{source.label}</b><small>{source.available ? `${source.eventCount} clues` : source.limitation ?? 'Unavailable'}</small></span></div>)}</div>}
       <div className="recovery-samples">
         {preview.exactSessions.slice(0, 5).map((session, index) => <div key={`${session.startedAt}-${index}`}><b>{session.appName}</b><span>{formatDate(session.startedAt)} · {formatDuration(session.durationSeconds)}</span></div>)}
-        {preview.recoveredEvents.slice(0, 5).map((event, index) => <div key={`${event.sourceKind}-${event.occurredAt}-${index}`}><b>{event.appName}</b><span>{formatDate(event.occurredAt)} · {event.eventType.replace('-', ' ')}</span></div>)}
+        {preview.recoveredEvents.slice(0, 5).map((event, index) => <div key={`${event.sourceKind}-${event.occurredAt}-${index}`}><b>{event.appName}</b><span>{formatDate(event.occurredAt)} · {event.eventType.replace('-', ' ')}</span>{event.detail && <small title={event.detail}>{event.detail}</small>}</div>)}
       </div>
       {preview.warnings.map((warning) => <p className="recovery-warning" key={warning}>{warning}</p>)}
       <button className="primary-button" disabled={busy || exactCount + clueCount === 0} onClick={() => { void commit(); }}>

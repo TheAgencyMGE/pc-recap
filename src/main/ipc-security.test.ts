@@ -33,6 +33,7 @@ describe('IPC authorization', () => {
       backup: {} as never,
       icons: {} as never,
       history: {} as never,
+      eraseHistory: deleteAllHistory,
       getMainWindow: () => ({ webContents }),
       trustedRendererUrl: mainFrame.url,
     };

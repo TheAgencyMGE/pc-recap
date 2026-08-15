@@ -55,14 +55,21 @@ export class HistoryImportService {
         recoveredEventCount: preview.recoveredEvents.length,
       },
       sessions: exactSessions,
-      recoveredEvents: preview.recoveredEvents.map((event, index) => ({
+      recoveredEvents: preview.recoveredEvents.map((event) => ({
         ...event,
-        id: stableId('event', `${preview.sourceFingerprint}:${event.sourceKind}:${event.occurredAt}:${event.appName}:${index}`),
+        id: stableId('event', stableRecoveredEventKey(event)),
         importBatchId: batchId,
       })),
     };
     return this.repository.commitHistoryBatch(input);
   }
+}
+
+function stableRecoveredEventKey(event: ImportPreview['recoveredEvents'][number]) {
+  return [
+    event.sourceKind.trim().toLowerCase(), event.eventType, event.occurredAt,
+    event.appId?.trim().toLowerCase() ?? '', event.appName.trim().toLowerCase(), event.detail?.trim() ?? '',
+  ].join('\u0000');
 }
 
 function validateRecoveredEvent(event: ImportPreview['recoveredEvents'][number]) {

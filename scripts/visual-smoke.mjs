@@ -41,6 +41,7 @@ export async function runVisualSmoke(root = resolve(currentDirectory, '..')) {
   assert.equal(report.horizontalOverflow, false);
   assert.equal(report.todayCoverVisible, true);
   assert.equal(report.firstShelfCoverVisible, true);
+  assert.equal(report.searchDialogVisible, true);
   for (const name of artifactNames) assert.ok(report.screenshots.includes(name), `Missing ${name}`);
   return report;
 }

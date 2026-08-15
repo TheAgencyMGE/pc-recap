@@ -35,6 +35,7 @@ export class AnalyticsService {
       {
         kind, label: range.label, rangeStart: range.start, rangeEnd: range.end,
         isComplete: range.isComplete, comparisonLabel: range.comparisonLabel,
+        lifecycleSessions: this.archiveSessionsWithLive(), lifecycleAsOf: this.now(),
       },
     );
   }
@@ -45,6 +46,14 @@ export class AnalyticsService {
     if (!live || sessions.some((session) => session.id === live.id)) return sessions;
     const clipped = clipSessionToRange(live, start, end);
     return clipped ? [...sessions, clipped].sort((a, b) => a.startedAt.localeCompare(b.startedAt)) : sessions;
+  }
+
+  private archiveSessionsWithLive(): ActivitySession[] {
+    const sessions = this.repository.getAllSessions();
+    const live = this.getLiveSession();
+    return live && !sessions.some((session) => session.id === live.id)
+      ? [...sessions, live].sort((a, b) => a.startedAt.localeCompare(b.startedAt))
+      : sessions;
   }
 
   getDashboard(kind: PeriodKind = 'today', year?: number): DashboardData {
@@ -91,7 +100,7 @@ export class AnalyticsService {
       lastActivity: segments.at(-1)?.endedAt,
       busiestHour: segments.length ? byHour.indexOf(Math.max(...byHour)) : undefined,
       longestSegment: [...segments].sort((a, b) => b.durationSeconds - a.durationSeconds)[0],
-      appSwitches: segments.slice(1).filter((segment, index) => segment.appId !== segments[index].appId).length,
+      appSwitches: summarized.relationships.reduce((sum, relationship) => sum + relationship.transitions, 0),
       totalSeconds: segments.reduce((sum, segment) => sum + segment.durationSeconds, 0),
       segments,
       idleGaps,
@@ -122,6 +131,7 @@ export class AnalyticsService {
         rangeEnd: selection.end,
         isComplete: selection.complete,
         comparisonLabel: `Previous ${selection.label.toLowerCase()}`,
+        lifecycleSessions: this.archiveSessionsWithLive(), lifecycleAsOf: this.now(),
       }),
       timeline: monthlyTimeline(sessions),
       recoveredClues: this.repository.listRecoveredEvents().filter((event) => event.occurredAt >= selection.start && event.occurredAt < selection.end),
@@ -280,7 +290,7 @@ function monthlyTimeline(sessions: ActivitySession[]): import('../shared/types.j
   const max = Math.max(1, ...[...groups.values()].map((group) => group.seconds));
   return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([key, group]) => ({
     key,
-    label: new Intl.DateTimeFormat('en-US', { month: 'long' }).format(new Date(Number(key.slice(0, 4)), Number(key.slice(5)) - 1, 1)),
+    label: new Intl.DateTimeFormat(undefined, { month: 'long' }).format(new Date(Number(key.slice(0, 4)), Number(key.slice(5)) - 1, 1)),
     seconds: group.seconds,
     topApp: [...group.apps.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? '',
     categoryId: group.categoryId,

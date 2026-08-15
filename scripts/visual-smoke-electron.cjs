@@ -69,11 +69,15 @@ app.whenReady().then(async () => {
     await save(window, 'home-default.png');
     window.setSize(980, 680);
     await delay(250);
-    await save(window, 'home-minimum.png');
+    const minimumImage = await save(window, 'home-minimum.png');
     await window.webContents.executeJavaScript(`document.querySelector('[aria-label="Search"]').click()`);
-    await waitFor(window, `[role="dialog"][aria-label="Search PC Recap"]`);
-    await save(window, 'search-overlay.png');
-    const report = { ...layout, isolatedProfile: true, screenshots: ['home-default.png', 'home-minimum.png', 'search-overlay.png'] };
+    await waitForVisible(window, `[role="dialog"][aria-label="Search PC Recap"]`);
+    await delay(250);
+    window.webContents.invalidate();
+    await delay(75);
+    const searchImage = await save(window, 'search-overlay.png');
+    assert.notDeepEqual(searchImage, minimumImage, 'Search overlay screenshot must differ from the home screenshot.');
+    const report = { ...layout, searchDialogVisible: true, isolatedProfile: true, screenshots: ['home-default.png', 'home-minimum.png', 'search-overlay.png'] };
     await writeFile(resolve(artifactDirectory, 'report.json'), JSON.stringify(report, null, 2));
     writeStage('complete');
   } finally {
@@ -89,7 +93,9 @@ app.whenReady().then(async () => {
 
 async function save(window, name) {
   const image = await window.webContents.capturePage();
-  await writeFile(resolve(artifactDirectory, name), image.toPNG());
+  const buffer = image.toPNG();
+  await writeFile(resolve(artifactDirectory, name), buffer);
+  return buffer;
 }
 
 async function waitFor(window, selector) {
@@ -98,6 +104,21 @@ async function waitFor(window, selector) {
     await delay(100);
   }
   throw new Error(`Timed out waiting for ${selector}`);
+}
+
+async function waitForVisible(window, selector) {
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    const visible = await window.webContents.executeJavaScript(`(() => {
+      const element = document.querySelector(${JSON.stringify(selector)});
+      if (!element) return false;
+      const bounds = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      return bounds.width > 0 && bounds.height > 0 && style.visibility !== 'hidden' && Number(style.opacity) > .95;
+    })()`);
+    if (visible) return;
+    await delay(100);
+  }
+  throw new Error(`Timed out waiting for visible ${selector}`);
 }
 
 const delay = (milliseconds) => new Promise((resolveDelay) => setTimeout(resolveDelay, milliseconds));

@@ -56,4 +56,23 @@ describe('HistoryImportService', () => {
     expect(repository.getAllSessions()).toHaveLength(0);
     expect(repository.listRecoveredEvents()).toHaveLength(0);
   });
+
+  it('deduplicates old clues when a later export grows and gets a new fingerprint', async () => {
+    const repository = createRepository();
+    const service = new HistoryImportService(repository);
+    const first = preview();
+    first.exactSessions = [];
+    first.sourceFingerprint = 'sha256:first-export';
+    const second = preview();
+    second.exactSessions = [];
+    second.sourceFingerprint = 'sha256:growing-export';
+    second.recoveredEvents.push({
+      appName: 'Figma', eventType: 'context', occurredAt: '2026-07-21T00:00:00.000Z',
+      sourceKind: 'wakatime', confidence: 'high', detail: 'design.tsx was edited.',
+    });
+
+    await expect(service.commit(first)).resolves.toMatchObject({ recoveredEvents: 1 });
+    await expect(service.commit(second)).resolves.toMatchObject({ recoveredEvents: 1 });
+    expect(repository.listRecoveredEvents()).toHaveLength(2);
+  });
 });

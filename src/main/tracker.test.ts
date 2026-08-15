@@ -141,7 +141,7 @@ describe('ActivityTracker', () => {
   it('recovers a crashed session only through its final observed sample', () => {
     const repository = store();
     repository.saveOpenSessionCheckpoint({
-      machineId: 'test-pc', appId: 'code-exe', appName: 'Visual Studio Code', executable: 'Code.exe',
+      sessionId: 'recovered-session', machineId: 'test-pc', appId: 'code-exe', appName: 'Visual Studio Code', executable: 'Code.exe',
       categoryId: 'coding', startedAt: '2026-08-15T10:00:00.000Z',
       lastSampleAt: '2026-08-15T10:00:30.000Z', checkpointedAt: '2026-08-15T10:00:31.000Z',
     });
@@ -153,6 +153,27 @@ describe('ActivityTracker', () => {
     expect(repository.getAllSessions()).toEqual([
       expect.objectContaining({ durationSeconds: 30, startedAt: '2026-08-15T10:00:00.000Z' }),
     ]);
+    expect(repository.getOpenSessionCheckpoint('test-pc')).toBeUndefined();
+  });
+
+  it('does not double-count when finalization committed before a crash left the checkpoint behind', () => {
+    const repository = store();
+    repository.saveOpenSessionCheckpoint({
+      sessionId: 'stable-open-session', machineId: 'test-pc', appId: 'code-exe', appName: 'Visual Studio Code', executable: 'Code.exe',
+      categoryId: 'coding', startedAt: '2026-08-15T10:00:00.000Z',
+      lastSampleAt: '2026-08-15T10:00:30.000Z', checkpointedAt: '2026-08-15T10:00:31.000Z',
+    });
+    repository.insertSession({
+      id: 'stable-open-session', appId: 'code-exe', appName: 'Visual Studio Code', categoryId: 'coding',
+      startedAt: '2026-08-15T10:00:00.000Z', endedAt: '2026-08-15T10:00:30.000Z', durationSeconds: 30,
+      machineId: 'test-pc', sourceKind: 'pc_recap', confidence: 'recorded',
+    }, { executable: 'Code.exe' });
+
+    new ActivityTracker(repository, new SequenceSource([]), {
+      now: () => new Date('2026-08-15T11:00:00.000Z'), idleSeconds: () => 0, machineId: 'test-pc',
+    });
+
+    expect(repository.getAllSessions()).toHaveLength(1);
     expect(repository.getOpenSessionCheckpoint('test-pc')).toBeUndefined();
   });
 
@@ -195,5 +216,61 @@ describe('ActivityTracker', () => {
 
     expect(repository.getAllSessions()).toEqual([]);
     expect(tracker.getLiveSession()).toBeUndefined();
+  });
+
+  it('reports ignored rules distinctly and lets the user include a shell executable', async () => {
+    const repository = store();
+    repository.updateSettings({ includedExecutables: ['searchhost.exe'] });
+    const source = new SequenceSource([
+      { name: 'SearchHost', executable: 'SearchHost.exe', path: 'C:\\Windows\\SearchHost.exe' },
+      { name: 'CredentialUIBroker', executable: 'CredentialUIBroker.exe', path: 'C:\\Windows\\CredentialUIBroker.exe' },
+    ]);
+    const times = [new Date('2026-08-15T10:00:00.000Z'), new Date('2026-08-15T10:00:10.000Z')];
+    const tracker = new ActivityTracker(repository, source, { now: () => times.shift()!, idleSeconds: () => 0 });
+
+    await tracker.sample();
+    expect(tracker.getLiveSession(new Date('2026-08-15T10:00:01.000Z'))?.appName).toBe('SearchHost');
+    await tracker.sample();
+    expect(tracker.getStatus()).toMatchObject({ state: 'ignored', reason: expect.stringContaining('ignored') });
+    expect(repository.getAllSessions()).toEqual([expect.objectContaining({ appName: 'SearchHost', durationSeconds: 5 })]);
+  });
+
+  it('keeps collecting when a checkpoint write fails temporarily', async () => {
+    const repository = store();
+    repository.saveOpenSessionCheckpoint = () => { throw new Error('disk busy'); };
+    const tracker = new ActivityTracker(repository, new SequenceSource([
+      { name: 'Chrome', executable: 'chrome.exe', path: 'C:\\Chrome.exe' },
+    ]), { now: () => new Date('2026-08-15T10:00:00.000Z'), idleSeconds: () => 0 });
+
+    await tracker.sample();
+
+    expect(tracker.getStatus()).toMatchObject({ state: 'tracking', activeApp: 'Chrome' });
+    expect(tracker.getLiveSession(new Date('2026-08-15T10:00:10.000Z'))).toMatchObject({ appName: 'Chrome' });
+  });
+
+  it('quiesces an in-flight sample before erasure and resumes from a fresh timestamp', async () => {
+    const repository = store();
+    let releaseOldSample!: (value: ActiveWindowInfo) => void;
+    const oldSample = new Promise<ActiveWindowInfo>((resolve) => { releaseOldSample = resolve; });
+    let calls = 0;
+    const source: ActivitySource = {
+      getActiveWindow: async () => {
+        calls += 1;
+        return calls === 1 ? oldSample : { name: 'Edge', executable: 'msedge.exe', path: 'C:\\Edge.exe' };
+      },
+    };
+    const times = [new Date('2026-08-15T10:00:00.000Z'), new Date('2026-08-15T11:00:00.000Z')];
+    const tracker = new ActivityTracker(repository, source, { now: () => times.shift()!, idleSeconds: () => 0, machineId: 'test-pc' });
+    const pendingSample = tracker.sample();
+    const suspended = tracker.suspendForErase();
+    releaseOldSample({ name: 'Chrome', executable: 'chrome.exe', path: 'C:\\Chrome.exe' });
+    await Promise.all([pendingSample, suspended]);
+
+    expect(tracker.getLiveSession(new Date('2026-08-15T10:30:00.000Z'))).toBeUndefined();
+    expect(repository.getOpenSessionCheckpoint('test-pc')).toBeUndefined();
+    repository.deleteAllHistory();
+    await tracker.resumeAfterErase();
+
+    expect(tracker.getLiveSession(new Date('2026-08-15T11:00:10.000Z'))).toMatchObject({ appName: 'Microsoft Edge', startedAt: '2026-08-15T11:00:00.000Z' });
   });
 });

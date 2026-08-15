@@ -49,4 +49,6 @@ test('visual smoke waits for the populated Today cover before its first screensh
   assert.ok(invalidateSurface >= 0 && invalidateSurface < firstCapture, 'the full rendering surface must be invalidated before capture');
   assert.match(helper, /assert\.equal\(layout\.todayCoverVisible, true\)/);
   assert.match(helper, /assert\.equal\(layout\.firstShelfCoverVisible, true\)/);
+  assert.match(helper, /await waitForVisible\(window, `\[role="dialog"\]/);
+  assert.match(helper, /assert\.notDeepEqual\(searchImage, minimumImage/);
 });

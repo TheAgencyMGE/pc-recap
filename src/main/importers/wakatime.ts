@@ -33,7 +33,7 @@ export class WakaTimeImporter implements HistoryImporter {
         occurredAt,
         sourceKind: 'wakatime',
         confidence: 'high' as const,
-        detail: `${row.entity ? `${row.entity} was edited` : 'Coding was recorded'}${row.duration ? ` for about ${Math.round(row.duration)} seconds` : ''}. This does not add foreground usage time.`,
+        detail: `${row.entity ? `${safeEntityName(row.entity)} was edited` : 'Coding was recorded'}${row.duration ? ` for about ${Math.round(row.duration)} seconds` : ''}. This does not add foreground usage time.`,
       }];
     });
     return {
@@ -45,6 +45,10 @@ export class WakaTimeImporter implements HistoryImporter {
       warnings: recoveredEvents.length ? ['WakaTime describes coding context, not foreground application time.'] : ['No WakaTime records were found.'],
     };
   }
+}
+
+function safeEntityName(value: string) {
+  return value.trim().replaceAll('\\', '/').split('/').filter(Boolean).at(-1) ?? 'A file';
 }
 
 function parseJson(input: string): WakaTimeHeartbeat[] {

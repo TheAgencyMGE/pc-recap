@@ -17,7 +17,7 @@ describe('HistoryRecovery', () => {
       })),
       recoveredEvents: Array.from({ length: 8 }, (_, index) => ({
         appName: 'Blender', eventType: 'installed' as const, occurredAt: `2026-07-${String(index + 1).padStart(2, '0')}T12:00:00.000Z`,
-        sourceKind: 'windows_installed_apps', confidence: 'medium' as const,
+        sourceKind: 'windows_installed_apps', confidence: 'medium' as const, detail: index ? undefined : 'Windows recorded an install date.',
       })),
       warnings: [],
       coverage: { start: '2026-07-01T12:00:00.000Z', end: '2026-08-01T23:02:00.000Z' },
@@ -32,6 +32,7 @@ describe('HistoryRecovery', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Choose tracker export' }));
     expect(await screen.findByText('24 exact sessions')).toBeVisible();
     expect(screen.getByText('8 recovered clues')).toBeVisible();
+    expect(screen.getByText('Windows recorded an install date.')).toBeVisible();
 
     fireEvent.click(screen.getByRole('button', { name: 'Import 24 exact sessions' }));
     expect(await screen.findByText('24 sessions added')).toBeVisible();

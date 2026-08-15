@@ -28,4 +28,18 @@ describe('DayReplay', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Filter to Chrome' }));
     expect(screen.queryByRole('button', { name: /Visual Studio Code, 10:00 AM to 11:00 AM/i })).not.toBeInTheDocument();
   });
+
+  it('renders a segment that reaches the next local midnight', async () => {
+    const api = createTestApi();
+    const start = new Date(2026, 7, 15, 23, 50);
+    const end = new Date(2026, 7, 16, 0, 0);
+    api.getDayReplay = async () => ({
+      day: '2026-08-15', firstActivity: start.toISOString(), lastActivity: end.toISOString(),
+      appSwitches: 0, totalSeconds: 600,
+      segments: [{ id: 'late', appId: 'discord', appName: 'Discord', categoryId: 'social', startedAt: start.toISOString(), endedAt: end.toISOString(), durationSeconds: 600, color: '#ff746a' }],
+      idleGaps: [], relationships: [], recoveredClues: [], pins: [],
+    });
+    render(<DayReplay api={api} day="2026-08-15" />);
+    expect(await screen.findByRole('button', { name: /Discord, 11:50 PM to 12:00 AM/i })).toBeVisible();
+  });
 });

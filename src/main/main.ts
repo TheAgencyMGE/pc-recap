@@ -8,7 +8,7 @@ import { AppIconService } from './app-icon-service.js';
 import { AnalyticsService } from './analytics-service.js';
 import { BackupService } from './backup.js';
 import { ActivityRepository } from './database.js';
-import { prepareActivityDatabase } from './data-migration.js';
+import { prepareActivityDatabase, removeLegacyActivityDatabases, removeMigrationSafetyCopy } from './data-migration.js';
 import { registerIpcHandlers } from './ipc.js';
 import { HistoryRecoveryService } from './history-recovery-service.js';
 import { HistoryImportService } from './importers/import-service.js';
@@ -76,8 +76,8 @@ function createTray() {
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: `Open ${PRODUCT_NAME}`, click: () => { mainWindow?.show(); mainWindow?.focus(); } },
     { type: 'separator' },
-    { label: 'Pause tracking', click: () => tracker?.pause() },
-    { label: 'Resume tracking', click: () => tracker?.resume() },
+    { label: 'Pause tracking', click: () => { void tracker?.pause(); } },
+    { label: 'Resume tracking', click: () => { void tracker?.resume(); } },
     { type: 'separator' },
     { label: 'Quit', click: () => { isQuitting = true; app.quit(); } },
   ]));
@@ -110,12 +110,25 @@ app.whenReady().then(async () => {
   const icons = new AppIconService(repository, {
     getFileIcon: (path) => app.getFileIcon(path, { size: 'normal' }),
   });
+  const history = new HistoryRecoveryService(new HistoryImportService(repository));
   registerIpcHandlers({
     repository,
     analytics,
     tracker,
     backup: new BackupService(repository),
-    history: new HistoryRecoveryService(new HistoryImportService(repository)),
+    history,
+    eraseHistory: async () => {
+      const resumeTracking = repository?.getSettings().trackingEnabled ?? false;
+      await tracker?.suspendForErase();
+      history.clearPreviews();
+      try {
+        await removeMigrationSafetyCopy(databasePath);
+        await removeLegacyActivityDatabases(app.getPath('userData'), app.getPath('appData'));
+        repository?.deleteAllHistory();
+      } finally {
+        if (resumeTracking) await tracker?.resumeAfterErase();
+      }
+    },
     icons,
     getMainWindow: () => mainWindow,
     trustedRendererUrl: rendererTarget.trustedUrl,

@@ -32,9 +32,11 @@ describe('supported tracker adapters', () => {
   });
 
   it('keeps WakaTime coding activity as context rather than foreground time', async () => {
-    const source = fixture('wakatime.json', JSON.stringify({ data: [{ time: 1785588000, duration: 90, project: 'PC Recap', entity: 'App.tsx' }] }));
+    const source = fixture('wakatime.json', JSON.stringify({ data: [{ time: 1785588000, duration: 90, project: 'PC Recap', entity: 'C:\\Users\\ryan\\PrivateProject\\App.tsx' }] }));
     const result = await new WakaTimeImporter().preview(source);
     expect(result.exactSessions).toEqual([]);
     expect(result.recoveredEvents[0]).toMatchObject({ appName: 'PC Recap', eventType: 'context', sourceKind: 'wakatime' });
+    expect(result.recoveredEvents[0].detail).toContain('App.tsx was edited');
+    expect(result.recoveredEvents[0].detail).not.toContain('PrivateProject');
   });
 });

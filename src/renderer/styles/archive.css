@@ -148,9 +148,10 @@
 .assigned-apps > div { border-color: var(--line); }
 .assigned-apps select { border-color: var(--line); border-radius: 9px; }
 .category-message { margin: -14px 0 20px; color: var(--soft-ink); font-weight: 700; }
-.category-fields { display: grid; grid-template-columns: minmax(180px, 1fr) 110px auto; align-items: end; gap: 12px; margin: 22px 0; }
+.category-fields { display: grid; grid-template-columns: minmax(180px, 1fr) 90px 140px auto; align-items: end; gap: 12px; margin: 22px 0; }
 .category-fields label { display: grid; gap: 6px; color: var(--muted); font-size: 10px; }
 .category-fields input { width: 100%; height: 42px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); color: var(--ink); }
+.category-fields select { width: 100%; height: 42px; padding: 0 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); color: var(--ink); text-transform: capitalize; }
 .category-fields input[type='color'] { padding: 5px; }
 .category-fields .primary-button { min-height: 42px; }
 .category-fields svg, .category-delete svg { width: 16px; height: 16px; }

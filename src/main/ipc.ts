@@ -18,6 +18,7 @@ interface IpcDependencies {
   backup: BackupService;
   icons: AppIconService;
   history: HistoryRecoveryService;
+  eraseHistory: () => Promise<void>;
   getMainWindow: () => BrowserWindow | null;
   trustedRendererUrl: string;
 }
@@ -28,7 +29,7 @@ const safeYear = (value: unknown) => typeof value === 'number' && value >= 1970 
 const cleanName = (value: string) => basename(value).replace(/[^a-zA-Z0-9 ._-]/g, '').slice(0, 80) || 'PC-Recap.png';
 
 export function registerIpcHandlers({
-  repository, analytics, tracker, backup, icons, history, getMainWindow, trustedRendererUrl,
+  repository, analytics, tracker, backup, icons, history, eraseHistory, getMainWindow, trustedRendererUrl,
 }: IpcDependencies) {
   const handle = (channel: string, listener: (...args: any[]) => unknown) => {
     ipcMain.handle(channel, (event, ...args) => {
@@ -56,6 +57,7 @@ export function registerIpcHandlers({
     const keys: Array<keyof TrackingSettings> = [
       'trackingEnabled', 'launchAtStartup', 'minimizeToTray', 'captureWindowTitles',
       'sampleIntervalSeconds', 'idleThresholdSeconds', 'excludedExecutables',
+      'includedExecutables',
       'onboardingComplete',
     ];
     for (const key of keys) if (Object.hasOwn(patch ?? {}, key)) (allowed as Record<string, unknown>)[key] = patch[key];
@@ -78,8 +80,8 @@ export function registerIpcHandlers({
   handle('app:set-category', (appId, categoryId) => repository.setAppCategory(String(appId), String(categoryId)));
   handle('app:set-excluded', (appId, excluded) => repository.setAppExcluded(String(appId), Boolean(excluded)));
   handle('tracking:status', () => tracker.getStatus());
-  handle('tracking:set', (enabled) => {
-    if (enabled) tracker.resume(); else tracker.pause();
+  handle('tracking:set', async (enabled) => {
+    if (enabled) await tracker.resume(); else await tracker.pause();
     return tracker.getStatus();
   });
   handle('backup:export', async () => {
@@ -140,7 +142,7 @@ export function registerIpcHandlers({
     await writeFile(selected.filePath, Buffer.from(dataUrl.split(',')[1], 'base64'));
     return { ok: true, path: selected.filePath };
   });
-  handle('history:delete-all', () => repository.deleteAllHistory());
+  handle('history:delete-all', () => eraseHistory());
   handle('app:version', () => app.getVersion());
 }
 

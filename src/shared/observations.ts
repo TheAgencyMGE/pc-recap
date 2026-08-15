@@ -61,9 +61,9 @@ export function generateObservations(summary: PeriodSummary): Observation[] {
     });
   }
 
-  const relationship = summary.relationships[0];
   const pair = summary.appPairs[0];
   if (pair && pair.daysTogether >= 2) {
+    const relationship = summary.relationships.find((item) => samePair(item, pair));
     observations.push({
       id: `pair-${pair.appA}-${pair.appB}`,
       eyebrow: 'Always together',
@@ -99,4 +99,12 @@ export function generateObservations(summary: PeriodSummary): Observation[] {
   }
 
   return observations.sort((a, b) => b.priority - a.priority || a.id.localeCompare(b.id));
+}
+
+function samePair(
+  left: Pick<PeriodSummary['relationships'][number], 'appA' | 'appB'>,
+  right: Pick<PeriodSummary['appPairs'][number], 'appA' | 'appB'>,
+) {
+  return (left.appA === right.appA && left.appB === right.appB)
+    || (left.appA === right.appB && left.appB === right.appA);
 }

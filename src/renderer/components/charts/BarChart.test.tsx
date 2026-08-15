@@ -25,4 +25,15 @@ describe('BarChart', () => {
     expect(screen.getByText(/Peak: Sat, Aug 15 at 1 hour/i)).toBeVisible();
     expect(screen.getByText(/Average: 45 minutes/i)).toBeVisible();
   });
+
+  it('explains share, average comparison, and the leading app on hover', () => {
+    render(<BarChart data={[
+      { label: '9', seconds: 3_600, leadingApp: 'Code' },
+      { label: '10', seconds: 1_800, leadingApp: 'Chrome' },
+    ]} scale="hour" />);
+    fireEvent.mouseEnter(screen.getByRole('button', { name: /9 AM/i }));
+    expect(screen.getByRole('tooltip')).toHaveTextContent('67% of this chart');
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Code led');
+    expect(screen.getByRole('tooltip')).toHaveTextContent('above average');
+  });
 });

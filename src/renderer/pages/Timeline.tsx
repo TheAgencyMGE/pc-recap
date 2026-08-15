@@ -22,11 +22,18 @@ export function Timeline({ api, onNavigate }: { api: PCRecapAPI; onNavigate?: (r
     if (level === 'day') { setAnchor(anchor?.slice(0, 4)); setLevel('month'); }
     else { setAnchor(undefined); setLevel('year'); }
   };
+  const selectLevel = (next: 'year' | 'month' | 'day') => {
+    if (next === 'year') { setAnchor(undefined); setLevel('year'); return; }
+    const today = new Date();
+    if (next === 'month') setAnchor(anchor?.slice(0, 4) ?? String(today.getFullYear()));
+    else setAnchor(anchor?.length && anchor.length >= 7 ? anchor.slice(0, 7) : `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`);
+    setLevel(next);
+  };
   return <motion.main className="page timeline-page" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
     <header className="simple-page-heading"><h1>Timeline</h1><span>{level}</span></header>
     <div className="timeline-toolbar">
       {level !== 'year' ? <button className="back-button" onClick={back}><ArrowLeft /> Back</button> : <span />}
-      <div className="segmented" aria-label="Timeline scale"><button className={level === 'year' ? 'is-active' : ''} onClick={() => { setLevel('year'); setAnchor(undefined); }}>Years</button><button className={level === 'month' ? 'is-active' : ''} onClick={() => setLevel('month')}>Months</button><button className={level === 'day' ? 'is-active' : ''} onClick={() => setLevel('day')}>Days</button></div>
+      <div className="segmented" aria-label="Timeline scale"><button className={level === 'year' ? 'is-active' : ''} onClick={() => selectLevel('year')}>Years</button><button className={level === 'month' ? 'is-active' : ''} onClick={() => selectLevel('month')}>Months</button><button className={level === 'day' ? 'is-active' : ''} onClick={() => selectLevel('day')}>Days</button></div>
     </div>
     <section className={`archive-shelf archive-shelf--${level}`} aria-label={`${level} archive`}>
       {data.map((bucket, index) => <motion.button

@@ -79,8 +79,8 @@ describe('summarizeSessions', () => {
     });
 
     expect(result.daily).toEqual([
-      { label: '2025-01-15', seconds: 600 },
-      { label: '2025-01-16', seconds: 600 },
+      { label: '2025-01-15', seconds: 600, leadingApp: 'Discord', leadingCategory: 'Social' },
+      { label: '2025-01-16', seconds: 600, leadingApp: 'Discord', leadingCategory: 'Social' },
     ]);
     expect(result.hourly[23].seconds).toBe(600);
     expect(result.hourly[0].seconds).toBe(600);
@@ -105,5 +105,41 @@ describe('detectEras', () => {
         appId: 'minecraft',
       }),
     ]);
+  });
+
+  it('detects a short weekly mini era and records its peak boundary', () => {
+    const sessions = [
+      session('w1-code', 'VS Code', 'coding', '2026-08-03T10:00:00.000Z', 4_000),
+      session('w1-web', 'Chrome', 'browsing', '2026-08-03T12:00:00.000Z', 2_000),
+      session('w2-code', 'VS Code', 'coding', '2026-08-10T10:00:00.000Z', 8_000),
+      session('w2-web', 'Chrome', 'browsing', '2026-08-10T13:00:00.000Z', 1_000),
+    ];
+    expect(detectEras(sessions)).toEqual([
+      expect.objectContaining({ title: 'The VS Code mini era', kind: 'app', phase: expect.objectContaining({ peak: '2026-08-10' }) }),
+    ]);
+  });
+
+  it('detects category eras when no single app dominates', () => {
+    const sessions = [
+      session('jan-code', 'VS Code', 'coding', '2025-01-05T10:00:00.000Z', 4_000),
+      session('jan-terminal', 'Terminal', 'coding', '2025-01-06T10:00:00.000Z', 4_000),
+      session('jan-web', 'Chrome', 'browsing', '2025-01-07T10:00:00.000Z', 3_000),
+      session('feb-code', 'VS Code', 'coding', '2025-02-05T10:00:00.000Z', 4_000),
+      session('feb-terminal', 'Terminal', 'coding', '2025-02-06T10:00:00.000Z', 4_000),
+      session('feb-web', 'Chrome', 'browsing', '2025-02-07T10:00:00.000Z', 3_000),
+      session('april', 'Spotify', 'music', '2025-04-01T10:00:00.000Z', 1_000),
+    ];
+    expect(detectEras(sessions)).toEqual([expect.objectContaining({ title: 'Your Coding stretch', kind: 'category' })]);
+  });
+
+  it('uses rolling share so one noisy middle month does not break a sustained era', () => {
+    const sessions = [
+      session('jan-code', 'VS Code', 'coding', '2025-01-05T10:00:00.000Z', 5_000),
+      session('feb-browser', 'Chrome', 'browsing', '2025-02-05T10:00:00.000Z', 4_000),
+      session('mar-code', 'VS Code', 'coding', '2025-03-05T10:00:00.000Z', 5_000),
+      session('june-marker', 'Spotify', 'music', '2025-06-05T10:00:00.000Z', 100),
+    ];
+
+    expect(detectEras(sessions)).toEqual([expect.objectContaining({ title: 'The VS Code era', start: '2025-01', end: '2025-03' })]);
   });
 });

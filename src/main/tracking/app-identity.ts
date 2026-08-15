@@ -1,4 +1,4 @@
-import type { ApplicationAlias } from '../../shared/types.js';
+import { DEFAULT_IGNORED_APPLICATIONS, type ApplicationAlias } from '../../shared/types.js';
 import type { ActiveWindowInfo } from '../activity-source.js';
 
 export interface ResolvedApplication extends ActiveWindowInfo {
@@ -34,16 +34,7 @@ const FRIENDLY_NAMES: Record<string, string> = {
   'pc recap': 'PC Recap',
 };
 
-const SHELL_ONLY_EXECUTABLES = new Set([
-  'searchhost.exe',
-  'searchapp.exe',
-  'startmenuexperiencehost.exe',
-  'shellexperiencehost.exe',
-  'textinputhost.exe',
-  'applicationframehost.exe',
-  'lockapp.exe',
-  'dwm.exe',
-]);
+const SHELL_ONLY_EXECUTABLES = new Set<string>(DEFAULT_IGNORED_APPLICATIONS.map((item) => item.executable));
 
 export function isDefaultIgnoredApplication(info: Pick<ActiveWindowInfo, 'name' | 'executable' | 'path' | 'title'>): boolean {
   const executable = info.executable.trim().toLowerCase();
@@ -56,6 +47,16 @@ export function isDefaultIgnoredApplication(info: Pick<ActiveWindowInfo, 'name' 
   return executable === 'electron.exe' && (
     title.includes('pc recap') || title.includes('pc wrapped') || path.includes('pc-wrapped') || path.includes('pc-recap')
   );
+}
+
+export function isSelfApplication(info: Pick<ActiveWindowInfo, 'name' | 'executable' | 'path' | 'title'>): boolean {
+  const executable = info.executable.trim().toLowerCase();
+  const name = info.name.trim().toLowerCase();
+  const path = info.path?.toLowerCase() ?? '';
+  const title = info.title?.toLowerCase() ?? '';
+  return ['pc recap', 'pc wrapped'].includes(name)
+    || executable === 'pc recap.exe' || executable === 'pc wrapped.exe' || path.includes('pc-recap.exe')
+    || (executable === 'electron.exe' && (title.includes('pc recap') || title.includes('pc wrapped') || path.includes('pc-wrapped') || path.includes('pc-recap')));
 }
 
 export function normalizeApplication(info: ActiveWindowInfo, alias?: ApplicationAlias): ResolvedApplication {

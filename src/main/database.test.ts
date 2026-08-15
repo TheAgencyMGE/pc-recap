@@ -60,6 +60,7 @@ describe('ActivityRepository', () => {
   it('round-trips an open session checkpoint without finalizing activity', () => {
     const store = repository();
     const checkpoint: OpenSessionCheckpoint = {
+      sessionId: 'open-session-id',
       machineId: 'pc',
       appId: 'code',
       appName: 'Visual Studio Code',
@@ -190,6 +191,9 @@ describe('ActivityRepository', () => {
       id: 'pin-delete', title: 'Delete me', note: '', start: '2025-03-01T00:00:00.000Z', end: '2025-03-02T00:00:00.000Z',
       color: '#4256f4', includeInRecaps: false, createdAt: '2025-03-01T00:00:00.000Z', updatedAt: '2025-03-01T00:00:00.000Z',
     });
+    store.upsertApplicationAlias({
+      sourceExecutable: 'C:\\Users\\person\\SecretTool.exe', canonicalAppId: 'secret-tool', canonicalName: 'Secret Tool', updatedAt: '2025-03-01T00:00:00.000Z',
+    });
 
     store.deleteAllHistory();
 
@@ -197,6 +201,21 @@ describe('ActivityRepository', () => {
     expect(store.listRecoveredEvents()).toEqual([]);
     expect(store.listMemoryPins()).toEqual([]);
     expect(store.getDailyRollups('2025-03-01', '2025-03-31')).toEqual([]);
+    expect(store.resolveApplicationAlias('C:\\Users\\person\\SecretTool.exe')).toBeUndefined();
+  });
+
+  it('rolls back an entire backup restore when a late record is invalid', () => {
+    const store = repository();
+    const snapshot = {
+      apps: [{ id: 'backup-app', name: 'Backup App', executable: 'backup.exe', categoryId: 'other', color: '#7d8493', firstSeenAt: sample.startedAt, lastSeenAt: sample.endedAt }],
+      sessions: [{ ...sample, id: 'backup-session', appId: 'backup-app', appName: 'Backup App', categoryId: 'other' }],
+      categories: [], settings: store.getSettings(), recoveredEvents: [],
+      memoryPins: [{ id: 'bad-pin', title: 'Invalid', note: '', start: sample.startedAt, end: sample.startedAt, color: '#4256f4', includeInRecaps: false, createdAt: sample.startedAt, updatedAt: sample.startedAt }],
+    };
+
+    expect(() => store.importSnapshot(snapshot)).toThrow(/Memory Pin range/i);
+    expect(store.getAllSessions()).toEqual([]);
+    expect(store.listApps()).toEqual([]);
   });
 
   it('creates, updates, queries, and deletes local Memory Pins', () => {

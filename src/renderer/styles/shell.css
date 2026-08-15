@@ -61,9 +61,12 @@
 .search-overlay__input button { display: grid; width: 36px; height: 36px; place-items: center; border-radius: 50%; }
 .search-overlay__input button:hover { background: var(--paper); }
 .search-overlay__results { display: grid; max-height: min(56vh, 520px); overflow: auto; padding: 8px; }
-.search-overlay__results > button { display: flex; min-height: 58px; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 13px; border-radius: 13px; text-align: left; }
-.search-overlay__results > button.is-selected, .search-overlay__results > button:hover { background: var(--acid); }
-.search-overlay__results > button span { display: grid; gap: 3px; }
+.search-overlay__results > section { display: grid; }
+.search-overlay__results > section + section { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+.search-overlay__results h2 { padding: 7px 13px 3px; color: var(--muted); font: 700 9px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+.search-overlay__results section > button { display: flex; min-height: 58px; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 13px; border-radius: 13px; text-align: left; }
+.search-overlay__results section > button.is-selected, .search-overlay__results section > button:hover { background: var(--acid); }
+.search-overlay__results section > button span { display: grid; gap: 3px; }
 .search-overlay__results small { color: var(--muted); font-size: 10px; }
 .search-overlay__results svg { width: 17px; }
 .search-overlay__results > p { padding: 34px 16px; color: var(--muted); text-align: center; }

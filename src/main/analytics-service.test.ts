@@ -105,12 +105,26 @@ describe('AnalyticsService local calendar semantics', () => {
 
     expect(result).toMatchObject({
       day: '2026-08-15', firstActivity: new Date(2026, 7, 15, 9).toISOString(), busiestHour: 10,
-      appSwitches: 1,
+      appSwitches: 0,
     });
     expect(result.segments.map((segment) => segment.appName)).toEqual(['Chrome', 'Visual Studio Code']);
     expect(result.idleGaps[0]).toMatchObject({ durationSeconds: 1_800 });
     expect(result.recoveredClues).toEqual([expect.objectContaining({ appName: 'Blender' })]);
     expect(result.pins).toEqual([expect.objectContaining({ title: 'First beta' })]);
+  });
+
+  it('counts only close, non-overlapping handoffs as app switches', () => {
+    const repository = new ActivityRepository(':memory:');
+    repositories.push(repository);
+    for (const session of [
+      { id: 'code', appId: 'code', appName: 'Code', startedAt: '2026-08-15T09:00:00.000Z', endedAt: '2026-08-15T09:30:00.000Z' },
+      { id: 'overlap', appId: 'music', appName: 'Spotify', startedAt: '2026-08-15T09:20:00.000Z', endedAt: '2026-08-15T09:40:00.000Z' },
+      { id: 'late', appId: 'browser', appName: 'Chrome', startedAt: '2026-08-15T12:00:00.000Z', endedAt: '2026-08-15T12:30:00.000Z' },
+      { id: 'handoff', appId: 'social', appName: 'Discord', startedAt: '2026-08-15T12:32:00.000Z', endedAt: '2026-08-15T12:45:00.000Z' },
+    ]) repository.insertSession({ ...session, categoryId: 'other', durationSeconds: Math.round((Date.parse(session.endedAt) - Date.parse(session.startedAt)) / 1_000) });
+    const service = new AnalyticsService(repository, () => ({ state: 'tracking' }), () => new Date('2026-08-15T13:00:00.000Z'));
+
+    expect(service.getDayReplay('2026-08-15').appSwitches).toBe(1);
   });
 
   it('builds custom recap stories from only the selected real interval', () => {
@@ -133,5 +147,27 @@ describe('AnalyticsService local calendar semantics', () => {
     expect(story.summary).toMatchObject({ totalSeconds: 3_600, label: 'June cut' });
     expect(story.summary.topApps.map((app) => app.name)).toEqual(['Code']);
     expect(story.timeline).toEqual([expect.objectContaining({ key: '2026-06', topApp: 'Code' })]);
+  });
+
+  it('uses the complete archive to avoid false lifecycle moments in a selected recap', () => {
+    const repository = new ActivityRepository(':memory:');
+    repositories.push(repository);
+    for (const [id, startedAt] of [
+      ['first-code', '2025-01-10T10:00:00.000Z'],
+      ['june-code', '2026-06-10T10:00:00.000Z'],
+      ['later-code', '2026-08-10T10:00:00.000Z'],
+    ]) repository.insertSession({
+      id, appId: 'code', appName: 'Code', categoryId: 'coding', startedAt,
+      endedAt: new Date(Date.parse(startedAt) + 3_600_000).toISOString(), durationSeconds: 3_600,
+    });
+    const service = new AnalyticsService(repository, () => ({ state: 'tracking' }), () => new Date('2026-08-15T12:00:00.000Z'));
+    const story = service.getRecap({
+      kind: 'custom', start: '2026-06-01T00:00:00.000Z', end: '2026-07-01T00:00:00.000Z', label: 'June cut', complete: true,
+    });
+
+    expect(story.summary.lifecycle).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ appId: 'code', kind: 'first-use' }),
+      expect.objectContaining({ appId: 'code', kind: 'abandoned' }),
+    ]));
   });
 });

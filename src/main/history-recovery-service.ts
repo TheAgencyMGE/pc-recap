@@ -14,12 +14,14 @@ interface StoredPreview { preview: ImportPreview; createdAt: number; sources?: H
 export class HistoryRecoveryService {
   private readonly previews = new Map<string, StoredPreview>();
   private readonly importers: HistoryImporter[];
+  private generation = 0;
 
   constructor(private readonly importer: HistoryImportService, importers?: HistoryImporter[]) {
     this.importers = importers ?? [new ActivityWatchImporter(), new ManicTimeImporter(), new RescueTimeImporter(), new WakaTimeImporter()];
   }
 
   async previewFile(path: string): Promise<HistoryPreviewView> {
+    const generation = this.generation;
     const candidates: HistoryImporter[] = [];
     for (const importer of this.importers) if (await importer.canRead(path)) candidates.push(importer);
     const results: ImportPreview[] = [];
@@ -34,10 +36,11 @@ export class HistoryRecoveryService {
     if (!results.length) throw new Error('No supported history records were found in that file.');
     const name = basename(path).toLowerCase();
     const selected = results.sort((a, b) => score(b, name) - score(a, name))[0];
-    return this.store(selected);
+    return this.store(selected, [], generation);
   }
 
   async scanWindows(includeBrowserHistory = false): Promise<HistoryPreviewView> {
+    const generation = this.generation;
     const result = await scanWindowsHistory({ includeBrowserHistory });
     const serialized = JSON.stringify(result.events);
     const preview: ImportPreview = {
@@ -49,12 +52,16 @@ export class HistoryRecoveryService {
       warnings: result.warnings,
       coverage: eventCoverage(result.events),
     };
-    return this.store(preview, result.sources);
+    return this.store(preview, result.sources, generation);
   }
 
   async commit(id: string) {
     const stored = this.previews.get(id);
     if (!stored) throw new Error('This history preview expired. Scan or choose the file again.');
+    if (stored.createdAt < Date.now() - 15 * 60 * 1_000) {
+      this.previews.delete(id);
+      throw new Error('This history preview expired. Scan or choose the file again.');
+    }
     const result = await this.importer.commit(stored.preview);
     this.previews.delete(id);
     return result;
@@ -64,7 +71,13 @@ export class HistoryRecoveryService {
     this.previews.delete(id);
   }
 
-  private store(preview: ImportPreview, sources: HistoryPreviewView['sources'] = []) {
+  clearPreviews() {
+    this.generation += 1;
+    this.previews.clear();
+  }
+
+  private store(preview: ImportPreview, sources: HistoryPreviewView['sources'] = [], generation = this.generation) {
+    if (generation !== this.generation) throw new Error('This history preview was cleared. Scan or choose the file again.');
     this.prune();
     const id = randomUUID();
     this.previews.set(id, { preview, createdAt: Date.now(), sources });

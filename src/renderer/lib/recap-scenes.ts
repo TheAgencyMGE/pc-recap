@@ -39,6 +39,7 @@ export function buildRecapHeading(selection: RecapSelection) {
 
 export function formatRecapTotal(seconds: number) {
   if (seconds < 3_600) {
+    if (seconds > 0 && seconds < 60) return { value: '<1', unit: 'minute' };
     const value = Math.max(1, Math.round(seconds / 60));
     return { value: value.toLocaleString(), unit: value === 1 ? 'minute' : 'minutes' };
   }

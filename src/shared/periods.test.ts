@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getPeriodRange } from './periods';
+import { getPeriodRange, seasonRecapSelection } from './periods';
 
 describe('getPeriodRange', () => {
   it('starts weeks on Monday at local midnight', () => {
@@ -30,6 +30,18 @@ describe('getPeriodRange', () => {
     expect(localParts(range.start)).toEqual([2025, 12, 31, 0, 0]);
     expect(localParts(range.end)).toEqual([2025, 12, 31, 23, 45]);
     expect(localParts(range.previousEnd)).toEqual([2025, 12, 30, 23, 45]);
+  });
+
+  it('defines winter across December through February', () => {
+    const selection = seasonRecapSelection(2025, 'Winter', new Date(2026, 2, 10));
+    expect(localParts(selection.start)).toEqual([2025, 12, 1, 0, 0]);
+    expect(localParts(selection.end)).toEqual([2026, 3, 1, 0, 0]);
+    expect(selection.label).toBe('Winter 2025–26');
+  });
+
+  it('ends all-time coverage at now instead of a future year boundary', () => {
+    const now = new Date(2026, 7, 15, 12, 30);
+    expect(getPeriodRange('all-time', now).end).toBe(now.toISOString());
   });
 });
 

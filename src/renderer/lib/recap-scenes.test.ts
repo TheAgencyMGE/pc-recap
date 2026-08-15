@@ -48,6 +48,7 @@ describe('buildRecapScenes', () => {
   });
 
   it('uses minutes for a young archive instead of displaying zero hours', () => {
+    expect(formatRecapTotal(30)).toEqual({ value: '<1', unit: 'minute' });
     expect(formatRecapTotal(120)).toEqual({ value: '2', unit: 'minutes' });
     expect(formatRecapTotal(5_400)).toEqual({ value: '2', unit: 'hours' });
   });

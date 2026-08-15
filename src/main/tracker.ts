@@ -4,7 +4,7 @@ import type { ActiveWindowInfo, ActivitySource } from './activity-source.js';
 import { categoryForApplication } from './activity-source.js';
 import type { ActivityRepository } from './database.js';
 import { idleEndTime, transitionMidpoint } from './tracking/session-math.js';
-import { isDefaultIgnoredApplication, normalizeApplication, type ResolvedApplication } from './tracking/app-identity.js';
+import { isDefaultIgnoredApplication, isSelfApplication, normalizeApplication, type ResolvedApplication } from './tracking/app-identity.js';
 
 interface TrackerOptions {
   now?: () => Date;
@@ -29,7 +29,8 @@ export class ActivityTracker {
   private timer?: ReturnType<typeof setInterval>;
   private timerIntervalMs?: number;
   private running = false;
-  private sampling = false;
+  private generation = 0;
+  private samplePromise?: Promise<void>;
   private status: TrackingStatus = { state: 'paused' };
 
   constructor(
@@ -61,16 +62,21 @@ export class ActivityTracker {
     this.source.dispose?.();
   }
 
-  pause() {
+  async pause() {
     this.repository.updateSettings({ trackingEnabled: false });
+    this.generation += 1;
+    if (this.timer) clearInterval(this.timer);
+    this.timer = undefined;
+    this.timerIntervalMs = undefined;
+    await this.samplePromise;
     this.closeSession(this.now());
     this.setStatus({ state: 'paused' });
   }
 
-  resume() {
+  async resume() {
     this.repository.updateSettings({ trackingEnabled: true });
     this.setStatus({ state: 'tracking' });
-    void this.sample();
+    await this.sample();
     if (this.running) this.scheduleTimer(this.repository.getSettings().sampleIntervalSeconds * 1_000);
   }
 
@@ -84,9 +90,37 @@ export class ActivityTracker {
     return { ...session, provisional: true };
   }
 
-  async sample() {
-    if (this.sampling) return;
-    this.sampling = true;
+  discardOpenSession() {
+    this.openSession = undefined;
+    this.repository.clearOpenSessionCheckpoint(this.machineId);
+  }
+
+  async suspendForErase() {
+    this.generation += 1;
+    if (this.timer) clearInterval(this.timer);
+    this.timer = undefined;
+    this.timerIntervalMs = undefined;
+    await this.samplePromise;
+    this.discardOpenSession();
+    this.setStatus({ state: 'paused', reason: 'Archive reset in progress.' });
+  }
+
+  async resumeAfterErase() {
+    await this.sample();
+  }
+
+  async sample(): Promise<void> {
+    if (this.samplePromise) return this.samplePromise;
+    const task = this.performSample(this.generation);
+    this.samplePromise = task;
+    try {
+      await task;
+    } finally {
+      if (this.samplePromise === task) this.samplePromise = undefined;
+    }
+  }
+
+  private async performSample(generation: number) {
     try {
       const settings = this.repository.getSettings();
       const now = this.now();
@@ -103,6 +137,7 @@ export class ActivityTracker {
         return;
       }
       const detected = await this.source.getActiveWindow();
+      if (generation !== this.generation) return;
       if (!detected) {
         this.closeSession(this.openSession ? transitionMidpoint(this.openSession.lastSampleAt, now) : now);
         this.setStatus({ state: 'unavailable', reason: 'No foreground application was detected.' });
@@ -110,16 +145,17 @@ export class ActivityTracker {
       }
       const aliasKey = detected.path ?? detected.executable;
       const active = normalizeApplication(detected, this.repository.resolveApplicationAlias(aliasKey));
-      if (isDefaultIgnoredApplication(active) || active.ignoredByDefault) {
+      const includedByUser = settings.includedExecutables.includes(active.executable.toLowerCase());
+      if (isSelfApplication(active) || ((isDefaultIgnoredApplication(active) || active.ignoredByDefault) && !includedByUser)) {
         this.closeSession(this.openSession ? transitionMidpoint(this.openSession.lastSampleAt, now) : now);
-        this.setStatus({ state: 'paused', reason: `${active.canonicalName} is not included in activity history.` });
+        this.setStatus({ state: 'ignored', reason: `${active.canonicalName} is ignored by a tracking rule.` });
         return;
       }
       const excluded = settings.excludedExecutables.includes(active.executable.toLowerCase())
         || this.repository.isAppExcluded(active.executable);
       if (excluded) {
         this.closeSession(this.openSession ? transitionMidpoint(this.openSession.lastSampleAt, now) : now);
-        this.setStatus({ state: 'paused', reason: `${active.name} is excluded from tracking.` });
+        this.setStatus({ state: 'ignored', reason: `${active.name} is excluded from tracking.` });
         return;
       }
       if (this.openSession?.info.canonicalId === active.canonicalId) {
@@ -140,27 +176,22 @@ export class ActivityTracker {
       }
       this.setStatus({ state: 'tracking', activeApp: active.name, since: this.openSession.startedAt.toISOString() });
     } catch (error) {
-      this.closeSession(this.now());
+      if (generation !== this.generation) return;
+      try { this.closeSession(this.now()); } catch { /* Retry finalization on the next sample. */ }
       this.setStatus({
         state: 'unavailable',
         reason: error instanceof Error ? error.message : 'The activity source is unavailable.',
       });
-    } finally {
-      this.sampling = false;
     }
   }
 
   private closeSession(endedAt: Date) {
     if (!this.openSession) return;
     const session = this.toSession(this.openSession, endedAt);
-    const durationSeconds = session.durationSeconds;
-    if (durationSeconds > 0) {
-      this.repository.insertSession(session, {
-        executable: this.openSession.info.executable,
-        path: this.openSession.info.path,
-      });
-    }
-    this.repository.clearOpenSessionCheckpoint(this.machineId);
+    this.repository.finalizeOpenSession(session, {
+      executable: this.openSession.info.executable,
+      path: this.openSession.info.path,
+    }, this.machineId);
     this.openSession = undefined;
   }
 
@@ -183,20 +214,25 @@ export class ActivityTracker {
 
   private checkpointOpenSession(at: Date, force = false) {
     if (!this.openSession) return;
-    const previous = this.repository.getOpenSessionCheckpoint(this.machineId);
-    if (!force && previous && at.getTime() - new Date(previous.checkpointedAt).getTime() < 30_000) return;
-    this.repository.saveOpenSessionCheckpoint({
-      machineId: this.machineId,
-      appId: this.openSession.info.canonicalId,
-      appName: this.openSession.info.canonicalName,
-      executable: this.openSession.info.executable,
-      path: this.openSession.info.path,
-      categoryId: categoryForApplication(this.openSession.info),
-      startedAt: this.openSession.startedAt.toISOString(),
-      lastSampleAt: this.openSession.lastSampleAt.toISOString(),
-      checkpointedAt: at.toISOString(),
-      windowTitle: this.repository.getSettings().captureWindowTitles ? this.openSession.info.title : undefined,
-    });
+    try {
+      const previous = this.repository.getOpenSessionCheckpoint(this.machineId);
+      if (!force && previous && at.getTime() - new Date(previous.checkpointedAt).getTime() < 30_000) return;
+      this.repository.saveOpenSessionCheckpoint({
+        sessionId: this.openSession.id,
+        machineId: this.machineId,
+        appId: this.openSession.info.canonicalId,
+        appName: this.openSession.info.canonicalName,
+        executable: this.openSession.info.executable,
+        path: this.openSession.info.path,
+        categoryId: categoryForApplication(this.openSession.info),
+        startedAt: this.openSession.startedAt.toISOString(),
+        lastSampleAt: this.openSession.lastSampleAt.toISOString(),
+        checkpointedAt: at.toISOString(),
+        windowTitle: this.repository.getSettings().captureWindowTitles ? this.openSession.info.title : undefined,
+      });
+    } catch {
+      // The live session remains in memory and the next sample retries the checkpoint.
+    }
   }
 
   private recoverCheckpoint() {
@@ -205,18 +241,15 @@ export class ActivityTracker {
     const startedAt = new Date(checkpoint.startedAt);
     const endedAt = new Date(checkpoint.lastSampleAt);
     const durationSeconds = Math.max(0, Math.round((endedAt.getTime() - startedAt.getTime()) / 1_000));
-    if (durationSeconds > 0) {
-      this.repository.insertSession(this.sessionFromCheckpoint(checkpoint, durationSeconds), {
-        executable: checkpoint.executable,
-        path: checkpoint.path,
-      });
-    }
-    this.repository.clearOpenSessionCheckpoint(this.machineId);
+    this.repository.finalizeOpenSession(this.sessionFromCheckpoint(checkpoint, durationSeconds), {
+      executable: checkpoint.executable,
+      path: checkpoint.path,
+    }, this.machineId);
   }
 
   private sessionFromCheckpoint(checkpoint: OpenSessionCheckpoint, durationSeconds: number): ActivitySession {
     return {
-      id: randomUUID(),
+      id: checkpoint.sessionId,
       appId: checkpoint.appId,
       appName: checkpoint.appName,
       categoryId: checkpoint.categoryId,

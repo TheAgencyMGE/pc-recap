@@ -12,6 +12,13 @@
 .setting-row > span:nth-child(2) { display: grid; gap: 3px; }
 .setting-row small { color: var(--muted); line-height: 1.35; }
 .setting-row select { height: 36px; padding: 0 9px; border: 1px solid var(--ink); background: var(--paper); }
+.ignored-apps { padding: 15px 18px; border-top: 1px solid var(--line); }
+.ignored-apps summary { cursor: pointer; font-weight: 750; }
+.ignored-apps > p { margin: 7px 0 12px; color: var(--muted); font-size: 12px; }
+.ignored-apps label { display: flex; min-height: 44px; align-items: center; justify-content: space-between; gap: 15px; border-top: 1px solid var(--line); }
+.ignored-apps label span { display: grid; gap: 2px; }
+.ignored-apps label small { color: var(--muted); font: 600 10px var(--mono); }
+.ignored-apps input { width: 18px; height: 18px; accent-color: var(--cobalt); }
 .switch { position: relative; width: 50px; height: 28px; border: 2px solid var(--ink); background: var(--paper); }
 .switch i { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border: 1px solid var(--ink); background: var(--ink); transition: transform .16s ease; }
 .switch.is-on { background: var(--acid); }
@@ -69,6 +76,7 @@
 .recovery-samples > div:nth-child(odd) { padding-right: 18px; }
 .recovery-samples > div:nth-child(even) { padding-left: 18px; border-left: 1px solid var(--line); }
 .recovery-samples span { color: var(--muted); font-size: 12px; }
+.recovery-samples small { overflow: hidden; color: var(--soft-ink); font: 600 10px/1.35 var(--mono); text-overflow: ellipsis; white-space: nowrap; }
 .recovery-warning { margin: 0 24px 8px; color: var(--soft-ink); font-size: 12px; }
 .recovery-preview > .primary-button { margin: 18px 24px 24px; }
 @keyframes recovery-pulse { 50% { opacity: .35; } }

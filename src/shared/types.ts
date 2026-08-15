@@ -72,6 +72,7 @@ export type SessionSourceKind =
 export type SessionConfidence = 'recorded' | 'imported_exact';
 
 export interface OpenSessionCheckpoint {
+  sessionId: string;
   machineId: string;
   appId: string;
   appName: string;
@@ -227,6 +228,8 @@ export interface CategoryUsage {
 export interface TimeBucket {
   label: string;
   seconds: number;
+  leadingApp?: string;
+  leadingCategory?: string;
 }
 
 export interface AppPair {
@@ -279,6 +282,8 @@ export interface Era {
   end: string;
   appId: string;
   color: string;
+  kind?: 'app' | 'category' | 'mixed';
+  phase?: { rising?: string; peak: string; fading?: string };
 }
 
 export interface Observation {
@@ -369,11 +374,12 @@ export interface TrackingSettings {
   sampleIntervalSeconds: number;
   idleThresholdSeconds: number;
   excludedExecutables: string[];
+  includedExecutables: string[];
   onboardingComplete: boolean;
 }
 
 export interface TrackingStatus {
-  state: 'tracking' | 'paused' | 'idle' | 'unavailable';
+  state: 'tracking' | 'paused' | 'idle' | 'ignored' | 'unavailable';
   activeApp?: string;
   since?: string;
   reason?: string;
@@ -410,5 +416,21 @@ export const DEFAULT_SETTINGS: TrackingSettings = {
   sampleIntervalSeconds: 10,
   idleThresholdSeconds: 300,
   excludedExecutables: [],
+  includedExecutables: [],
   onboardingComplete: false,
 };
+
+export const DEFAULT_IGNORED_APPLICATIONS = [
+  { executable: 'searchhost.exe', label: 'Windows Search' },
+  { executable: 'searchapp.exe', label: 'Windows Search (legacy)' },
+  { executable: 'startmenuexperiencehost.exe', label: 'Start menu' },
+  { executable: 'shellexperiencehost.exe', label: 'Windows shell' },
+  { executable: 'textinputhost.exe', label: 'Windows text input' },
+  { executable: 'applicationframehost.exe', label: 'Windows app host' },
+  { executable: 'credentialuibroker.exe', label: 'Credential prompt' },
+  { executable: 'pickerhost.exe', label: 'Windows picker' },
+  { executable: 'lockapp.exe', label: 'Lock screen' },
+  { executable: 'dwm.exe', label: 'Desktop compositor' },
+  { executable: 'idle.exe', label: 'Idle placeholder' },
+  { executable: 'msiexec.exe', label: 'Windows installer' },
+] as const;

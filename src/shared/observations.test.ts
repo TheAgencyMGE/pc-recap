@@ -73,4 +73,16 @@ describe('generateObservations', () => {
     expect(observations.some((item) => item.text.includes('1457%'))).toBe(false);
     expect(observations.some((item) => item.text.includes('2 minutes') && item.text.includes('31 minutes'))).toBe(true);
   });
+
+  it('uses relationship facts for the same unordered pair', () => {
+    const result = generateObservations({
+      ...summary,
+      relationships: [
+        { appA: 'Discord', appB: 'Spotify', transitions: 99, distinctDays: 8, medianGapSeconds: 10, direction: 'balanced', score: 80 },
+        { appA: 'VS Code', appB: 'Chrome', transitions: 12, distinctDays: 5, medianGapSeconds: 20, direction: 'balanced', score: 50 },
+      ],
+    });
+
+    expect(result.find((item) => item.id.startsWith('pair-'))?.detail).toContain('12 times across 5 days');
+  });
 });

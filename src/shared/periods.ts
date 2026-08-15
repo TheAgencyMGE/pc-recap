@@ -2,7 +2,7 @@ import type { PeriodKind, PeriodRange, RecapSelection } from './types.js';
 
 const iso = (date: Date) => date.toISOString();
 const localDate = (year: number, month: number, day: number) => new Date(year, month, day);
-const monthName = (month: number, style: 'short' | 'long' = 'long') => new Intl.DateTimeFormat('en-US', {
+const monthName = (month: number, style: 'short' | 'long' = 'long') => new Intl.DateTimeFormat(undefined, {
   month: style,
 }).format(localDate(2025, month, 1));
 
@@ -61,7 +61,7 @@ export function getPeriodRange(kind: PeriodKind, now = new Date(), selectedYear?
   const isAllTime = kind === 'all-time';
   const isCurrent = !isAllTime && now.getTime() >= start.getTime() && now.getTime() < boundaryEnd.getTime();
   const isComplete = !isAllTime && !isCurrent;
-  const end = isCurrent ? now : boundaryEnd;
+  const end = isAllTime ? now : isCurrent ? now : boundaryEnd;
   const elapsed = Math.max(0, end.getTime() - start.getTime());
   const previousEnd = isAllTime ? previousStart : isComplete ? start : new Date(previousStart.getTime() + elapsed);
 
@@ -83,13 +83,36 @@ export function yearRecapSelection(year: number, now = new Date()): RecapSelecti
   return { kind: 'year', start: iso(start), end: iso(complete ? boundary : now), label: String(year), complete };
 }
 
+export function currentRecapSelection(kind: 'today' | 'week' | 'month' | 'year' | 'decade', now = new Date()): RecapSelection {
+  const range = getPeriodRange(kind, now);
+  return {
+    kind: kind === 'today' ? 'day' : kind,
+    start: range.start,
+    end: range.end,
+    label: range.label,
+    complete: range.isComplete,
+  };
+}
+
+export function decadeRecapSelection(decadeStart: number, now = new Date()): RecapSelection {
+  const startYear = Math.floor(decadeStart / 10) * 10;
+  const start = localDate(startYear, 0, 1);
+  const boundary = localDate(startYear + 10, 0, 1);
+  const complete = now.getTime() >= boundary.getTime();
+  return {
+    kind: 'decade', start: iso(start), end: iso(complete ? boundary : now),
+    label: `${startYear}–${startYear + 9}`, complete,
+  };
+}
+
 export function seasonRecapSelection(year: number, season: 'Winter' | 'Spring' | 'Summer' | 'Fall', now = new Date()): RecapSelection {
-  const ranges = { Winter: [0, 2], Spring: [2, 5], Summer: [5, 8], Fall: [8, 11] } as const;
+  const ranges = { Winter: [11, 14], Spring: [2, 5], Summer: [5, 8], Fall: [8, 11] } as const;
   const [startMonth, endMonth] = ranges[season];
   const start = localDate(year, startMonth, 1);
   const boundary = localDate(year, endMonth, 1);
   const complete = now.getTime() >= boundary.getTime();
-  return { kind: 'season', start: iso(start), end: iso(complete ? boundary : now), label: `${season} ${year}`, complete };
+  const label = season === 'Winter' ? `${season} ${year}–${String(year + 1).slice(-2)}` : `${season} ${year}`;
+  return { kind: 'season', start: iso(start), end: iso(complete ? boundary : now), label, complete };
 }
 
 export function customRecapSelection(startDay: string, endDay: string): RecapSelection {

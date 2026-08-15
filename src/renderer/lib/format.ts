@@ -10,18 +10,15 @@ export const formatDuration = (seconds: number, compact = false) => {
 
 export const formatClock = (iso?: string) => {
   if (!iso) return '—';
-  return new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(new Date(iso));
+  return new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(new Date(iso));
 };
 
-export const formatDate = (iso: string) => new Intl.DateTimeFormat('en-US', {
+export const formatDate = (iso: string) => new Intl.DateTimeFormat(undefined, {
   month: 'short', day: 'numeric', year: 'numeric',
 }).format(new Date(iso));
 
-export const formatHour = (hour: number) => {
-  if (hour === 0) return '12 AM';
-  if (hour === 12) return '12 PM';
-  return `${hour % 12} ${hour > 12 ? 'PM' : 'AM'}`;
-};
+export const formatHour = (hour: number) => new Intl.DateTimeFormat(undefined, { hour: 'numeric' })
+  .format(new Date(2026, 0, 1, hour));
 
 export const formatDurationLong = (seconds: number) => {
   const safeSeconds = Math.max(0, Math.round(seconds));
@@ -43,13 +40,13 @@ export const formatBucketLabel = (scale: BucketScale, label: string) => {
   if (scale === 'day') {
     const [year, month, day] = label.split('-').map(Number);
     if (!year || !month || !day) return label;
-    return new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+    return new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
       .format(new Date(year, month - 1, day));
   }
   if (scale === 'month') {
     const [year, month] = label.split('-').map(Number);
     if (!year || !month) return label;
-    return new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric' })
+    return new Intl.DateTimeFormat(undefined, { month: 'short', year: 'numeric' })
       .format(new Date(year, month - 1, 1));
   }
   return label;

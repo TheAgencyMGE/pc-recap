@@ -21,9 +21,16 @@ export function BarChart({
   const stats = useMemo(() => {
     const peak = [...visible].sort((a, b) => b.seconds - a.seconds)[0];
     const average = visible.length ? Math.round(visible.reduce((sum, item) => sum + item.seconds, 0) / visible.length) : 0;
-    return { peak, average };
+    const total = visible.reduce((sum, item) => sum + item.seconds, 0);
+    return { peak, average, total };
   }, [visible]);
   const active = selected === undefined ? undefined : visible[selected];
+  const activeLeader = active && ('leadingApp' in active
+    ? active.leadingApp
+    : 'topApp' in active ? active.topApp : undefined);
+  const activeCategory = active && ('leadingCategory' in active
+    ? active.leadingCategory
+    : 'categoryId' in active ? active.categoryId : undefined);
 
   return <figure className="bar-chart" aria-label={label}>
     <div className="bar-chart__plot">
@@ -50,6 +57,10 @@ export function BarChart({
       })}
       {active && <div id="bar-chart-tooltip" className="bar-chart__tooltip" role="tooltip" style={{ left: `${((selected ?? 0) + .5) / Math.max(1, visible.length) * 100}%` }}>
         <b>{formatBucketLabel(scale, active.label)}</b><span>{formatDurationLong(active.seconds)}</span>
+        <small>{stats.total ? `${Math.round(active.seconds / stats.total * 100)}% of this chart` : 'No recorded activity'}</small>
+        {activeLeader && <small>{activeLeader} led</small>}
+        {activeCategory && <small>Top category: {activeCategory}</small>}
+        {active.seconds !== stats.average && <small>{formatDurationLong(Math.abs(active.seconds - stats.average))} {active.seconds > stats.average ? 'above' : 'below'} average</small>}
       </div>}
     </div>
     <figcaption>
