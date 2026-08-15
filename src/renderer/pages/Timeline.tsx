@@ -4,8 +4,10 @@ import { useEffect, useState } from 'react';
 import type { PCRecapAPI } from '../../shared/ipc';
 import type { TimelineBucket } from '../../shared/types';
 import { formatDuration } from '../lib/format';
+import { formatBucketLabel } from '../lib/format';
+import type { RouteId } from '../routes';
 
-export function Timeline({ api }: { api: PCRecapAPI }) {
+export function Timeline({ api, onNavigate }: { api: PCRecapAPI; onNavigate?: (route: RouteId) => void }) {
   const [level, setLevel] = useState<'year' | 'month' | 'day'>('year');
   const [anchor, setAnchor] = useState<string>();
   const [data, setData] = useState<TimelineBucket[]>([]);
@@ -14,6 +16,7 @@ export function Timeline({ api }: { api: PCRecapAPI }) {
   const zoom = (bucket: TimelineBucket) => {
     if (level === 'year') { setAnchor(bucket.key); setLevel('month'); }
     else if (level === 'month') { setAnchor(bucket.key); setLevel('day'); }
+    else onNavigate?.(`day:${bucket.key}`);
   };
   const back = () => {
     if (level === 'day') { setAnchor(anchor?.slice(0, 4)); setLevel('month'); }
@@ -29,9 +32,8 @@ export function Timeline({ api }: { api: PCRecapAPI }) {
       {data.map((bucket, index) => <motion.button
         key={bucket.key}
         data-cover-type={level}
-        aria-label={`${bucket.label}, ${bucket.topApp}, ${formatDuration(bucket.seconds)}`}
+        aria-label={`${level === 'year' ? bucket.label : formatBucketLabel(level, bucket.label)}, ${bucket.topApp}, ${formatDuration(bucket.seconds)}`}
         onClick={() => zoom(bucket)}
-        disabled={level === 'day'}
         initial={reduceMotion ? false : { opacity: 0, y: 22 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: reduceMotion ? 0 : index * .035 }}
@@ -39,8 +41,8 @@ export function Timeline({ api }: { api: PCRecapAPI }) {
       >
         <span className="archive-cover__index">{String(index + 1).padStart(2, '0')}</span>
         <span className="archive-cover__stripes" aria-hidden="true" />
-        <span className="archive-cover__copy"><small>{bucket.label}</small><b>{bucket.topApp}</b><em>{formatDuration(bucket.seconds)}</em></span>
-        {level !== 'day' && <ArrowRight />}
+        <span className="archive-cover__copy"><small>{level === 'year' ? bucket.label : formatBucketLabel(level, bucket.label)}</small><b>{bucket.topApp}</b><em>{formatDuration(bucket.seconds)}</em></span>
+        <ArrowRight />
       </motion.button>)}
       {!data.length && <div className="empty-state"><Archive /><h2>No activity here</h2></div>}
     </section>

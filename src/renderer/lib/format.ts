@@ -42,11 +42,13 @@ export const formatBucketLabel = (scale: BucketScale, label: string) => {
   if (scale === 'hour') return formatHour(Number(label));
   if (scale === 'day') {
     const [year, month, day] = label.split('-').map(Number);
+    if (!year || !month || !day) return label;
     return new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
       .format(new Date(year, month - 1, day));
   }
   if (scale === 'month') {
     const [year, month] = label.split('-').map(Number);
+    if (!year || !month) return label;
     return new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric' })
       .format(new Date(year, month - 1, 1));
   }
