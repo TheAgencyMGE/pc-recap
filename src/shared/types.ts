@@ -214,6 +214,8 @@ export interface PeriodSummary {
   label: string;
   rangeStart: string;
   rangeEnd: string;
+  isComplete: boolean;
+  comparisonLabel: string;
   totalSeconds: number;
   previousTotalSeconds: number;
   changePercent: number;

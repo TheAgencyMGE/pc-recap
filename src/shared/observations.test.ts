@@ -7,6 +7,8 @@ const summary: PeriodSummary = {
   label: 'This week',
   rangeStart: '2025-01-01T00:00:00.000Z',
   rangeEnd: '2025-01-08T00:00:00.000Z',
+  isComplete: true,
+  comparisonLabel: 'Last week',
   totalSeconds: 36_000,
   previousTotalSeconds: 30_000,
   changePercent: 20,

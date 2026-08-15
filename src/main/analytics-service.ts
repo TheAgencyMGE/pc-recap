@@ -29,7 +29,10 @@ export class AnalyticsService {
     return summarizeSessions(
       this.querySessionsWithLive(range.start, range.end),
       this.querySessionsWithLive(range.previousStart, range.previousEnd),
-      { kind, label: range.label, rangeStart: range.start, rangeEnd: range.end },
+      {
+        kind, label: range.label, rangeStart: range.start, rangeEnd: range.end,
+        isComplete: range.isComplete, comparisonLabel: range.comparisonLabel,
+      },
     );
   }
 

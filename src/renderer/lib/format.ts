@@ -25,6 +25,7 @@ export const formatHour = (hour: number) => {
 
 export const formatDurationLong = (seconds: number) => {
   const safeSeconds = Math.max(0, Math.round(seconds));
+  if (safeSeconds === 0) return '0 minutes';
   if (safeSeconds < 60) return `${safeSeconds} ${safeSeconds === 1 ? 'second' : 'seconds'}`;
   const totalMinutes = Math.floor(safeSeconds / 60);
   const hours = Math.floor(totalMinutes / 60);

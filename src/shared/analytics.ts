@@ -19,6 +19,8 @@ interface SummaryOptions {
   label: string;
   rangeStart: string;
   rangeEnd: string;
+  isComplete?: boolean;
+  comparisonLabel?: string;
 }
 
 const CATEGORY_META: Record<string, { name: string; color: string }> = {
@@ -175,6 +177,8 @@ export function summarizeSessions(
     label: options.label,
     rangeStart: options.rangeStart,
     rangeEnd: options.rangeEnd,
+    isComplete: options.isComplete ?? false,
+    comparisonLabel: options.comparisonLabel ?? 'Previous period',
     totalSeconds,
     previousTotalSeconds,
     changePercent: previousTotalSeconds
