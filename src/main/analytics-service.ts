@@ -1,5 +1,5 @@
 import { summarizeSessions } from '../shared/analytics.js';
-import { localDayKey, localMonthKey, splitSessionByLocalDay, splitSessionByLocalHour } from '../shared/calendar.js';
+import { clipSessionToRange, localDayKey, localMonthKey, splitSessionByLocalDay, splitSessionByLocalHour } from '../shared/calendar.js';
 import { getPeriodRange } from '../shared/periods.js';
 import type {
   Achievement,
@@ -12,6 +12,7 @@ import type {
   RecordItem,
   TimeBucket,
   TrackingStatus,
+  LiveActivitySession,
 } from '../shared/types.js';
 import type { ActivityRepository } from './database.js';
 
@@ -20,15 +21,24 @@ export class AnalyticsService {
     private readonly repository: ActivityRepository,
     private readonly getTrackingStatus: () => TrackingStatus,
     private readonly now: () => Date = () => new Date(),
+    private readonly getLiveSession: () => LiveActivitySession | undefined = () => undefined,
   ) {}
 
   getSummary(kind: PeriodKind, year?: number): PeriodSummary {
     const range = getPeriodRange(kind, this.now(), year);
     return summarizeSessions(
-      this.repository.querySessions(range.start, range.end),
-      this.repository.querySessions(range.previousStart, range.previousEnd),
+      this.querySessionsWithLive(range.start, range.end),
+      this.querySessionsWithLive(range.previousStart, range.previousEnd),
       { kind, label: range.label, rangeStart: range.start, rangeEnd: range.end },
     );
+  }
+
+  private querySessionsWithLive(start: string, end: string): ActivitySession[] {
+    const sessions = this.repository.querySessions(start, end);
+    const live = this.getLiveSession();
+    if (!live || sessions.some((session) => session.id === live.id)) return sessions;
+    const clipped = clipSessionToRange(live, start, end);
+    return clipped ? [...sessions, clipped].sort((a, b) => a.startedAt.localeCompare(b.startedAt)) : sessions;
   }
 
   getDashboard(kind: PeriodKind = 'today', year?: number): DashboardData {

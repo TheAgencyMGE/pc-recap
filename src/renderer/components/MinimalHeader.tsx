@@ -6,19 +6,21 @@ import { LogoMark } from './LogoMark';
 
 export function MinimalHeader({
   status,
+  trackingEnabled,
   query,
   onQueryChange,
   onNavigate,
   onToggleTracking,
 }: {
   status: TrackingStatus;
+  trackingEnabled: boolean;
   query: string;
   onQueryChange: (value: string) => void;
   onNavigate: (route: RouteId) => void;
   onToggleTracking: () => void;
 }) {
   const [searching, setSearching] = useState(false);
-  const active = status.state === 'tracking';
+  const active = trackingEnabled;
   return <header className="minimal-header">
     <LogoMark />
     <div className={`minimal-header__actions ${searching ? 'is-searching' : ''}`}>

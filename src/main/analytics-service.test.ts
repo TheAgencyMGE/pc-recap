@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { AnalyticsService } from './analytics-service';
 import { ActivityRepository } from './database';
+import type { LiveActivitySession } from '../shared/types';
 
 const repositories: ActivityRepository[] = [];
 
@@ -33,5 +34,25 @@ describe('AnalyticsService local calendar semantics', () => {
       expect.objectContaining({ year: 2024, topApp: 'Obsidian', totalSeconds: 1_800 }),
     ]);
     expect(service.getAppDetail('obsidian')).toMatchObject({ favoriteHour: 20, activeDays: 1 });
+  });
+
+  it('includes an open provisional session exactly once in the current summary', () => {
+    const repository = new ActivityRepository(':memory:');
+    repositories.push(repository);
+    const live: LiveActivitySession = {
+      id: 'live-code', appId: 'code', appName: 'Visual Studio Code', categoryId: 'coding',
+      startedAt: '2026-08-15T10:00:00.000Z', endedAt: '2026-08-15T10:02:00.000Z',
+      durationSeconds: 120, machineId: 'desktop', provisional: true,
+    };
+    const service = new AnalyticsService(
+      repository,
+      () => ({ state: 'tracking' }),
+      () => new Date('2026-08-15T10:02:00.000Z'),
+      () => live,
+    );
+
+    expect(service.getSummary('today')).toMatchObject({ totalSeconds: 120, sessionCount: 1 });
+    repository.insertSession(live);
+    expect(service.getSummary('today')).toMatchObject({ totalSeconds: 120, sessionCount: 1 });
   });
 });

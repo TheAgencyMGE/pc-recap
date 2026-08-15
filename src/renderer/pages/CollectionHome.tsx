@@ -16,6 +16,7 @@ export function CollectionHome({
   apps,
   onThisDay,
   status,
+  trackingEnabled,
   onNavigate,
   onToggleTracking,
 }: {
@@ -25,6 +26,7 @@ export function CollectionHome({
   apps: TrackedApp[];
   onThisDay: OnThisDayEntry[];
   status: TrackingStatus;
+  trackingEnabled: boolean;
   onNavigate: (route: RouteId) => void;
   onToggleTracking: () => void;
 }) {
@@ -38,7 +40,7 @@ export function CollectionHome({
   const today = recapCovers[0];
 
   return <div className="collection-app">
-    <MinimalHeader status={status} query={query} onQueryChange={setQuery} onNavigate={onNavigate} onToggleTracking={onToggleTracking} />
+    <MinimalHeader status={status} trackingEnabled={trackingEnabled} query={query} onQueryChange={setQuery} onNavigate={onNavigate} onToggleTracking={onToggleTracking} />
     <main className="collection-home">
       {today && <section className="today-feature" aria-label="Today"><CollectionCover model={today} onOpen={() => onNavigate('today')} /></section>}
       <CoverShelf title="Your recaps" covers={recapCovers.slice(1)} onNavigate={onNavigate} />

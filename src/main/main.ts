@@ -99,7 +99,12 @@ app.whenReady().then(async () => {
     machineId: hostname(),
     onStatus: (status) => mainWindow?.webContents.send('tracking:changed', status),
   });
-  const analytics = new AnalyticsService(repository, () => tracker?.getStatus() ?? { state: 'unavailable' });
+  const analytics = new AnalyticsService(
+    repository,
+    () => tracker?.getStatus() ?? { state: 'unavailable' },
+    () => new Date(),
+    () => tracker?.getLiveSession(),
+  );
   const icons = new AppIconService(repository, {
     getFileIcon: (path) => app.getFileIcon(path, { size: 'normal' }),
   });

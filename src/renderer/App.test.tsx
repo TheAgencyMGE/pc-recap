@@ -39,4 +39,18 @@ describe('PC Recap renderer', () => {
     expect(screen.queryByText(/today, so far/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/hours|sessions|top app/i)).not.toBeInTheDocument();
   });
+
+  it('offers Pause while tracking is enabled even when the computer is idle', async () => {
+    const api = createTestApi();
+    const getDashboard = api.getDashboard;
+    api.getDashboard = async (...args) => ({
+      ...await getDashboard(...args),
+      trackingStatus: { state: 'idle', since: new Date().toISOString() },
+    });
+
+    render(<App api={api} />);
+
+    expect(await screen.findByRole('button', { name: 'Pause tracking' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'Resume tracking' })).not.toBeInTheDocument();
+  });
 });

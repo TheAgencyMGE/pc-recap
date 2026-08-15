@@ -60,7 +60,10 @@ export function createTestApi(overrides: Partial<TrackingSettings> = {}): PCReca
     setAppCategory: async () => undefined,
     setAppExcluded: async () => undefined,
     getTrackingStatus: async () => status,
-    setTrackingEnabled: async (enabled) => (status = { state: enabled ? 'tracking' : 'paused' }),
+    setTrackingEnabled: async (enabled) => {
+      settings = { ...settings, trackingEnabled: enabled };
+      return (status = { state: enabled ? 'tracking' : 'paused' });
+    },
     onTrackingStatus: () => () => undefined,
     exportBackup: async () => ({ ok: true, path: 'test.pcr' }),
     importBackup: async () => ({ ok: true, importedSessions: 0 }),

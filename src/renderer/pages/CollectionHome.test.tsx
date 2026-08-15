@@ -21,6 +21,7 @@ describe('CollectionHome', () => {
       apps={apps}
       onThisDay={onThisDay}
       status={dashboard.trackingStatus}
+      trackingEnabled
       onNavigate={onNavigate}
       onToggleTracking={() => undefined}
     /></AppIconProvider>);
@@ -51,6 +52,7 @@ describe('CollectionHome', () => {
       apps={[]}
       onThisDay={[]}
       status={{ state: 'tracking' }}
+      trackingEnabled
       onNavigate={() => undefined}
       onToggleTracking={() => undefined}
     /></AppIconProvider>);

@@ -81,10 +81,12 @@ export function App({ api = rendererApi }: { api?: PCRecapAPI }) {
   useEffect(() => api.onTrackingStatus((status) => setData((current) => current ? { ...current, trackingStatus: status } : current)), [api]);
 
   const toggleTracking = useCallback(async () => {
-    if (!data) return;
-    const status = await api.setTrackingEnabled(data.trackingStatus.state !== 'tracking');
+    if (!data || !settings) return;
+    const trackingEnabled = !settings.trackingEnabled;
+    const status = await api.setTrackingEnabled(trackingEnabled);
     setData({ ...data, trackingStatus: status });
-  }, [api, data]);
+    setSettings({ ...settings, trackingEnabled });
+  }, [api, data, settings]);
 
   const page = useMemo(() => {
     if (!data || !settings) return null;
@@ -95,6 +97,7 @@ export function App({ api = rendererApi }: { api?: PCRecapAPI }) {
       apps={apps}
       onThisDay={onThisDay}
       status={data.trackingStatus}
+      trackingEnabled={settings.trackingEnabled}
       onNavigate={setRoute}
       onToggleTracking={() => { void toggleTracking(); }}
     />;
