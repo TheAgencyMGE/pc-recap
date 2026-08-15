@@ -4,6 +4,7 @@ import type { ActiveWindowInfo, ActivitySource } from './activity-source.js';
 import { categoryForApplication } from './activity-source.js';
 import type { ActivityRepository } from './database.js';
 import { idleEndTime, transitionMidpoint } from './tracking/session-math.js';
+import { isDefaultIgnoredApplication, normalizeApplication, type ResolvedApplication } from './tracking/app-identity.js';
 
 interface TrackerOptions {
   now?: () => Date;
@@ -14,7 +15,7 @@ interface TrackerOptions {
 
 interface OpenSession {
   id: string;
-  info: ActiveWindowInfo;
+  info: ResolvedApplication;
   startedAt: Date;
   lastSampleAt: Date;
 }
@@ -101,10 +102,17 @@ export class ActivityTracker {
         this.setStatus({ state: 'idle', since: now.toISOString() });
         return;
       }
-      const active = await this.source.getActiveWindow();
-      if (!active) {
+      const detected = await this.source.getActiveWindow();
+      if (!detected) {
         this.closeSession(this.openSession ? transitionMidpoint(this.openSession.lastSampleAt, now) : now);
         this.setStatus({ state: 'unavailable', reason: 'No foreground application was detected.' });
+        return;
+      }
+      const aliasKey = detected.path ?? detected.executable;
+      const active = normalizeApplication(detected, this.repository.resolveApplicationAlias(aliasKey));
+      if (isDefaultIgnoredApplication(active) || active.ignoredByDefault) {
+        this.closeSession(this.openSession ? transitionMidpoint(this.openSession.lastSampleAt, now) : now);
+        this.setStatus({ state: 'paused', reason: `${active.canonicalName} is not included in activity history.` });
         return;
       }
       const excluded = settings.excludedExecutables.includes(active.executable.toLowerCase())
@@ -114,7 +122,7 @@ export class ActivityTracker {
         this.setStatus({ state: 'paused', reason: `${active.name} is excluded from tracking.` });
         return;
       }
-      if (this.openSession?.info.executable.toLowerCase() === active.executable.toLowerCase()) {
+      if (this.openSession?.info.canonicalId === active.canonicalId) {
         this.openSession.lastSampleAt = now;
         if (settings.captureWindowTitles) this.openSession.info.title = active.title;
         this.checkpointOpenSession(now);
@@ -122,6 +130,12 @@ export class ActivityTracker {
         const startedAt = this.openSession ? transitionMidpoint(this.openSession.lastSampleAt, now) : now;
         this.closeSession(startedAt);
         this.openSession = { id: randomUUID(), info: active, startedAt, lastSampleAt: now };
+        this.repository.upsertApplicationAlias({
+          sourceExecutable: aliasKey,
+          canonicalAppId: active.canonicalId,
+          canonicalName: active.canonicalName,
+          updatedAt: now.toISOString(),
+        });
         this.checkpointOpenSession(now, true);
       }
       this.setStatus({ state: 'tracking', activeApp: active.name, since: this.openSession.startedAt.toISOString() });
@@ -154,8 +168,8 @@ export class ActivityTracker {
     const safeEnd = new Date(Math.max(openSession.startedAt.getTime(), endedAt.getTime()));
     return {
       id: openSession.id,
-      appId: this.appId(openSession.info.executable),
-      appName: openSession.info.name,
+      appId: openSession.info.canonicalId,
+      appName: openSession.info.canonicalName,
       categoryId: categoryForApplication(openSession.info),
       startedAt: openSession.startedAt.toISOString(),
       endedAt: safeEnd.toISOString(),
@@ -173,8 +187,8 @@ export class ActivityTracker {
     if (!force && previous && at.getTime() - new Date(previous.checkpointedAt).getTime() < 30_000) return;
     this.repository.saveOpenSessionCheckpoint({
       machineId: this.machineId,
-      appId: this.appId(this.openSession.info.executable),
-      appName: this.openSession.info.name,
+      appId: this.openSession.info.canonicalId,
+      appName: this.openSession.info.canonicalName,
       executable: this.openSession.info.executable,
       path: this.openSession.info.path,
       categoryId: categoryForApplication(this.openSession.info),
@@ -214,10 +228,6 @@ export class ActivityTracker {
       sourceKind: 'pc_recap',
       confidence: 'recorded',
     };
-  }
-
-  private appId(executable: string) {
-    return executable.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   }
 
   private scheduleTimer(intervalMs: number) {

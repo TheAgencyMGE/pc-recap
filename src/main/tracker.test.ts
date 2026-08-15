@@ -178,4 +178,22 @@ describe('ActivityTracker', () => {
       expect.objectContaining({ durationSeconds: 60, endedAt: '2026-08-15T10:00:00.000Z' }),
     ]);
   });
+
+  it('does not record PC Recap or Windows shell-only foreground processes', async () => {
+    const repository = store();
+    const source = new SequenceSource([
+      { name: 'PC Recap', executable: 'PC Recap.exe', path: 'C:\\PC Recap.exe' },
+      { name: 'SearchHost', executable: 'SearchHost.exe', path: 'C:\\Windows\\SearchHost.exe' },
+    ]);
+    const times = [new Date('2026-08-15T10:00:00.000Z'), new Date('2026-08-15T10:00:10.000Z')];
+    const tracker = new ActivityTracker(repository, source, {
+      now: () => times.shift()!, idleSeconds: () => 0, machineId: 'test-pc',
+    });
+
+    await tracker.sample();
+    await tracker.sample();
+
+    expect(repository.getAllSessions()).toEqual([]);
+    expect(tracker.getLiveSession()).toBeUndefined();
+  });
 });
