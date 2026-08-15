@@ -121,6 +121,7 @@ export interface AppUsage {
   share: number;
   color: string;
   changePercent?: number;
+  previousSeconds?: number;
   firstSeenAt?: string;
   lastSeenAt?: string;
 }

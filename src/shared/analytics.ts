@@ -132,6 +132,7 @@ export function summarizeSessions(
       return {
         ...app,
         share: totalSeconds ? Number(((app.seconds / totalSeconds) * 100).toFixed(1)) : 0,
+        previousSeconds: previous,
         changePercent: previous ? Math.round(((app.seconds - previous) / previous) * 100) : undefined,
       };
     })

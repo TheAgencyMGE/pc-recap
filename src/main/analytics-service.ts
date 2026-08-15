@@ -89,7 +89,7 @@ export class AnalyticsService {
   }
 
   getAchievements(): Achievement[] {
-    const sessions = this.repository.getAllSessions();
+    const sessions = this.repository.getAllSessions().sort((a, b) => a.startedAt.localeCompare(b.startedAt));
     const total = sessions.reduce((sum, item) => sum + item.durationSeconds, 0);
     const days = new Set(sessions.flatMap((item) => splitSessionByLocalDay(item).map((allocation) => localDayKey(allocation.startedAt)))).size;
     const apps = new Set(sessions.map((item) => item.appId)).size;
@@ -104,10 +104,48 @@ export class AnalyticsService {
       ['night-owl', 'Night owl', 'Spend 10 hours computing after midnight.', 'moon-star', night, 36_000, '#8D87FF'],
       ['one-thousand-hours', '1,000-hour club', 'Record one thousand hours of PC life.', 'hourglass', total, 3_600_000, '#FF746A'],
     ] as const;
-    return definitions.map(([id, title, description, icon, progress, target, accent]) => ({
-      id, title, description, icon, progress: Math.min(progress, target), target, accent,
-      unlockedAt: progress >= target ? sessions[0]?.startedAt ?? this.now().toISOString() : undefined,
-    }));
+    const calculatedUnlocks = this.calculateAchievementUnlocks(sessions);
+    return definitions.map(([id, title, description, icon, progress, target, accent]) => {
+      if (progress >= target && calculatedUnlocks[id]) this.repository.saveAchievementUnlock(id, calculatedUnlocks[id]);
+      return {
+        id, title, description, icon, progress: Math.min(progress, target), target, accent,
+        unlockedAt: progress >= target ? this.repository.getAchievementUnlock(id) ?? calculatedUnlocks[id] : undefined,
+      };
+    });
+  }
+
+  private calculateAchievementUnlocks(sessions: ActivitySession[]): Record<string, string> {
+    const unlocks: Record<string, string> = {};
+    if (sessions[0]) unlocks['first-memory'] = sessions[0].startedAt;
+
+    const firstByDay = new Map<string, string>();
+    for (const session of sessions) {
+      for (const allocation of splitSessionByLocalDay(session)) {
+        const day = localDayKey(allocation.startedAt);
+        const existing = firstByDay.get(day);
+        if (!existing || allocation.startedAt < existing) firstByDay.set(day, allocation.startedAt);
+      }
+    }
+    const dayStarts = [...firstByDay.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([, startedAt]) => startedAt);
+    if (dayStarts[6]) unlocks['week-in-life'] = dayStarts[6];
+    if (dayStarts[364]) unlocks['time-capsule'] = dayStarts[364];
+
+    const appFirsts = new Map<string, string>();
+    for (const session of sessions) if (!appFirsts.has(session.appId)) appFirsts.set(session.appId, session.startedAt);
+    const appStarts = [...appFirsts.values()].sort((a, b) => a.localeCompare(b));
+    if (appStarts[9]) unlocks['many-worlds'] = appStarts[9];
+
+    unlocks['night-owl'] = thresholdTimestamp(
+      sessions.flatMap((session) => splitSessionByLocalHour(session)
+        .filter(({ hour }) => hour < 4)
+        .map(({ startedAt, seconds }) => ({ startedAt, seconds }))),
+      36_000,
+    ) ?? '';
+    unlocks['one-thousand-hours'] = thresholdTimestamp(
+      sessions.map((session) => ({ startedAt: session.startedAt, seconds: session.durationSeconds })),
+      3_600_000,
+    ) ?? '';
+    return unlocks;
   }
 
   getOnThisDay(): OnThisDayEntry[] {
@@ -137,4 +175,19 @@ export class AnalyticsService {
       };
     });
   }
+}
+
+function thresholdTimestamp(
+  allocations: Array<{ startedAt: string; seconds: number }>,
+  targetSeconds: number,
+): string | undefined {
+  let accumulated = 0;
+  for (const allocation of [...allocations].sort((a, b) => a.startedAt.localeCompare(b.startedAt))) {
+    if (accumulated + allocation.seconds >= targetSeconds) {
+      const secondsIntoAllocation = targetSeconds - accumulated;
+      return new Date(new Date(allocation.startedAt).getTime() + secondsIntoAllocation * 1_000).toISOString();
+    }
+    accumulated += allocation.seconds;
+  }
+  return undefined;
 }

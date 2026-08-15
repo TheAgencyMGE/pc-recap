@@ -107,6 +107,15 @@ describe('ActivityRepository', () => {
     ]);
   });
 
+  it('persists the first chronological achievement unlock', () => {
+    const store = repository();
+
+    store.saveAchievementUnlock('week-in-life', '2026-08-07T09:00:00.000Z');
+    store.saveAchievementUnlock('week-in-life', '2026-08-08T09:00:00.000Z');
+
+    expect(store.getAchievementUnlock('week-in-life')).toBe('2026-08-07T09:00:00.000Z');
+  });
+
   it('returns joined application metadata in chronological range queries', () => {
     const store = repository();
     store.insertSession(sample);

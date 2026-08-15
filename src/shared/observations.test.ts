@@ -53,4 +53,22 @@ describe('generateObservations', () => {
     expect(result.map((item) => item.text)).toContain('Minecraft usage increased 41% this week.');
     expect(result.map((item) => item.text)).toContain('Chrome + VS Code were your power couple.');
   });
+
+  it('does not sensationalize a percentage built on a tiny baseline', () => {
+    const observations = generateObservations({
+      ...summary,
+      hourly: summary.hourly.map((bucket) => ({ ...bucket, seconds: 0 })),
+      hourlyApps: {},
+      topApps: [{
+        appId: 'blender', name: 'Blender', categoryId: 'creative', seconds: 1_868,
+        previousSeconds: 120, sessions: 2, share: 100, color: '#F08CC6', changePercent: 1_457,
+      }],
+      appPairs: [],
+      relationships: [],
+      longestSession: undefined,
+    });
+
+    expect(observations.some((item) => item.text.includes('1457%'))).toBe(false);
+    expect(observations.some((item) => item.text.includes('2 minutes') && item.text.includes('31 minutes'))).toBe(true);
+  });
 });

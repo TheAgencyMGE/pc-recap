@@ -55,4 +55,21 @@ describe('AnalyticsService local calendar semantics', () => {
     repository.insertSession(live);
     expect(service.getSummary('today')).toMatchObject({ totalSeconds: 120, sessionCount: 1 });
   });
+
+  it('unlocks seven active days at the seventh day instead of the first session', () => {
+    const repository = new ActivityRepository(':memory:');
+    repositories.push(repository);
+    for (let day = 1; day <= 7; day += 1) {
+      const startedAt = `2026-08-${String(day).padStart(2, '0')}T09:00:00.000Z`;
+      repository.insertSession({
+        id: `day-${day}`, appId: 'code', appName: 'Code', categoryId: 'coding', startedAt,
+        endedAt: `2026-08-${String(day).padStart(2, '0')}T10:00:00.000Z`, durationSeconds: 3_600,
+      });
+    }
+    const service = new AnalyticsService(repository, () => ({ state: 'tracking' }));
+
+    expect(service.getAchievements().find((item) => item.id === 'week-in-life')?.unlockedAt)
+      .toBe('2026-08-07T09:00:00.000Z');
+    expect(repository.getAchievementUnlock('week-in-life')).toBe('2026-08-07T09:00:00.000Z');
+  });
 });

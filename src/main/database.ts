@@ -345,6 +345,18 @@ export class ActivityRepository {
     }
   }
 
+  saveAchievementUnlock(id: string, unlockedAt: string) {
+    this.database.prepare(`
+      INSERT OR IGNORE INTO achievements(id, unlocked_at, payload) VALUES (?, ?, '{}')
+    `).run(id, unlockedAt);
+  }
+
+  getAchievementUnlock(id: string): string | undefined {
+    const row = this.database.prepare('SELECT unlocked_at FROM achievements WHERE id = ?')
+      .get(id) as { unlocked_at: string } | undefined;
+    return row?.unlocked_at;
+  }
+
   saveOpenSessionCheckpoint(checkpoint: OpenSessionCheckpoint) {
     this.database.prepare(`
       INSERT INTO open_session_checkpoints(

@@ -33,27 +33,44 @@ export function generateObservations(summary: PeriodSummary): Observation[] {
   }
 
   const strongestChange = summary.topApps
-    .filter((app) => app.changePercent !== undefined && Math.abs(app.changePercent) >= 10)
+    .map((app) => ({
+      ...app,
+      previousSeconds: app.previousSeconds ?? (
+        app.changePercent !== undefined && app.changePercent !== -100
+          ? Math.round(app.seconds / (1 + app.changePercent / 100))
+          : 0
+      ),
+    }))
+    .filter((app) => app.changePercent !== undefined
+      && Math.abs(app.changePercent) >= 10
+      && app.seconds >= 600
+      && Math.abs(app.seconds - app.previousSeconds) >= 600)
     .sort((a, b) => Math.abs(b.changePercent ?? 0) - Math.abs(a.changePercent ?? 0))[0];
   if (strongestChange?.changePercent !== undefined) {
     const direction = strongestChange.changePercent >= 0 ? 'increased' : 'fell';
+    const hasStableBaseline = strongestChange.previousSeconds >= 600;
     observations.push({
       id: `change-${strongestChange.appId}`,
       eyebrow: 'Plot twist',
-      text: `${strongestChange.name} usage ${direction} ${Math.abs(strongestChange.changePercent)}% ${periodCopy(summary.kind)}.`,
+      text: hasStableBaseline
+        ? `${strongestChange.name} usage ${direction} ${Math.abs(strongestChange.changePercent)}% ${periodCopy(summary.kind)}.`
+        : `${strongestChange.name} went from ${formatMinutes(strongestChange.previousSeconds)} to ${formatMinutes(strongestChange.seconds)} ${periodCopy(summary.kind)}.`,
       detail: `${formatMinutes(strongestChange.seconds)} in the current chapter.`,
       accent: strongestChange.color,
       priority: 90,
     });
   }
 
+  const relationship = summary.relationships[0];
   const pair = summary.appPairs[0];
   if (pair && pair.daysTogether >= 2) {
     observations.push({
       id: `pair-${pair.appA}-${pair.appB}`,
       eyebrow: 'Always together',
       text: `${pair.appA} + ${pair.appB} were your power couple.`,
-      detail: `They shared ${pair.daysTogether} active days.`,
+      detail: relationship
+        ? `You switched between them ${relationship.transitions} times across ${relationship.distinctDays} days.`
+        : `They appeared together across ${pair.daysTogether} active days.`,
       accent: '#5AB7FF',
       priority: 80,
     });
