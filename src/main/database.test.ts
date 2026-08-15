@@ -116,6 +116,18 @@ describe('ActivityRepository', () => {
     expect(store.getAchievementUnlock('week-in-life')).toBe('2026-08-07T09:00:00.000Z');
   });
 
+  it('deletes a custom category only after reassigning its applications', () => {
+    const store = repository();
+    store.upsertCategory({ id: 'research', name: 'Research', color: '#123456', icon: 'book', isDefault: false });
+    store.insertSession({ ...sample, appId: 'paper', appName: 'Paper', categoryId: 'research' });
+
+    store.deleteCategory('research', 'work');
+
+    expect(store.getCategories().some((category) => category.id === 'research')).toBe(false);
+    expect(store.listApps().find((app) => app.id === 'paper')?.categoryId).toBe('work');
+    expect(() => store.deleteCategory('work', 'other')).toThrow(/default/i);
+  });
+
   it('returns joined application metadata in chronological range queries', () => {
     const store = repository();
     store.insertSession(sample);

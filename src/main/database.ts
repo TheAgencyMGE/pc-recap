@@ -466,6 +466,33 @@ export class ActivityRepository {
     return category;
   }
 
+  updateCategory(category: Category): Category {
+    const existing = this.database.prepare('SELECT is_default FROM categories WHERE id = ?')
+      .get(category.id) as { is_default: number } | undefined;
+    if (!existing) throw new Error('Category not found.');
+    return this.upsertCategory({ ...category, isDefault: Boolean(existing.is_default) });
+  }
+
+  deleteCategory(categoryId: string, reassignToCategoryId: string) {
+    if (categoryId === reassignToCategoryId) throw new Error('Choose a different category for reassignment.');
+    const category = this.database.prepare('SELECT is_default FROM categories WHERE id = ?')
+      .get(categoryId) as { is_default: number } | undefined;
+    if (!category) throw new Error('Category not found.');
+    if (category.is_default) throw new Error('Default categories cannot be deleted.');
+    const replacement = this.database.prepare('SELECT 1 FROM categories WHERE id = ?').get(reassignToCategoryId);
+    if (!replacement) throw new Error('Replacement category not found.');
+    this.database.exec('BEGIN IMMEDIATE');
+    try {
+      this.database.prepare('UPDATE applications SET category_id = ? WHERE category_id = ?')
+        .run(reassignToCategoryId, categoryId);
+      this.database.prepare('DELETE FROM categories WHERE id = ?').run(categoryId);
+      this.database.exec('COMMIT');
+    } catch (error) {
+      this.database.exec('ROLLBACK');
+      throw error;
+    }
+  }
+
   listApps(): TrackedApp[] {
     return (this.database.prepare(`SELECT * FROM applications ORDER BY last_seen_at DESC, name`).all() as AppRow[]).map(appFromRow);
   }

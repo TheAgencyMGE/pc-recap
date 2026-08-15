@@ -163,6 +163,7 @@ export class AnalyticsService {
     const years = new Map<number, ActivitySession[]>();
     for (const item of sessions.filter((session) => localDayKey(session.startedAt).slice(4) === suffix)) {
       const year = Number(localDayKey(item.startedAt).slice(0, 4));
+      if (year === now.getFullYear()) continue;
       years.set(year, [...(years.get(year) ?? []), item]);
     }
     return [...years.entries()].sort(([a], [b]) => b - a).map(([year, items]) => {

@@ -26,6 +26,8 @@ export interface PCRecapAPI {
   updateSettings(patch: Partial<TrackingSettings>): Promise<TrackingSettings>;
   getCategories(): Promise<Category[]>;
   saveCategory(category: Category): Promise<Category>;
+  updateCategory(category: Category): Promise<Category>;
+  deleteCategory(categoryId: string, reassignToCategoryId: string): Promise<void>;
   setAppCategory(appId: string, categoryId: string): Promise<void>;
   setAppExcluded(appId: string, excluded: boolean): Promise<void>;
   getTrackingStatus(): Promise<TrackingStatus>;

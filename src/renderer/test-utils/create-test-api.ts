@@ -57,6 +57,8 @@ export function createTestApi(overrides: Partial<TrackingSettings> = {}): PCReca
     updateSettings: async (patch) => (settings = { ...settings, ...patch }),
     getCategories: async () => categories,
     saveCategory: async (category) => category,
+    updateCategory: async (category) => category,
+    deleteCategory: async () => undefined,
     setAppCategory: async () => undefined,
     setAppExcluded: async () => undefined,
     getTrackingStatus: async () => status,

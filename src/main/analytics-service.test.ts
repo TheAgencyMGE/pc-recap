@@ -24,6 +24,12 @@ describe('AnalyticsService local calendar semantics', () => {
       endedAt: new Date(activityStart.getTime() + 1_800_000).toISOString(),
       durationSeconds: 1_800,
     });
+    const currentStart = new Date(2026, 0, 15, 21, 0);
+    repository.insertSession({
+      id: 'current-year-session', appId: 'discord', appName: 'Discord', categoryId: 'social',
+      startedAt: currentStart.toISOString(), endedAt: new Date(currentStart.getTime() + 600_000).toISOString(),
+      durationSeconds: 600,
+    });
     const service = new AnalyticsService(
       repository,
       () => ({ state: 'tracking' }),

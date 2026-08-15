@@ -6,6 +6,7 @@ import type {
 import { CollectionCover } from '../components/CollectionCover';
 import { CoverShelf } from '../components/CoverShelf';
 import { MinimalHeader } from '../components/MinimalHeader';
+import { SearchOverlay } from '../components/SearchOverlay';
 import { buildAppCovers, buildArchiveCovers, buildRecapCovers } from '../lib/collection-covers';
 import type { RouteId } from '../routes';
 
@@ -30,22 +31,20 @@ export function CollectionHome({
   onNavigate: (route: RouteId) => void;
   onToggleTracking: () => void;
 }) {
-  const [query, setQuery] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
   const recapCovers = useMemo(() => buildRecapCovers(summaries), [summaries]);
   const archiveCovers = useMemo(() => buildArchiveCovers(timeline, onThisDay, achievements), [achievements, onThisDay, timeline]);
   const appCovers = useMemo(() => buildAppCovers(apps, summaries['all-time']?.topApps ?? []), [apps, summaries]);
-  const filteredApps = query.trim()
-    ? appCovers.filter((cover) => cover.kind === 'app' && cover.title.toLowerCase().includes(query.trim().toLowerCase()))
-    : appCovers;
   const today = recapCovers[0];
 
   return <div className="collection-app">
-    <MinimalHeader status={status} trackingEnabled={trackingEnabled} query={query} onQueryChange={setQuery} onNavigate={onNavigate} onToggleTracking={onToggleTracking} />
-    <main className="collection-home">
+    <MinimalHeader status={status} trackingEnabled={trackingEnabled} onSearch={() => setSearchOpen(true)} onNavigate={onNavigate} onToggleTracking={onToggleTracking} />
+    <SearchOverlay open={searchOpen} apps={apps} onClose={() => setSearchOpen(false)} onNavigate={onNavigate} />
+    <main className="collection-home" aria-hidden={searchOpen || undefined}>
       {today && <section className="today-feature" aria-label="Today"><CollectionCover model={today} onOpen={() => onNavigate('today')} /></section>}
       <CoverShelf title="Your recaps" covers={recapCovers.slice(1)} onNavigate={onNavigate} />
       <CoverShelf title="From the archive" covers={archiveCovers} onNavigate={onNavigate} />
-      <CoverShelf title="Your apps" covers={filteredApps} onNavigate={onNavigate} />
+      <CoverShelf title="Your apps" covers={appCovers} onNavigate={onNavigate} />
     </main>
   </div>;
 }

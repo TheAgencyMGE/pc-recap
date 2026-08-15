@@ -64,6 +64,13 @@ export function registerIpcHandlers({
     if (!category?.id || !category.name || !/^#[0-9a-f]{6}$/i.test(category.color)) throw new Error('Category details are invalid.');
     return repository.upsertCategory({ ...category, id: category.id.slice(0, 50), name: category.name.slice(0, 40) });
   });
+  handle('category:update', (category: Category) => {
+    if (!category?.id || !category.name?.trim() || !/^#[0-9a-f]{6}$/i.test(category.color)) throw new Error('Category details are invalid.');
+    return repository.updateCategory({ ...category, id: category.id.slice(0, 50), name: category.name.trim().slice(0, 40) });
+  });
+  handle('category:delete', (categoryId, reassignToCategoryId) => repository.deleteCategory(
+    String(categoryId).slice(0, 50), String(reassignToCategoryId).slice(0, 50),
+  ));
   handle('app:set-category', (appId, categoryId) => repository.setAppCategory(String(appId), String(categoryId)));
   handle('app:set-excluded', (appId, excluded) => repository.setAppExcluded(String(appId), Boolean(excluded)));
   handle('tracking:status', () => tracker.getStatus());

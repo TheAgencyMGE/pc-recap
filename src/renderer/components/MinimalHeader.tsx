@@ -1,5 +1,4 @@
-import { Pause, Play, Search, Settings, X } from 'lucide-react';
-import { useState } from 'react';
+import { Pause, Play, Search, Settings, Shapes } from 'lucide-react';
 import type { TrackingStatus } from '../../shared/types';
 import type { RouteId } from '../routes';
 import { LogoMark } from './LogoMark';
@@ -7,25 +6,22 @@ import { LogoMark } from './LogoMark';
 export function MinimalHeader({
   status,
   trackingEnabled,
-  query,
-  onQueryChange,
+  onSearch,
   onNavigate,
   onToggleTracking,
 }: {
   status: TrackingStatus;
   trackingEnabled: boolean;
-  query: string;
-  onQueryChange: (value: string) => void;
+  onSearch: () => void;
   onNavigate: (route: RouteId) => void;
   onToggleTracking: () => void;
 }) {
-  const [searching, setSearching] = useState(false);
   const active = trackingEnabled;
-  return <header className="minimal-header">
+  return <header className="minimal-header" data-tracking-state={status.state}>
     <LogoMark />
-    <div className={`minimal-header__actions ${searching ? 'is-searching' : ''}`}>
-      {searching && <label className="collection-search"><Search size={16} /><input autoFocus type="search" aria-label="Search apps" placeholder="Search apps" value={query} onChange={(event) => onQueryChange(event.target.value)} /></label>}
-      <button title={searching ? 'Close search' : 'Search'} aria-label={searching ? 'Close search' : 'Search'} onClick={() => { setSearching((value) => !value); if (searching) onQueryChange(''); }}>{searching ? <X /> : <Search />}</button>
+    <div className="minimal-header__actions">
+      <button title="Search" aria-label="Search" onClick={onSearch}><Search /></button>
+      <button title="Categories" aria-label="Categories" onClick={() => onNavigate('categories')}><Shapes /></button>
       <button title={active ? 'Pause' : 'Resume'} aria-label={active ? 'Pause tracking' : 'Resume tracking'} onClick={onToggleTracking}>{active ? <Pause /> : <Play />}</button>
       <button title="Settings" aria-label="Settings" onClick={() => onNavigate('settings')}><Settings /></button>
     </div>
