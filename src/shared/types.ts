@@ -145,6 +145,41 @@ export interface AppPair {
   daysTogether: number;
 }
 
+export interface AppRelationship {
+  appA: string;
+  appB: string;
+  transitions: number;
+  distinctDays: number;
+  medianGapSeconds: number;
+  direction: 'a-to-b' | 'b-to-a' | 'balanced';
+  score: number;
+}
+
+export interface RoutineSequence {
+  apps: string[];
+  occurrences: number;
+  distinctDays: number;
+  score: number;
+}
+
+export interface BaselineFacts {
+  activeDays: number;
+  averageDailySeconds: number;
+  medianDailySeconds: number;
+  busiestWeekday: number;
+  typicalFirstHour: number;
+  typicalLastHour: number;
+  nightSeconds: number;
+}
+
+export interface LifecycleMoment {
+  kind: 'first-use' | 'comeback' | 'abandoned' | 'brief-fling';
+  appId: string;
+  appName: string;
+  occurredAt: string;
+  gapDays?: number;
+}
+
 export interface Era {
   id: string;
   title: string;
@@ -190,6 +225,10 @@ export interface PeriodSummary {
   hourlyApps?: Record<string, string>;
   daily: TimeBucket[];
   appPairs: AppPair[];
+  relationships: AppRelationship[];
+  routines: RoutineSequence[];
+  baselines: BaselineFacts;
+  lifecycle: LifecycleMoment[];
   eras: Era[];
   observations: Observation[];
   records: RecordItem[];

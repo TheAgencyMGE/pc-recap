@@ -1,8 +1,10 @@
 import { generateObservations } from './observations.js';
 import { localDayKey, localMonthKey, splitSessionByLocalDay, splitSessionByLocalHour } from './calendar.js';
+import { buildBaselines } from './analytics/baselines.js';
+import { detectLifecycleMoments } from './analytics/lifecycle.js';
+import { buildRelationships, detectRoutines } from './analytics/relationships.js';
 import type {
   ActivitySession,
-  AppPair,
   AppUsage,
   CategoryUsage,
   Era,
@@ -32,38 +34,6 @@ const CATEGORY_META: Record<string, { name: string; color: string }> = {
 };
 
 const colorFor = (categoryId: string) => CATEGORY_META[categoryId]?.color ?? CATEGORY_META.other.color;
-function buildPairs(sessions: ActivitySession[]): AppPair[] {
-  const appsByDay = new Map<string, Set<string>>();
-  for (const item of sessions) {
-    for (const allocation of splitSessionByLocalDay(item)) {
-      const key = localDayKey(allocation.startedAt);
-      const apps = appsByDay.get(key) ?? new Set<string>();
-      apps.add(item.appName);
-      appsByDay.set(key, apps);
-    }
-  }
-
-  const counts = new Map<string, AppPair>();
-  for (const apps of appsByDay.values()) {
-    const names = [...apps].sort((a, b) => a.localeCompare(b));
-    for (let a = 0; a < names.length; a += 1) {
-      for (let b = a + 1; b < names.length; b += 1) {
-        const id = `${names[a]}::${names[b]}`;
-        const existing = counts.get(id) ?? {
-          appA: names[a], appB: names[b], daysTogether: 0, score: 0,
-        };
-        existing.daysTogether += 1;
-        existing.score = existing.daysTogether;
-        counts.set(id, existing);
-      }
-    }
-  }
-
-  return [...counts.values()].sort(
-    (a, b) => b.score - a.score || `${a.appA}${a.appB}`.localeCompare(`${b.appA}${b.appB}`),
-  );
-}
-
 export function detectEras(sessions: ActivitySession[]): Era[] {
   const months = new Map<string, Map<string, { appId: string; name: string; seconds: number; color: string }>>();
   for (const item of sessions) {
@@ -217,7 +187,16 @@ export function summarizeSessions(
     hourly,
     hourlyApps,
     daily,
-    appPairs: buildPairs(sessions),
+    appPairs: buildRelationships(sessions).filter((relationship) => relationship.distinctDays >= 2).map((relationship) => ({
+      appA: relationship.appA,
+      appB: relationship.appB,
+      daysTogether: relationship.distinctDays,
+      score: relationship.score,
+    })),
+    relationships: buildRelationships(sessions),
+    routines: detectRoutines(sessions),
+    baselines: buildBaselines(sessions),
+    lifecycle: detectLifecycleMoments(sessions, new Date(options.rangeEnd)),
     eras: detectEras(sessions),
     observations: [],
     records,
