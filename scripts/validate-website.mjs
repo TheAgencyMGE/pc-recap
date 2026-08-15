@@ -44,6 +44,7 @@ const structuredDataHash = createHash('sha256').update(structuredData).digest('b
 assert.ok(headers.includes(`'sha256-${structuredDataHash}'`), 'The content security policy must allow the exact structured-data block.');
 assert.ok(html.includes(releaseUrl), `The primary download must use the v${metadata.version} GitHub Release asset.`);
 assert.ok(html.includes(checksumUrl), 'The site must link to the checksum uploaded beside the installer.');
+assert.ok(html.includes(`PC Recap ${metadata.version} Beta`), 'The visible download panel must match the release metadata version.');
 assert.doesNotMatch(html, /\b\d+[,.]?\d*\s*(hours?|minutes?|sessions?|active days?)\b/i, 'The site must not invent product activity.');
 assert.match(headers, /Content-Security-Policy:/i);
 assert.match(headers, /X-Content-Type-Options:\s*nosniff/i);

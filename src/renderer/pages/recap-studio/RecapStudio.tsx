@@ -17,7 +17,11 @@ export function RecapStudio({ api, onPlay }: { api: PCRecapAPI; onPlay: (story: 
   const [customStart, setCustomStart] = useState(inputDate(initialStart));
   const [customEnd, setCustomEnd] = useState(inputDate(now));
   const [pinEditor, setPinEditor] = useState(false);
-  useEffect(() => { void api.getTimeline('year').then(setYears).catch(() => setError('Could not open your recap years.')); }, [api]);
+  useEffect(() => {
+    let live = true;
+    void api.getTimeline('year').then((result) => { if (live) setYears(result); }).catch(() => { if (live) setError('Could not open your recap years.'); });
+    return () => { live = false; };
+  }, [api]);
 
   const play = async (selection: RecapSelection) => {
     setBusy(selection.label);

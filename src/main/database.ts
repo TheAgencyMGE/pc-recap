@@ -15,6 +15,7 @@ import type {
 } from '../shared/types.js';
 import { DEFAULT_SETTINGS } from '../shared/types.js';
 import { clipSessionToRange, localDayKey, localMonthKey, localYearKey, splitSessionByLocalDay } from '../shared/calendar.js';
+import { normalizeApplication } from './tracking/app-identity.js';
 
 interface SessionRow {
   id: string;
@@ -252,6 +253,7 @@ export class ActivityRepository {
     for (const category of DEFAULT_CATEGORIES) {
       insertCategory.run(category.id, category.name, category.color, category.icon, category.isDefault ? 1 : 0);
     }
+    this.normalizeKnownApplicationNames();
     this.migrateCalendarRollups();
   }
 
@@ -683,6 +685,26 @@ export class ActivityRepository {
       this.database.exec('ROLLBACK');
       throw error;
     }
+  }
+
+  private normalizeKnownApplicationNames() {
+    const rows = this.database.prepare('SELECT id, name, executable, path FROM applications').all() as Array<{
+      id: string;
+      name: string;
+      executable: string;
+      path: string | null;
+    }>;
+    const updateApplication = this.database.prepare('UPDATE applications SET name = ? WHERE id = ?');
+    const updateCheckpoint = this.database.prepare('UPDATE open_session_checkpoints SET app_name = ? WHERE app_id = ?');
+    const transaction = this.database.transaction(() => {
+      for (const row of rows) {
+        const friendly = normalizeApplication({ name: row.name, executable: row.executable, path: row.path ?? undefined }).canonicalName;
+        if (friendly === row.name) continue;
+        updateApplication.run(friendly, row.id);
+        updateCheckpoint.run(friendly, row.id);
+      }
+    });
+    transaction();
   }
 
   deleteAllHistory() {

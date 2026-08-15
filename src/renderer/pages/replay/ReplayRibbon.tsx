@@ -56,5 +56,5 @@ function clockHour(hour: number) {
 function marker(iso: string, label: string, scaleStart: number, scaleMinutes: number, key: string) {
   const minute = localMinute(iso);
   if (minute < scaleStart || minute > scaleStart + scaleMinutes) return [];
-  return <i key={key} className="replay-marker" title={label} aria-label={label} style={{ left: `${((minute - scaleStart) / scaleMinutes) * 100}%` }} />;
+  return <i key={key} className="replay-marker" role="img" title={label} aria-label={label} style={{ left: `${((minute - scaleStart) / scaleMinutes) * 100}%` }} />;
 }

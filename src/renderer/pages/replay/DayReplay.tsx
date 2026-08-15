@@ -24,11 +24,7 @@ export function DayReplay({ api, day }: { api: PCRecapAPI; day: string }) {
   }, [api, day, revision]);
   const apps = useMemo(() => data ? [...new Map(data.segments.map((segment) => [segment.appId, segment])).values()] : [], [data]);
   const filtered = data?.segments.filter((segment) => !appId || segment.appId === appId) ?? [];
-  const hours = useMemo(() => data ? [...new Set(data.segments.flatMap((segment) => {
-    const start = new Date(segment.startedAt).getHours();
-    const end = new Date(segment.endedAt).getHours();
-    return Array.from({ length: Math.max(1, end - start + 1) }, (_, index) => (start + index) % 24);
-  }))].sort((a, b) => a - b) : [], [data]);
+  const hours = useMemo(() => data ? [...new Set(data.segments.flatMap(hoursForSegment))].sort((a, b) => a - b) : [], [data]);
 
   if (error) return <main className="page replay-page"><div className="empty-state"><h2>{error}</h2></div></main>;
   if (!data) return <main className="page replay-page"><div className="replay-loading"><LoaderCircle /> Opening day</div></main>;
@@ -58,4 +54,16 @@ function dayBounds(day: string) {
     start: new Date(year, month - 1, date).toISOString(),
     end: new Date(year, month - 1, date + 1).toISOString(),
   };
+}
+
+function hoursForSegment(segment: DayReplayData['segments'][number]) {
+  const end = new Date(segment.endedAt).getTime();
+  const cursor = new Date(segment.startedAt);
+  cursor.setMinutes(0, 0, 0);
+  const hours: number[] = [];
+  while (cursor.getTime() < end && hours.length < 24) {
+    hours.push(cursor.getHours());
+    cursor.setHours(cursor.getHours() + 1);
+  }
+  return hours;
 }

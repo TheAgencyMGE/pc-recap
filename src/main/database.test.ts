@@ -216,6 +216,23 @@ describe('ActivityRepository', () => {
     expect(store.listMemoryPins()).toEqual([]);
   });
 
+  it('repairs known lower-case application names without touching historical duration', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'pc-recap-app-name-migration-'));
+    temporaryDirectories.push(directory);
+    const location = join(directory, 'archive.db');
+    const initial = new ActivityRepository(location);
+    initial.insertSession(
+      { ...sample, id: 'opera-session', appId: 'opera-exe', appName: 'opera', durationSeconds: 5_400 },
+      { executable: 'opera.exe' },
+    );
+    initial.close();
+
+    const migrated = new ActivityRepository(location);
+    openRepositories.push(migrated);
+    expect(migrated.listApps()).toEqual([expect.objectContaining({ id: 'opera-exe', name: 'Opera' })]);
+    expect(migrated.getAllSessions()).toEqual([expect.objectContaining({ id: 'opera-session', durationSeconds: 5_400 })]);
+  });
+
   it('purges synthetic history left by pre-production builds during migration', () => {
     const directory = mkdtempSync(join(tmpdir(), 'pc-recap-migration-'));
     temporaryDirectories.push(directory);

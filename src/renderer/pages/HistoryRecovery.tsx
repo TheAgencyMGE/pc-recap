@@ -19,7 +19,10 @@ export function HistoryRecovery({ api, onChanged }: { api: PCRecapAPI; onChanged
     setError('');
     setResult(undefined);
     try {
-      if (preview) await api.cancelHistoryPreview(preview.id);
+      if (preview) {
+        await api.cancelHistoryPreview(preview.id);
+        setPreview(undefined);
+      }
       const next = await operation();
       if (next) setPreview(next);
     } catch (reason) {

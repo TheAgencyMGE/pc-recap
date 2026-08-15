@@ -30,6 +30,12 @@ describe('application identity', () => {
     });
   });
 
+  it('normalizes common lower-case Windows process names for display', () => {
+    expect(normalizeApplication({ name: 'opera', executable: 'opera.exe' }).canonicalName).toBe('Opera');
+    expect(normalizeApplication({ name: 'firefox', executable: 'firefox.exe' }).canonicalName).toBe('Firefox');
+    expect(normalizeApplication({ name: 'obs64', executable: 'obs64.exe' }).canonicalName).toBe('OBS Studio');
+  });
+
   it('prefers a concrete packaged child over a generic Windows frame host', () => {
     expect(chooseHostedApplication(
       { name: 'ApplicationFrameHost', executable: 'ApplicationFrameHost.exe' },

@@ -29,6 +29,7 @@ test('prepares version-correct website metadata, post copy, and a Netlify archiv
         }</script>
         <a href="https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.0.1/PC-Recap-1.0.1-Setup.exe">Download</a>
         <a href="https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.0.1/PC-Recap-1.0.1-Setup.exe.sha256">Checksum</a>
+        <p class="overline">PC Recap 1.0.1 Beta</p>
         <span class="release-line">v1.0.1 beta · x64</span>`,
       'website/sitemap.xml': '<urlset><url><loc>https://pcrecap.online/</loc><lastmod>2026-08-09</lastmod></url></urlset>',
       'website/robots.txt': 'User-agent: *\nAllow: /',
@@ -57,6 +58,8 @@ test('prepares version-correct website metadata, post copy, and a Netlify archiv
     assert.match(html, /"softwareVersion": "2\.3\.4"/);
     assert.match(html, /releases\/download\/v2\.3\.4\/PC-Recap-2\.3\.4-Setup\.exe/);
     assert.match(html, /releases\/tag\/v2\.3\.4/);
+    assert.match(html, /PC Recap 2\.3\.4 Beta/);
+    assert.doesNotMatch(html, /PC Recap 1\.0\.1 Beta/);
     assert.match(html, /v2\.3\.4 beta · x64/);
 
     const sitemap = await readFile(join(root, 'website/sitemap.xml'), 'utf8');

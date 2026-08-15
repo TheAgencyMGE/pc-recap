@@ -1,6 +1,6 @@
 {
   "name": "pc-recap",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "private": true,
   "author": "PC Recap",
   "license": "UNLICENSED",
@@ -23,6 +23,8 @@
     "test": "cross-env ELECTRON_RUN_AS_NODE=1 electron ./node_modules/vitest/vitest.mjs",
     "test:run": "cross-env ELECTRON_RUN_AS_NODE=1 electron ./node_modules/vitest/vitest.mjs run",
     "smoke:activity": "cross-env ELECTRON_RUN_AS_NODE=1 electron scripts/smoke-activity.mjs",
+    "smoke:visual": "node scripts/visual-smoke.mjs",
+    "smoke:visual:test": "node --test scripts/visual-smoke.test.mjs",
     "website:validate": "node scripts/validate-website.mjs",
     "promotion:test": "node --test scripts/prepare-promotion.test.mjs scripts/submit-indexnow.test.mjs",
     "promotion:prepare": "node scripts/prepare-promotion.mjs && npm run website:validate",
