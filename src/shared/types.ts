@@ -1,5 +1,15 @@
 export type PeriodKind = 'today' | 'week' | 'month' | 'year' | 'all-time' | 'decade';
 
+export interface PeriodRange {
+  label: string;
+  start: string;
+  end: string;
+  previousStart: string;
+  previousEnd: string;
+  isComplete: boolean;
+  comparisonLabel: string;
+}
+
 export type CategoryKey =
   | 'gaming'
   | 'coding'
