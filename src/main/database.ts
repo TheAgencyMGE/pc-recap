@@ -3,7 +3,10 @@ import type {
   ActivitySession,
   ApplicationAlias,
   Category,
+  ImportBatch,
   OpenSessionCheckpoint,
+  RecoveredEvent,
+  RecoveredEventInput,
   TimelineBucket,
   TrackedApp,
   TrackingSettings,
@@ -52,6 +55,12 @@ export interface BackupSnapshot {
   sessions: ActivitySession[];
   categories: Category[];
   settings: TrackingSettings;
+}
+
+export interface HistoryBatchInput {
+  batch: ImportBatch;
+  sessions: Array<{ session: ActivitySession; app?: Partial<TrackedApp> }>;
+  recoveredEvents: Array<RecoveredEventInput & Pick<RecoveredEvent, 'id' | 'importBatchId'>>;
 }
 
 const DEFAULT_CATEGORIES: Category[] = [
@@ -216,6 +225,10 @@ export class ActivityRepository {
       CREATE INDEX IF NOT EXISTS idx_recovered_events_occurred ON recovered_events(occurred_at);
     `);
     this.ensureSessionProvenanceColumns();
+    this.database.exec(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_source_record
+        ON activity_sessions(source_kind, source_record_id) WHERE source_record_id IS NOT NULL;
+    `);
     this.removeLegacySyntheticHistory();
     const insertCategory = this.database.prepare(`
       INSERT OR IGNORE INTO categories(id, name, color, icon, is_default) VALUES (?, ?, ?, ?, ?)
@@ -231,13 +244,27 @@ export class ActivityRepository {
   }
 
   insertSession(session: ActivitySession, app?: Partial<TrackedApp>): boolean {
+    this.database.exec('BEGIN IMMEDIATE');
+    try {
+      const inserted = this.insertSessionWithinTransaction(session, app);
+      if (!inserted) {
+        this.database.exec('ROLLBACK');
+        return false;
+      }
+      this.database.exec('COMMIT');
+      return true;
+    } catch (error) {
+      this.database.exec('ROLLBACK');
+      throw error;
+    }
+  }
+
+  private insertSessionWithinTransaction(session: ActivitySession, app?: Partial<TrackedApp>): boolean {
     const executable = app?.executable ?? `${session.appName.toLowerCase().replaceAll(' ', '-')}.exe`;
     const color = app?.color ?? DEFAULT_CATEGORIES.find((item) => item.id === session.categoryId)?.color ?? '#7D8493';
     const firstSeen = app?.firstSeenAt ?? session.startedAt;
     const lastSeen = app?.lastSeenAt ?? session.endedAt;
-    this.database.exec('BEGIN IMMEDIATE');
-    try {
-      this.database.prepare(`
+    this.database.prepare(`
         INSERT INTO applications(id, name, executable, path, category_id, color, first_seen_at, last_seen_at, is_excluded)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
@@ -249,9 +276,9 @@ export class ActivityRepository {
         session.appId, session.appName, executable, app?.path ?? null, session.categoryId, color,
         firstSeen, lastSeen, app?.isExcluded ? 1 : 0,
       );
-      const durationSeconds = Math.max(0, Math.round(session.durationSeconds));
-      const normalizedSession = { ...session, durationSeconds };
-      const inserted = this.database.prepare(`
+    const durationSeconds = Math.max(0, Math.round(session.durationSeconds));
+    const normalizedSession = { ...session, durationSeconds };
+    const inserted = this.database.prepare(`
         INSERT OR IGNORE INTO activity_sessions(
           id, app_id, started_at, ended_at, duration_seconds, window_title, machine_id,
           source_kind, confidence, source_record_id, import_batch_id, day
@@ -262,19 +289,77 @@ export class ActivityRepository {
         session.confidence ?? 'recorded', session.sourceRecordId ?? null, session.importBatchId ?? null,
         localDayKey(session.startedAt),
       );
-      if (Number(inserted.changes) === 0) {
+    if (Number(inserted.changes) === 0) return false;
+    for (const allocation of splitSessionByLocalDay(normalizedSession)) {
+      this.addRollupAllocation(session.appId, allocation);
+    }
+    return true;
+  }
+
+  commitHistoryBatch(input: HistoryBatchInput) {
+    this.database.exec('BEGIN IMMEDIATE');
+    try {
+      const batchInsert = this.database.prepare(`
+        INSERT OR IGNORE INTO import_batches(
+          id, source_kind, source_fingerprint, imported_at, exact_session_count, recovered_event_count
+        ) VALUES (?, ?, ?, ?, ?, ?)
+      `).run(
+        input.batch.id, input.batch.sourceKind, input.batch.sourceFingerprint, input.batch.importedAt,
+        input.batch.exactSessionCount, input.batch.recoveredEventCount,
+      );
+      if (Number(batchInsert.changes) === 0) {
         this.database.exec('ROLLBACK');
-        return false;
+        return { importedSessions: 0, duplicates: input.sessions.length, recoveredEvents: 0, batchId: input.batch.id };
       }
-      for (const allocation of splitSessionByLocalDay(normalizedSession)) {
-        this.addRollupAllocation(session.appId, allocation);
+      let importedSessions = 0;
+      for (const item of input.sessions) {
+        if (this.insertSessionWithinTransaction({ ...item.session, importBatchId: input.batch.id }, item.app)) importedSessions += 1;
+      }
+      const insertEvent = this.database.prepare(`
+        INSERT OR IGNORE INTO recovered_events(
+          id, app_id, app_name, event_type, occurred_at, source_kind, confidence, detail, import_batch_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      let recoveredEvents = 0;
+      for (const event of input.recoveredEvents) {
+        recoveredEvents += Number(insertEvent.run(
+          event.id, event.appId ?? null, event.appName, event.eventType, event.occurredAt,
+          event.sourceKind, event.confidence, event.detail ?? null, input.batch.id,
+        ).changes);
       }
       this.database.exec('COMMIT');
-      return true;
+      return {
+        importedSessions,
+        duplicates: input.sessions.length - importedSessions,
+        recoveredEvents,
+        batchId: input.batch.id,
+      };
     } catch (error) {
       this.database.exec('ROLLBACK');
       throw error;
     }
+  }
+
+  listRecoveredEvents(): RecoveredEvent[] {
+    const rows = this.database.prepare(`
+      SELECT id, app_id, app_name, event_type, occurred_at, source_kind, confidence, detail, import_batch_id
+      FROM recovered_events ORDER BY occurred_at ASC, id ASC
+    `).all() as Array<{
+      id: string; app_id: string | null; app_name: string; event_type: RecoveredEvent['eventType'];
+      occurred_at: string; source_kind: string; confidence: RecoveredEvent['confidence'];
+      detail: string | null; import_batch_id: string | null;
+    }>;
+    return rows.map((row) => ({
+      id: row.id,
+      appId: row.app_id ?? undefined,
+      appName: row.app_name,
+      eventType: row.event_type,
+      occurredAt: row.occurred_at,
+      sourceKind: row.source_kind,
+      confidence: row.confidence,
+      detail: row.detail ?? undefined,
+      importBatchId: row.import_batch_id ?? undefined,
+    }));
   }
 
   querySessions(start: string, end: string): ActivitySession[] {

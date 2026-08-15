@@ -103,6 +103,8 @@ export interface RecoveredEvent {
   importBatchId?: string;
 }
 
+export type RecoveredEventInput = Omit<RecoveredEvent, 'id' | 'importBatchId'>;
+
 export interface ImportBatch {
   id: string;
   sourceKind: string;
