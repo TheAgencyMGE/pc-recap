@@ -25,3 +25,5 @@ Write a failing regression test before fixing a bug. UI changes should support k
 ## Pull requests
 
 Keep pull requests focused. Explain the user-facing change, the privacy impact, the checks you ran, and include screenshots only when they contain no personal activity data.
+
+By submitting a contribution, you agree that it may be distributed under the repository's [GNU General Public License v3.0](LICENSE).

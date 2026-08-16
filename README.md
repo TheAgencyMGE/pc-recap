@@ -2,6 +2,8 @@
 
 PC Recap turns real computer activity into a visual history of your digital life: daily snapshots, weekly and monthly recaps, a cinematic Yearly Recap, long-term eras, records, and an archive you can carry between computers.
 
+[Website](https://pcrecap.online/) · [Download](https://github.com/TheAgencyMGE/pc-recap/releases/latest) · [GPL-3.0 license](LICENSE)
+
 ![PC Recap cover shelf](website/og.png)
 
 > [!IMPORTANT]
@@ -111,6 +113,8 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. Activity 
 
 ## License
 
-Copyright © 2026 Ryan Panda. All rights reserved.
+Copyright © 2026 Ryan Panda.
 
-No open-source license has been granted. The source is publicly viewable, but permission to use, copy, modify, or redistribute it is not granted unless a license is added or the copyright holder gives permission.
+PC Recap's source code is licensed under the [GNU General Public License v3.0](LICENSE), using the `GPL-3.0-only` SPDX identifier. You may use, study, modify, and redistribute the code under those terms. Distributed versions must provide the corresponding source and preserve the same license.
+
+The GPL covers the software, not the PC Recap name, logo, or visual identity. Those may be used to refer to the original project, but modified distributions should use distinct branding and must not imply endorsement.
