@@ -13,7 +13,10 @@ const categories: Category[] = [
 ];
 
 export function createTestApi(overrides: Partial<TrackingSettings> = {}): PCRecapAPI & { clearHistory(): void } {
-  const now = new Date();
+  const wallClock = new Date();
+  // Keep the fixture stable in every time zone and at every CI start time. Its
+  // sample sessions occur in the morning, so the reference clock must follow them.
+  const now = new Date(wallClock.getFullYear(), wallClock.getMonth(), wallClock.getDate(), 12);
   const codeStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9);
   const browserStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 10, 5);
   let sessions: ActivitySession[] = [
