@@ -1,5 +1,5 @@
 /*
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-vsmCXFSVSjYoZiB5h2VPIvg0GEje4265OYebtw0bW1E=' https://plausible.io; style-src 'self'; img-src 'self'; font-src 'self'; connect-src https://plausible.io; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'none'; upgrade-insecure-requests
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-gltC9rM2q5qc2U+7IMHeoQSCUjz3SZsLqw7j8RrvuU4=' https://plausible.io; style-src 'self'; img-src 'self'; font-src 'self'; connect-src https://plausible.io; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'none'; upgrade-insecure-requests
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
   Referrer-Policy: strict-origin-when-cross-origin
