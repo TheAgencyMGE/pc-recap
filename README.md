@@ -83,7 +83,7 @@ Prepare the current website, Netlify archive, and release post copy:
 npm run promotion:prepare
 ```
 
-This refreshes versioned download links and sitemap dates, validates the static site, writes the deployable archive to `artifacts/pc-recap-netlify.zip`, and writes concise platform copy to `marketing/release-posts.md`. After the updated site is live, notify participating search engines with `npm run seo:submit`.
+This refreshes versioned download links and sitemap dates, validates the static site, and writes the deployable archive to `artifacts/pc-recap-netlify.zip`. After the updated site is live, notify participating search engines with `npm run seo:submit`.
 
 ## Architecture
 

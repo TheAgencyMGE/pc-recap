@@ -65,10 +65,6 @@ test('prepares version-correct website metadata, post copy, and a Netlify archiv
     const sitemap = await readFile(join(root, 'website/sitemap.xml'), 'utf8');
     assert.match(sitemap, /<lastmod>2026-08-14<\/lastmod>/);
 
-    const posts = await readFile(join(root, 'marketing/release-posts.md'), 'utf8');
-    assert.match(posts, /PC Recap 2\.3\.4/);
-    assert.match(posts, /https:\/\/pcrecap\.online/);
-    assert.doesNotMatch(posts, /—/);
 
     const archive = await stat(join(root, 'artifacts/pc-recap-netlify.zip'));
     assert.ok(archive.size > 0);

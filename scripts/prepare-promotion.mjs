@@ -19,57 +19,6 @@ function escapePowerShellLiteral(value) {
   return value.replaceAll("'", "''");
 }
 
-function releasePosts(version) {
-  return `# PC Recap ${version} release posts
-
-Generated from the current release metadata. Personalize the opening sentence when replying inside an existing community.
-
-## X and Bluesky
-
-I built PC Recap, a Windows app that turns real app usage into visual recaps of your days, weeks, months, and years.
-
-No screenshots, keystrokes, accounts, or activity uploads.
-
-PC Recap ${version} beta: https://pcrecap.online/
-
-#Windows #Lifelogging
-
-## Instagram and TikTok
-
-Your music gets a yearly recap. Why not your PC?
-
-PC Recap turns real Windows app usage into visual stories, eras, records, and timelines.
-
-Download the free beta at pcrecap.online
-
-#PCRecap #WindowsApps #DigitalHistory #Lifelogging #IndieApp
-
-## Reddit
-
-**Title:** I built a Windows app that turns your PC usage into a visual history
-
-I wanted something that remembered my computer life without treating every minute like a productivity score.
-
-PC Recap records which application is active and turns that history into daily, weekly, monthly, yearly, and all-time visual recaps. It can also recover clearly labeled historical clues when you choose a source. It does not record screenshots, keystrokes, file contents, or clipboard contents, and the desktop app does not upload activity data.
-
-The ${version} Windows beta is available at https://pcrecap.online/
-
-I am looking for people willing to use it for at least a week and tell me which recap was useful, confusing, or missing.
-
-## Short press pitch
-
-**Subject:** Windows app turns everyday PC usage into a visual time capsule
-
-Hi [Name],
-
-I built PC Recap, a Windows app that turns real application usage into daily, monthly, yearly, and all-time visual recaps. It is less about productivity scoring and more about remembering the games, tools, late nights, and phases that made up your computer life.
-
-The beta is available at https://pcrecap.online/. If it fits what you cover, I can send screenshots, the launch video, and technical details.
-
-Thanks,
-Ryan
-`;
-}
 
 async function main() {
   const root = resolve(readArgument('--root', '.'));
@@ -143,11 +92,8 @@ async function main() {
     if (error?.code !== 'ENOENT') throw error;
   }
 
-  const marketingDirectory = resolve(root, 'marketing');
   const artifactsDirectory = resolve(root, 'artifacts');
-  await mkdir(marketingDirectory, { recursive: true });
   await mkdir(artifactsDirectory, { recursive: true });
-  await writeFile(resolve(marketingDirectory, 'release-posts.md'), releasePosts(metadata.version));
 
   const archivePath = resolve(artifactsDirectory, 'pc-recap-netlify.zip');
   await rm(archivePath, { force: true });
@@ -164,7 +110,6 @@ async function main() {
 
   console.log(`Prepared PC Recap ${metadata.version} promotion assets.`);
   console.log(`Website archive: ${archivePath}`);
-  console.log(`Post copy: ${resolve(marketingDirectory, 'release-posts.md')}`);
 }
 
 main().catch((error) => {

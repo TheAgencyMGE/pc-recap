@@ -23,3 +23,5 @@ Thumbs.db
 .worktrees/
 video/
 *.code-workspace
+marketing/
+carousel/
