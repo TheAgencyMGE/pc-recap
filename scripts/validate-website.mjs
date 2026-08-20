@@ -44,6 +44,9 @@ const structuredDataHash = createHash('sha256').update(structuredData).digest('b
 assert.ok(headers.includes(`'sha256-${structuredDataHash}'`), 'The content security policy must allow the exact structured-data block.');
 assert.ok(html.includes(releaseUrl), `The primary download must use the v${metadata.version} GitHub Release asset.`);
 assert.ok(html.includes(checksumUrl), 'The site must link to the checksum uploaded beside the installer.');
+for (const artifact of Object.values(metadata.platforms ?? {})) {
+  assert.ok(html.includes(artifact.downloadUrl), `The site must link to ${artifact.label ?? artifact.fileName ?? 'every platform artifact'}.`);
+}
 assert.ok(html.includes(`PC Recap ${metadata.version} Beta`), 'The visible download panel must match the release metadata version.');
 assert.doesNotMatch(html, /\b\d+[,.]?\d*\s*(hours?|minutes?|sessions?|active days?)\b/i, 'The site must not invent product activity.');
 assert.match(headers, /Content-Security-Policy:/i);
@@ -66,6 +69,7 @@ for (const [index, link] of installerLinks.entries()) {
   assert.match(link[0], /data-download-location="[^"]+"/, `Installer link ${index + 1} must identify its placement for analytics.`);
 }
 assert.match(script, /plausible\('Download'/, 'Installer clicks must emit the Download event.');
+assert.match(script, /platform:\s*link\.dataset\.platform/, 'Download events must identify the selected platform.');
 assert.match(html, /aria-label="Download installer SHA-256 checksum"/i, 'The checksum link needs an accessible name.');
 assert.deepEqual([...png.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10], 'og.png must be a real PNG.');
 const ogWidth = png.readUInt32BE(16);

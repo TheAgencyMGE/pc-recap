@@ -1,5 +1,11 @@
 import { randomUUID } from 'node:crypto';
-import type { ActivitySession, LiveActivitySession, OpenSessionCheckpoint, TrackingStatus } from '../shared/types.js';
+import type {
+  ActivitySession,
+  ActivityStateInterval,
+  LiveActivitySession,
+  OpenSessionCheckpoint,
+  TrackingStatus,
+} from '../shared/types.js';
 import type { ActiveWindowInfo, ActivitySource } from './activity-source.js';
 import { categoryForApplication } from './activity-source.js';
 import type { ActivityRepository } from './database.js';
@@ -20,18 +26,29 @@ interface OpenSession {
   lastSampleAt: Date;
 }
 
+interface OpenActivityState {
+  id: string;
+  state: ActivityStateInterval['state'];
+  startedAt: Date;
+  source: ActivityStateInterval['source'];
+  reason?: string;
+}
+
 export class ActivityTracker {
   private readonly now: () => Date;
   private readonly idleSeconds: () => number;
   private readonly machineId: string;
   private readonly onStatus?: (status: TrackingStatus) => void;
   private openSession?: OpenSession;
+  private openActivityState?: OpenActivityState;
+  private lifecycleState?: 'locked' | 'suspended';
   private timer?: ReturnType<typeof setInterval>;
   private timerIntervalMs?: number;
   private running = false;
   private generation = 0;
   private samplePromise?: Promise<void>;
   private status: TrackingStatus = { state: 'paused' };
+  private latestSuccessfulSampleAt?: string;
 
   constructor(
     private readonly repository: ActivityRepository,
@@ -57,7 +74,9 @@ export class ActivityTracker {
     this.timer = undefined;
     this.timerIntervalMs = undefined;
     this.running = false;
-    this.closeSession(this.now());
+    const now = this.now();
+    this.closeSession(now);
+    this.closeActivityState(now);
     this.setStatus({ state: 'paused' });
     this.source.dispose?.();
   }
@@ -69,7 +88,9 @@ export class ActivityTracker {
     this.timer = undefined;
     this.timerIntervalMs = undefined;
     await this.samplePromise;
-    this.closeSession(this.now());
+    const now = this.now();
+    this.closeSession(now);
+    this.closeActivityState(now);
     this.setStatus({ state: 'paused' });
   }
 
@@ -80,8 +101,40 @@ export class ActivityTracker {
     if (this.running) this.scheduleTimer(this.repository.getSettings().sampleIntervalSeconds * 1_000);
   }
 
+  handleLock(at = this.now()) {
+    this.generation += 1;
+    this.lifecycleState = 'locked';
+    this.closeSession(at);
+    this.beginActivityState('locked', at, 'power-monitor', 'The operating-system session is locked.');
+    this.setStatus({ state: 'locked', since: at.toISOString() });
+  }
+
+  handleUnlock(at = this.now()) {
+    if (this.lifecycleState === 'locked') this.lifecycleState = undefined;
+    this.closeActivityState(at);
+    this.setStatus({ state: 'unavailable', since: at.toISOString(), reason: 'Waiting for the next foreground sample after unlock.' });
+  }
+
+  handleSuspend(at = this.now()) {
+    this.generation += 1;
+    this.lifecycleState = 'suspended';
+    this.closeSession(at);
+    this.beginActivityState('suspended', at, 'power-monitor', 'The computer is suspended.');
+    this.setStatus({ state: 'suspended', since: at.toISOString() });
+  }
+
+  handleResume(at = this.now()) {
+    if (this.lifecycleState === 'suspended') this.lifecycleState = undefined;
+    this.closeActivityState(at);
+    this.setStatus({ state: 'unavailable', since: at.toISOString(), reason: 'Waiting for the next foreground sample after resume.' });
+  }
+
   getStatus(): TrackingStatus {
     return { ...this.status };
+  }
+
+  getLatestSuccessfulSampleAt() {
+    return this.latestSuccessfulSampleAt;
   }
 
   getLiveSession(at = this.now()): LiveActivitySession | undefined {
@@ -102,6 +155,7 @@ export class ActivityTracker {
     this.timerIntervalMs = undefined;
     await this.samplePromise;
     this.discardOpenSession();
+    this.openActivityState = undefined;
     this.setStatus({ state: 'paused', reason: 'Archive reset in progress.' });
   }
 
@@ -125,39 +179,55 @@ export class ActivityTracker {
       const settings = this.repository.getSettings();
       const now = this.now();
       if (this.running) this.scheduleTimer(settings.sampleIntervalSeconds * 1_000);
+      if (this.lifecycleState) {
+        this.setStatus({ state: this.lifecycleState, since: this.openActivityState?.startedAt.toISOString() });
+        return;
+      }
       if (!settings.trackingEnabled) {
         this.closeSession(now);
+        this.closeActivityState(now);
         this.setStatus({ state: 'paused' });
         return;
       }
       const idleSeconds = this.idleSeconds();
       if (idleSeconds >= settings.idleThresholdSeconds) {
-        this.closeSession(this.openSession ? idleEndTime(now, idleSeconds, this.openSession.startedAt) : now);
-        this.setStatus({ state: 'idle', since: now.toISOString() });
+        const idleStartedAt = idleEndTime(now, idleSeconds, this.openSession?.startedAt ?? now);
+        this.closeSession(idleStartedAt);
+        this.beginActivityState('idle', idleStartedAt, 'os-idle', 'The operating system reports no recent input.');
+        this.setStatus({ state: 'idle', since: this.openActivityState?.startedAt.toISOString() });
         return;
       }
+      this.cutOffLongSamplingGap(now, settings.sampleIntervalSeconds);
       const detected = await this.source.getActiveWindow();
       if (generation !== this.generation) return;
       if (!detected) {
-        this.closeSession(this.openSession ? transitionMidpoint(this.openSession.lastSampleAt, now) : now);
-        this.setStatus({ state: 'unavailable', reason: 'No foreground application was detected.' });
+        const boundary = this.openSession ? transitionMidpoint(this.openSession.lastSampleAt, now) : now;
+        this.closeSession(boundary);
+        this.beginActivityState('unavailable', boundary, 'collector', 'No foreground application was detected.');
+        this.setStatus({ state: 'unavailable', since: this.openActivityState?.startedAt.toISOString(), reason: 'No foreground application was detected.' });
         return;
       }
       const aliasKey = detected.path ?? detected.executable;
       const active = normalizeApplication(detected, this.repository.resolveApplicationAlias(aliasKey));
+      this.latestSuccessfulSampleAt = now.toISOString();
       const includedByUser = settings.includedExecutables.includes(active.executable.toLowerCase());
       if (isSelfApplication(active) || ((isDefaultIgnoredApplication(active) || active.ignoredByDefault) && !includedByUser)) {
-        this.closeSession(this.openSession ? transitionMidpoint(this.openSession.lastSampleAt, now) : now);
+        const boundary = this.openSession ? transitionMidpoint(this.openSession.lastSampleAt, now) : now;
+        this.closeSession(boundary);
+        this.beginActivityState('untracked', boundary, 'privacy-rule', `${active.canonicalName} is ignored by a tracking rule.`);
         this.setStatus({ state: 'ignored', reason: `${active.canonicalName} is ignored by a tracking rule.` });
         return;
       }
       const excluded = settings.excludedExecutables.includes(active.executable.toLowerCase())
         || this.repository.isAppExcluded(active.executable);
       if (excluded) {
-        this.closeSession(this.openSession ? transitionMidpoint(this.openSession.lastSampleAt, now) : now);
+        const boundary = this.openSession ? transitionMidpoint(this.openSession.lastSampleAt, now) : now;
+        this.closeSession(boundary);
+        this.beginActivityState('untracked', boundary, 'privacy-rule', `${active.name} is excluded from tracking.`);
         this.setStatus({ state: 'ignored', reason: `${active.name} is excluded from tracking.` });
         return;
       }
+      this.closeActivityState(now);
       if (this.openSession?.info.canonicalId === active.canonicalId) {
         this.openSession.lastSampleAt = now;
         if (settings.captureWindowTitles) this.openSession.info.title = active.title;
@@ -177,9 +247,15 @@ export class ActivityTracker {
       this.setStatus({ state: 'tracking', activeApp: active.name, since: this.openSession.startedAt.toISOString() });
     } catch (error) {
       if (generation !== this.generation) return;
-      try { this.closeSession(this.now()); } catch { /* Retry finalization on the next sample. */ }
+      const now = this.now();
+      const boundary = this.openSession ? transitionMidpoint(this.openSession.lastSampleAt, now) : now;
+      try {
+        this.closeSession(boundary);
+        this.beginActivityState('unavailable', boundary, 'collector', error instanceof Error ? error.message : 'The activity source is unavailable.');
+      } catch { /* Retry finalization on the next sample. */ }
       this.setStatus({
         state: 'unavailable',
+        since: this.openActivityState?.startedAt.toISOString(),
         reason: error instanceof Error ? error.message : 'The activity source is unavailable.',
       });
     }
@@ -193,6 +269,47 @@ export class ActivityTracker {
       path: this.openSession.info.path,
     }, this.machineId);
     this.openSession = undefined;
+  }
+
+  private beginActivityState(
+    state: ActivityStateInterval['state'],
+    startedAt: Date,
+    source: ActivityStateInterval['source'],
+    reason?: string,
+  ) {
+    if (this.openActivityState?.state === state && this.openActivityState.source === source) return;
+    this.closeActivityState(startedAt);
+    this.openActivityState = { id: randomUUID(), state, startedAt, source, reason };
+  }
+
+  private closeActivityState(endedAt: Date) {
+    if (!this.openActivityState) return;
+    const startedAt = this.openActivityState.startedAt;
+    const safeEnd = new Date(Math.max(startedAt.getTime(), endedAt.getTime()));
+    if (safeEnd.getTime() > startedAt.getTime()) {
+      this.repository.insertActivityStateInterval({
+        id: this.openActivityState.id,
+        state: this.openActivityState.state,
+        startedAt: startedAt.toISOString(),
+        endedAt: safeEnd.toISOString(),
+        durationSeconds: Math.round((safeEnd.getTime() - startedAt.getTime()) / 1_000),
+        machineId: this.machineId,
+        source: this.openActivityState.source,
+        reason: this.openActivityState.reason,
+      });
+    }
+    this.openActivityState = undefined;
+  }
+
+  private cutOffLongSamplingGap(now: Date, intervalSeconds: number) {
+    if (!this.openSession) return;
+    const lastSampleAt = this.openSession.lastSampleAt;
+    const gapMs = now.getTime() - lastSampleAt.getTime();
+    const toleratedGapMs = Math.max(120_000, intervalSeconds * 4_000);
+    if (gapMs <= toleratedGapMs) return;
+    const boundary = new Date(lastSampleAt.getTime() + intervalSeconds * 1_000);
+    this.closeSession(boundary);
+    this.beginActivityState('unavailable', boundary, 'sampling-gap', 'PC Recap could not sample activity during this interval.');
   }
 
   private toSession(openSession: OpenSession, endedAt: Date): ActivitySession {

@@ -8,6 +8,7 @@ export type RecapSceneId =
   | 'sprint'
   | 'era'
   | 'memory'
+  | 'system'
   | 'record'
   | 'relationship'
   | 'rhythm'
@@ -23,6 +24,7 @@ export function buildRecapScenes(summary: PeriodSummary, timeline: TimelineBucke
   if (timeline.filter((bucket) => bucket.seconds > 0).length >= 2) scenes.push('sprint');
   if (summary.eras.length) scenes.push('era');
   if (summary.observations.length) scenes.push('memory');
+  if (summary.performance && summary.performance.sampleCount >= 6) scenes.push('system');
   if (summary.relationships.length) scenes.push('relationship');
   if (summary.routines.length) scenes.push('rhythm');
   if (summary.lifecycle.length) scenes.push('lifecycle');

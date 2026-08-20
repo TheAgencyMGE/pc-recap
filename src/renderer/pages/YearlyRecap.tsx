@@ -32,7 +32,8 @@ function Scene({ id, summary, timeline, api, selection, recoveredClues = [], pin
   const busiestMonth = [...timeline].filter((bucket) => bucket.seconds > 0).sort((a, b) => b.seconds - a.seconds)[0];
   const era = summary.eras[0];
   const observation = summary.observations[0];
-  const total = formatRecapTotal(summary.totalSeconds);
+  const recapSeconds = summary.activity.recapTotalSeconds;
+  const total = formatRecapTotal(recapSeconds);
   const relationship = summary.relationships[0];
   const routine = summary.routines[0];
   const lifecycle = summary.lifecycle[0];
@@ -50,7 +51,7 @@ function Scene({ id, summary, timeline, api, selection, recoveredClues = [], pin
     <section className="recap-scene recap-scene--total">
       <SceneKicker>Time</SceneKicker>
       <h1><strong>{total.value}</strong> {total.unit}, recorded.</h1>
-      <p>{formatDuration(summary.totalSeconds)} of real activity across {summary.activeDays.toLocaleString()} active {summary.activeDays === 1 ? 'day' : 'days'}.</p>
+      <p>{formatDuration(summary.activity.activeSeconds)} of active app time across {summary.activeDays.toLocaleString()} active {summary.activeDays === 1 ? 'day' : 'days'}. {summary.activity.idleSeconds > 0 ? `${formatDuration(summary.activity.idleSeconds)} idle, shown separately.` : ''}</p>
       <div className="recap-time-rule" aria-hidden="true"><i /><i /><i /><i /><i /></div>
     </section>
   );
@@ -112,6 +113,19 @@ function Scene({ id, summary, timeline, api, selection, recoveredClues = [], pin
       <h1>“{observation.text}”</h1>
       <p>{observation.detail}</p>
       <div className="recap-memory-ticket"><b>{summary.label}</b></div>
+    </section>
+  );
+
+  if (id === 'system' && summary.performance) return (
+    <section className="recap-scene recap-scene--system">
+      <SceneKicker>Computer pulse</SceneKicker>
+      <h1>Your PC worked hardest{summary.performance.cpuPeakAt ? ` at ${new Date(summary.performance.cpuPeakAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}` : ''}.</h1>
+      <div className="recap-system-facts">
+        {summary.performance.cpuPeak !== undefined && <div><span>Peak CPU</span><b>{Number(summary.performance.cpuPeak.toFixed(1))}%</b></div>}
+        {summary.performance.memoryPercentPeak !== undefined && <div><span>Peak memory</span><b>{Number(summary.performance.memoryPercentPeak.toFixed(1))}%</b></div>}
+        <div><span>High-load time</span><b>{formatDuration(summary.performance.highLoadSeconds)}</b></div>
+      </div>
+      {summary.performance.highestLoadContext && <p>{summary.performance.highestLoadContext.appName} was foreground during your heaviest sustained system load. That is whole-system context, not exact app CPU.</p>}
     </section>
   );
 

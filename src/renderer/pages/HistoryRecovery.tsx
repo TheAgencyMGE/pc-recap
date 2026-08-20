@@ -1,18 +1,25 @@
 import { DatabaseZap, FileUp, HardDriveDownload, SearchCheck, ShieldCheck } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { PCRecapAPI } from '../../shared/ipc';
 import type { HistoryImportResult, HistoryPreviewView } from '../../shared/types';
 import { formatDate, formatDuration } from '../lib/format';
 
 export function HistoryRecovery({ api, onChanged }: { api: PCRecapAPI; onChanged: () => void }) {
   const [preview, setPreview] = useState<HistoryPreviewView>();
-  const [includeBrowserHistory, setIncludeBrowserHistory] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState<HistoryImportResult>();
+  const [recoveryPlatform, setRecoveryPlatform] = useState<'windows' | 'other'>('windows');
   const exactCount = preview?.exactSessionCount ?? preview?.exactSessions.length ?? 0;
   const clueCount = preview?.recoveredEventCount ?? preview?.recoveredEvents.length ?? 0;
+  useEffect(() => {
+    let live = true;
+    void api.getTrackingDiagnostics().then((value) => {
+      if (live) setRecoveryPlatform(value.os === 'Windows' ? 'windows' : 'other');
+    }).catch(() => undefined);
+    return () => { live = false; };
+  }, [api]);
 
   const run = async (operation: () => Promise<HistoryPreviewView | null>) => {
     setBusy(true);
@@ -45,15 +52,14 @@ export function HistoryRecovery({ api, onChanged }: { api: PCRecapAPI; onChanged
   };
 
   return <motion.main className="page recovery-page" initial={false} animate={{ opacity: 1, y: 0 }}>
-    <div className="simple-page-heading"><h1>Recover older history</h1><p>Bring real records forward from trackers and Windows.</p></div>
+    <div className="simple-page-heading"><h1>Recover older history</h1><p>Bring real records forward from trackers and this computer.</p></div>
     <div className="recovery-truth"><ShieldCheck /><b>Recovered clues do not add usage time.</b><span>Only records with an exact start and end become sessions.</span></div>
 
     <section className="recovery-actions">
       <button aria-label="Choose tracker export" disabled={busy} onClick={() => { void run(() => api.previewHistoryFile()); }}><FileUp /><span><b>Choose tracker export</b><small>ActivityWatch, ManicTime, RescueTime, or WakaTime</small></span></button>
-      <button aria-label="Scan this PC" disabled={busy} onClick={() => { void run(() => api.scanWindowsHistory(includeBrowserHistory)); }}><HardDriveDownload /><span><b>Scan this PC</b><small>Install dates, launch clues, Prefetch, and Activity History</small></span></button>
+      <button aria-label="Scan this PC" disabled={busy} onClick={() => { void run(() => api.scanWindowsHistory()); }}><HardDriveDownload /><span><b>Scan this PC</b><small>{recoveryPlatform === 'windows' ? 'App clues plus local Steam and Epic metadata' : 'Local Steam metadata'}</small></span></button>
     </section>
-
-    <label className="browser-consent"><input type="checkbox" checked={includeBrowserHistory} onChange={(event) => setIncludeBrowserHistory(event.target.checked)} /><span><b>Include browser history clues</b><small>Off by default. Stores visited domains as clues, never browsing duration.</small></span></label>
+    <p className="recovery-boundary">{recoveryPlatform === 'windows' ? 'Scans launcher and selected Windows metadata only.' : 'Scans supported local launcher metadata only.'} PC Recap never reads browser history, files, screenshots, or keystrokes.</p>
     {busy && <div className="recovery-status"><SearchCheck /> Reading available history...</div>}
     {error && <div className="toast-note recovery-error">{error}</div>}
     {result && <div className="recovery-result"><DatabaseZap /><div><b>{result.importedSessions} sessions added</b><span>{result.recoveredEvents} clues added{result.duplicates ? `, ${result.duplicates} duplicates skipped` : ''}.</span></div></div>}
@@ -63,7 +69,7 @@ export function HistoryRecovery({ api, onChanged }: { api: PCRecapAPI; onChanged
       {preview.sources.length > 0 && <div className="recovery-sources">{preview.sources.map((source) => <div key={source.id} className={source.available ? '' : 'is-unavailable'}><i /> <span><b>{source.label}</b><small>{source.available ? `${source.eventCount} clues` : source.limitation ?? 'Unavailable'}</small></span></div>)}</div>}
       <div className="recovery-samples">
         {preview.exactSessions.slice(0, 5).map((session, index) => <div key={`${session.startedAt}-${index}`}><b>{session.appName}</b><span>{formatDate(session.startedAt)} · {formatDuration(session.durationSeconds)}</span></div>)}
-        {preview.recoveredEvents.slice(0, 5).map((event, index) => <div key={`${event.sourceKind}-${event.occurredAt}-${index}`}><b>{event.appName}</b><span>{formatDate(event.occurredAt)} · {event.eventType.replace('-', ' ')}</span>{event.detail && <small title={event.detail}>{event.detail}</small>}</div>)}
+        {preview.recoveredEvents.slice(0, 5).map((event, index) => <div key={`${event.sourceKind}-${event.occurredAt}-${index}`}><b>{event.appName}</b><span>{formatDate(event.occurredAt)} · {event.provenance ?? 'recovered'} · {event.datePrecision ?? 'approximate'} {event.playtimeSeconds !== undefined ? `· ${formatDuration(event.playtimeSeconds)} known playtime` : '· duration unknown'}</span>{event.detail && <small title={event.detail}>{event.detail}</small>}</div>)}
       </div>
       {preview.warnings.map((warning) => <p className="recovery-warning" key={warning}>{warning}</p>)}
       <button className="primary-button" disabled={busy || exactCount + clueCount === 0} onClick={() => { void commit(); }}>

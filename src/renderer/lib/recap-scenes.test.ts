@@ -47,6 +47,17 @@ describe('buildRecapScenes', () => {
     expect(buildRecapScenes({ ...enriched, eras: [], observations: [] }, [])).not.toEqual(expect.arrayContaining(['era', 'memory']));
   });
 
+  it('adds a performance story only after enough real samples exist', async () => {
+    const api = createTestApi();
+    const summary = await api.getSummary('year', new Date().getFullYear());
+    expect(buildRecapScenes({ ...summary, performance: {
+      sampleCount: 6, cpuSampleCount: 6, cpuPeak: 88, memorySampleCount: 6, highLoadSeconds: 120,
+    } }, [])).toContain('system');
+    expect(buildRecapScenes({ ...summary, performance: {
+      sampleCount: 5, cpuSampleCount: 5, cpuPeak: 88, memorySampleCount: 5, highLoadSeconds: 120,
+    } }, [])).not.toContain('system');
+  });
+
   it('uses minutes for a young archive instead of displaying zero hours', () => {
     expect(formatRecapTotal(30)).toEqual({ value: '<1', unit: 'minute' });
     expect(formatRecapTotal(120)).toEqual({ value: '2', unit: 'minutes' });

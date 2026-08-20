@@ -42,4 +42,29 @@ describe('application identity', () => {
       [{ name: 'CalculatorApp', executable: 'CalculatorApp.exe', path: 'C:\\Program Files\\WindowsApps\\CalculatorApp.exe' }],
     )).toMatchObject({ executable: 'CalculatorApp.exe' });
   });
+
+  it('maps explicit Windows, macOS, and Linux identifiers to one Chrome history', () => {
+    const windows = normalizeApplication({ name: 'chrome', executable: 'chrome.exe' });
+    const mac = normalizeApplication({
+      name: 'Google Chrome',
+      executable: 'Google Chrome',
+      bundleId: 'com.google.Chrome',
+      path: '/Applications/Google Chrome.app',
+    });
+    const linux = normalizeApplication({ name: 'Google Chrome', executable: 'google-chrome-stable' });
+
+    expect([windows, mac, linux].map((item) => item.canonicalId)).toEqual(['chrome', 'chrome', 'chrome']);
+    expect([windows, mac, linux].map((item) => item.canonicalName)).toEqual(['Chrome', 'Chrome', 'Chrome']);
+  });
+
+  it('maps explicit VS Code identities without fuzzy substring merging', () => {
+    expect(normalizeApplication({ name: 'Code', executable: 'Code.exe' })).toMatchObject({
+      canonicalId: 'visual-studio-code', canonicalName: 'Visual Studio Code', identitySource: 'package',
+    });
+    expect(normalizeApplication({
+      name: 'Visual Studio Code', executable: 'Electron', bundleId: 'com.microsoft.VSCode',
+    }).canonicalId).toBe('visual-studio-code');
+    expect(normalizeApplication({ name: 'My Chrome Helper', executable: 'my-chrome-helper' }).canonicalId)
+      .toBe('my-chrome-helper');
+  });
 });

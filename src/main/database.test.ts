@@ -47,13 +47,22 @@ describe('ActivityRepository', () => {
   it('persists validated settings and merges defaults', () => {
     const store = repository();
 
-    store.updateSettings({ captureWindowTitles: true, idleThresholdSeconds: 600 });
+    store.updateSettings({
+      captureWindowTitles: true,
+      idleThresholdSeconds: 600,
+      includeIdleInRecapTotals: true,
+      performanceHistoryEnabled: false,
+      performanceSampleIntervalSeconds: 1,
+    } as never);
 
     expect(store.getSettings()).toMatchObject({
       trackingEnabled: true,
       captureWindowTitles: true,
       idleThresholdSeconds: 600,
       sampleIntervalSeconds: 10,
+      includeIdleInRecapTotals: true,
+      performanceHistoryEnabled: false,
+      performanceSampleIntervalSeconds: 5,
     });
   });
 
@@ -77,6 +86,93 @@ describe('ActivityRepository', () => {
     expect(store.getAllSessions()).toHaveLength(0);
     store.clearOpenSessionCheckpoint('pc');
     expect(store.getOpenSessionCheckpoint('pc')).toBeUndefined();
+  });
+
+  it('stores away states separately from application history', () => {
+    const store = repository() as ActivityRepository & {
+      insertActivityStateInterval(value: {
+        id: string;
+        state: string;
+        startedAt: string;
+        endedAt: string;
+        durationSeconds: number;
+        machineId: string;
+        source: string;
+        reason?: string;
+      }): boolean;
+      queryActivityStateIntervals(start: string, end: string): Array<{ state: string; durationSeconds: number; reason?: string }>;
+    };
+
+    expect(store.insertActivityStateInterval({
+      id: 'idle-1',
+      state: 'idle',
+      startedAt: '2026-08-15T10:00:00.000Z',
+      endedAt: '2026-08-15T10:05:00.000Z',
+      durationSeconds: 300,
+      machineId: 'pc',
+      source: 'os-idle',
+      reason: 'No system input',
+    })).toBe(true);
+
+    expect(store.queryActivityStateIntervals(
+      '2026-08-15T00:00:00.000Z',
+      '2026-08-16T00:00:00.000Z',
+    )).toEqual([
+      expect.objectContaining({ state: 'idle', durationSeconds: 300, reason: 'No system input' }),
+    ]);
+    expect(store.getAllSessions()).toEqual([]);
+    expect(store.listApps()).toEqual([]);
+  });
+
+  it('aggregates bounded performance history and prunes old raw samples', () => {
+    const store = repository() as ActivityRepository & {
+      insertPerformanceSample(value: Record<string, unknown>): boolean;
+      queryPerformanceSamples(start: string, end: string): Array<Record<string, unknown>>;
+      queryPerformanceRollups(kind: 'hour' | 'day', start: string, end: string): Array<Record<string, unknown>>;
+      queryAppPerformanceRollups(start: string, end: string): Array<Record<string, unknown>>;
+      prunePerformanceSamples(before: string): number;
+    };
+    store.insertPerformanceSample({
+      id: 'perf-1', sampledAt: '2026-08-20T10:00:00.000Z', machineId: 'pc', intervalSeconds: 10,
+      cpuPercent: 80, memoryUsedBytes: 12_000, memoryAvailableBytes: 4_000, memoryTotalBytes: 16_000,
+      memoryPercent: 75, uptimeSeconds: 10_000, powerState: 'battery', batteryPercent: 70,
+      foregroundAppId: 'minecraft', foregroundAppName: 'Minecraft',
+    });
+    store.insertPerformanceSample({
+      id: 'perf-2', sampledAt: '2026-08-20T10:00:10.000Z', machineId: 'pc', intervalSeconds: 10,
+      cpuPercent: 40, memoryUsedBytes: 8_000, memoryAvailableBytes: 8_000, memoryTotalBytes: 16_000,
+      memoryPercent: 50, uptimeSeconds: 10_010, powerState: 'ac', batteryPercent: 71,
+      foregroundAppId: 'code', foregroundAppName: 'Visual Studio Code',
+    });
+
+    expect(store.queryPerformanceRollups(
+      'hour', '2026-08-20T00:00:00.000Z', '2026-08-21T00:00:00.000Z',
+    )).toEqual([
+      expect.objectContaining({
+        sampleCount: 2,
+        cpuAverage: 60,
+        cpuMinimum: 40,
+        cpuMaximum: 80,
+        memoryPercentAverage: 62.5,
+        memoryPercentMaximum: 75,
+        highLoadSeconds: 10,
+        batterySampleCount: 1,
+        acSampleCount: 1,
+      }),
+    ]);
+    expect(store.prunePerformanceSamples('2026-08-20T10:00:05.000Z')).toBe(1);
+    expect(store.queryPerformanceSamples(
+      '2026-08-20T00:00:00.000Z', '2026-08-21T00:00:00.000Z',
+    )).toEqual([expect.objectContaining({ id: 'perf-2', cpuPercent: 40 })]);
+    expect(store.queryPerformanceRollups(
+      'day', '2026-08-20T00:00:00.000Z', '2026-08-21T00:00:00.000Z',
+    )).toHaveLength(1);
+    expect(store.queryAppPerformanceRollups(
+      '2026-08-20T00:00:00.000Z', '2026-08-21T00:00:00.000Z',
+    )).toEqual([
+      expect.objectContaining({ appId: 'minecraft', appName: 'Minecraft', sampleCount: 1, cpuAverage: 80, highLoadSeconds: 10 }),
+      expect.objectContaining({ appId: 'code', appName: 'Visual Studio Code', sampleCount: 1, cpuAverage: 40 }),
+    ]);
   });
 
   it('resolves canonical aliases by normalized executable path', () => {

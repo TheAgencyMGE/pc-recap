@@ -36,6 +36,20 @@ describe('AppIconService', () => {
     expect(getFileIcon).toHaveBeenCalledWith('C:\\Apps\\Code.exe');
   });
 
+  it.each([
+    ['/Applications/Visual Studio Code.app', '/Applications/Visual Studio Code.app'],
+    ['/usr/share/applications/code.desktop', '/usr/share/applications/code.desktop'],
+  ])('passes a stored cross-platform app path to Electron: %s', async (path, expected) => {
+    const getFileIcon = vi.fn(async () => ({
+      isEmpty: () => false,
+      toDataURL: () => 'data:image/png;base64,BBBB',
+    }));
+    const service = new AppIconService(repositoryWithApp(path), { getFileIcon });
+
+    await expect(service.getDataUrl('code')).resolves.toBe('data:image/png;base64,BBBB');
+    expect(getFileIcon).toHaveBeenCalledWith(expected);
+  });
+
   it('does not accept an unknown app id as a filesystem lookup', async () => {
     const getFileIcon = vi.fn();
     const service = new AppIconService(repositoryWithApp('C:\\Apps\\Code.exe'), { getFileIcon });
@@ -62,6 +76,15 @@ describe('AppIconService', () => {
     await service.getDataUrl('code');
     await service.getDataUrl('code');
 
+    expect(getFileIcon).toHaveBeenCalledTimes(1);
+  });
+
+  it('contains icon-reader failures and caches the unavailable result', async () => {
+    const getFileIcon = vi.fn().mockRejectedValue(new Error('Unsupported desktop entry'));
+    const service = new AppIconService(repositoryWithApp('/usr/share/applications/code.desktop'), { getFileIcon });
+
+    await expect(service.getDataUrl('code')).resolves.toBeNull();
+    await expect(service.getDataUrl('code')).resolves.toBeNull();
     expect(getFileIcon).toHaveBeenCalledTimes(1);
   });
 });

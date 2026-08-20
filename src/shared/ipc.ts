@@ -16,6 +16,7 @@ import type {
   TimelineBucket,
   TrackedApp,
   TrackingSettings,
+  TrackingDiagnostics,
   TrackingStatus,
 } from './types.js';
 
@@ -39,12 +40,14 @@ export interface PCRecapAPI {
   setAppCategory(appId: string, categoryId: string): Promise<void>;
   setAppExcluded(appId: string, excluded: boolean): Promise<void>;
   getTrackingStatus(): Promise<TrackingStatus>;
+  getTrackingDiagnostics(): Promise<TrackingDiagnostics>;
+  copyTrackingDiagnostics(): Promise<void>;
   setTrackingEnabled(enabled: boolean): Promise<TrackingStatus>;
   onTrackingStatus(callback: (status: TrackingStatus) => void): () => void;
   exportBackup(): Promise<BackupResult>;
   importBackup(): Promise<BackupResult>;
   previewHistoryFile(): Promise<HistoryPreviewView | null>;
-  scanWindowsHistory(includeBrowserHistory: boolean): Promise<HistoryPreviewView>;
+  scanWindowsHistory(): Promise<HistoryPreviewView>;
   commitHistoryImport(previewId: string): Promise<HistoryImportResult>;
   cancelHistoryPreview(previewId: string): Promise<void>;
   listMemoryPins(start?: string, end?: string): Promise<MemoryPin[]>;

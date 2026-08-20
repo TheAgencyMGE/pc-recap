@@ -39,9 +39,9 @@ export class HistoryRecoveryService {
     return this.store(selected, [], generation);
   }
 
-  async scanWindows(includeBrowserHistory = false): Promise<HistoryPreviewView> {
+  async scanWindows(): Promise<HistoryPreviewView> {
     const generation = this.generation;
-    const result = await scanWindowsHistory({ includeBrowserHistory });
+    const result = await scanWindowsHistory();
     const serialized = JSON.stringify(result.events);
     const preview: ImportPreview = {
       sourceKind: 'windows_recovery',

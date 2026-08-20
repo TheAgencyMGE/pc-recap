@@ -77,10 +77,10 @@
 .day-echoes__year { display: flex; align-items: center; }
 .day-echoes__year span { font: 850 50px/.8 var(--display); letter-spacing: -.06em; }
 .day-echoes__year i { height: 2px; flex: 1; margin-left: 14px; background: var(--ink); }
-.day-echoes__card { display: grid; grid-template-columns: 46px minmax(0, 1fr) auto; align-items: center; gap: 20px; min-height: 140px; padding: 22px; border: var(--rule); background: var(--clean-paper); box-shadow: 5px 5px 0 var(--ink); }
+.day-echoes__card { display: grid; min-width: 0; grid-template-columns: 46px minmax(0, 1fr) auto; align-items: center; gap: 20px; min-height: 140px; padding: 22px; border: var(--rule); background: var(--clean-paper); box-shadow: 5px 5px 0 var(--ink); }
 .day-echoes > article:nth-child(odd) .day-echoes__card { background: var(--pink); }
 .day-echoes__card small { font: 700 9px var(--mono); }
-.day-echoes__card h2 { margin-top: 7px; font: 800 28px/.95 var(--display); }
+.day-echoes__card h2 { margin-top: 7px; overflow-wrap: anywhere; font: 800 28px/.95 var(--display); }
 .day-echoes__card dl { display: flex; gap: 28px; }
 .day-echoes__card dt { color: var(--muted); font-size: 10px; }
 .day-echoes__card dd { margin-top: 4px; font-weight: 750; }
@@ -112,6 +112,10 @@
   .app-detail__spread { grid-template-columns: 1fr; }
   .achievement-grid { grid-template-columns: repeat(2, 1fr); }
   .category-layout { grid-template-columns: 1fr; }
+  .day-echoes > article { grid-template-columns: 118px minmax(0, 1fr); }
+  .day-echoes__year span { font-size: 40px; }
+  .day-echoes__card { grid-template-columns: 38px minmax(0, 1fr); }
+  .day-echoes__card dl { grid-column: 2; }
 }
 
 /* Consumer-media finish: quiet containers, expressive covers. */

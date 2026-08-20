@@ -1,4 +1,4 @@
-import { BookmarkPlus, Clock3, GitCompareArrows, LoaderCircle, MoonStar, Sparkles } from 'lucide-react';
+import { BookmarkPlus, Clock3, Gauge, GitCompareArrows, LoaderCircle, MoonStar, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
 import type { PCRecapAPI } from '../../../shared/ipc';
@@ -6,6 +6,7 @@ import type { DayReplayData, MemoryPin } from '../../../shared/types';
 import { formatClock, formatDate, formatDurationLong, formatHour } from '../../lib/format';
 import { ReplayRibbon } from './ReplayRibbon';
 import { MemoryPinEditor } from '../../components/MemoryPinEditor';
+import { PerformanceTimeline } from '../../components/charts/PerformanceTimeline';
 
 export function DayReplay({ api, day }: { api: PCRecapAPI; day: string }) {
   const [data, setData] = useState<DayReplayData>();
@@ -13,6 +14,7 @@ export function DayReplay({ api, day }: { api: PCRecapAPI; day: string }) {
   const [appId, setAppId] = useState<string>();
   const [hour, setHour] = useState<number>();
   const [editing, setEditing] = useState<MemoryPin | 'new'>();
+  const [showPerformance, setShowPerformance] = useState(false);
   const [revision, setRevision] = useState(0);
   useEffect(() => {
     let live = true;
@@ -28,8 +30,10 @@ export function DayReplay({ api, day }: { api: PCRecapAPI; day: string }) {
 
   if (error) return <main className="page replay-page"><div className="empty-state"><h2>{error}</h2></div></main>;
   if (!data) return <main className="page replay-page"><div className="replay-loading"><LoaderCircle /> Opening day</div></main>;
+  const hasExactStates = Boolean(data.activityStates?.length);
+  const performanceSamples = data.performanceSamples ?? [];
   return <motion.main className="page replay-page" initial={false} animate={{ opacity: 1 }}>
-    <header className="replay-heading"><div><small>Day Replay</small><h1>{formatDate(`${day}T12:00:00`)}</h1></div><div><strong>{formatDurationLong(data.totalSeconds)}</strong><button onClick={() => setEditing(editing ? undefined : 'new')}><BookmarkPlus /> Add memory</button></div></header>
+    <header className="replay-heading"><div><small>Day Replay</small><h1>{formatDate(`${day}T12:00:00`)}</h1></div><div><span className="replay-total"><small>Active app time</small><strong>{formatDurationLong(data.totalSeconds)}</strong></span><button onClick={() => setEditing(editing ? undefined : 'new')}><BookmarkPlus /> Add memory</button></div></header>
     {editing && <MemoryPinEditor api={api} {...dayBounds(day)} pin={editing === 'new' ? undefined : editing} onSaved={() => { setEditing(undefined); setRevision((value) => value + 1); }} onCancel={() => setEditing(undefined)} />}
     {!data.segments.length ? <div className="empty-state"><Sparkles /><h2>No exact activity this day</h2>{data.recoveredClues.length > 0 && <p>{data.recoveredClues.length} recovered clues are still shown below.</p>}</div> : <>
       <div className="replay-controls">
@@ -41,8 +45,12 @@ export function DayReplay({ api, day }: { api: PCRecapAPI; day: string }) {
         <article><Clock3 /><span><small>First to last</small><b>{formatClock(data.firstActivity)} to {formatClock(data.lastActivity)}</b></span></article>
         <article><MoonStar /><span><small>Busiest hour</small><b>{data.busiestHour === undefined ? 'No peak' : formatHour(data.busiestHour)}</b></span></article>
         <article><GitCompareArrows /><span><small>App switches</small><b>{data.appSwitches.toLocaleString()}</b></span></article>
-        <article><Sparkles /><span><small>Longest gap</small><b>{data.idleGaps.length ? formatDurationLong(Math.max(...data.idleGaps.map((gap) => gap.durationSeconds))) : 'No gap'}</b></span></article>
+        <article><Sparkles /><span><small>{hasExactStates ? 'Longest idle' : 'Longest untracked gap'}</small><b>{data.idleGaps.length ? formatDurationLong(Math.max(...data.idleGaps.map((gap) => gap.durationSeconds))) : hasExactStates ? 'No idle time' : 'No gap'}</b></span></article>
       </section>
+      {performanceSamples.length > 0 && <section className="replay-performance">
+        <button aria-expanded={showPerformance} onClick={() => setShowPerformance((value) => !value)}><Gauge /> {showPerformance ? 'Hide performance' : 'Show performance'}</button>
+        {showPerformance && <PerformanceTimeline samples={performanceSamples} />}
+      </section>}
     </>}
     {(data.recoveredClues.length > 0 || data.pins.length > 0) && <section className="replay-notes"><h2>Along the way</h2>{data.pins.map((pin) => <button key={pin.id} onClick={() => setEditing(pin)}><b>{pin.title}</b><span>{pin.note}</span></button>)}{data.recoveredClues.map((clue) => <article key={clue.id}><b>{clue.appName}</b><span>{clue.detail ?? clue.eventType}</span></article>)}</section>}
   </motion.main>;

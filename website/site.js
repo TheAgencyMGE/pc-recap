@@ -5,6 +5,7 @@ for (const link of document.querySelectorAll('[data-download-location]')) {
     window.plausible('Download', {
       props: {
         location: link.dataset.downloadLocation,
+        platform: link.dataset.platform || 'unknown',
         target: link.href,
       },
     });

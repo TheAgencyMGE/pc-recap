@@ -7,17 +7,19 @@ PC Recap turns real computer activity into a visual history of your digital life
 ![PC Recap cover shelf](website/og.png)
 
 > [!IMPORTANT]
-> **PC Recap 1.1.0 is a public beta for Windows 10/11 x64.** The installer is currently unsigned, updates are installed manually from [GitHub Releases](https://github.com/TheAgencyMGE/pc-recap/releases), and beta users may encounter bugs. [Report a bug](https://github.com/TheAgencyMGE/pc-recap/issues/new?template=bug_report.yml) or [suggest an improvement](https://github.com/TheAgencyMGE/pc-recap/issues/new?template=feature_request.yml).
+> **PC Recap 1.2.0 is a cross-platform beta.** Windows, macOS, and Linux packages are currently unsigned; macOS builds are not notarized. Updates are installed manually from [GitHub Releases](https://github.com/TheAgencyMGE/pc-recap/releases), and beta users may encounter bugs. [Report a bug](https://github.com/TheAgencyMGE/pc-recap/issues/new?template=bug_report.yml) or [suggest an improvement](https://github.com/TheAgencyMGE/pc-recap/issues/new?template=feature_request.yml).
 
 ## What it does
 
-- Records foreground application usage and session duration on Windows.
+- Records foreground application usage on Windows, macOS, and Linux X11; Wayland reports an unavailable collector instead of fabricating activity.
+- Keeps active, idle, locked, suspended, and unavailable time separate so idle never ranks as an app.
+- Optionally records lightweight CPU, memory, battery, and power-state context with bounded raw retention and durable rollups.
 - Builds Today, Week, Month, Year, All-Time, Decade, and On This Day recaps.
 - Finds deterministic observations, app pairings, streaks, records, and usage eras without AI services.
 - Replays individual days on a proportional, interactive timeline with exact local-clock labels.
 - Builds historical, seasonal, and custom stories in Recap Studio.
 - Imports exact ActivityWatch and ManicTime intervals, plus clearly separated RescueTime and WakaTime context.
-- Recovers opt-in Windows installation, launch, Prefetch, Activity History, and browser-domain clues without converting clues into usage time.
+- Recovers local Windows application clues plus Steam and Epic launcher evidence without converting clues into usage time or inventing playtime.
 - Adds local Memory Pins that stay out of stories and share cards unless explicitly included.
 - Keeps history in local SQLite storage with per-app exclusions.
 - Exports and merges versioned `.pcr` backups across computers.
@@ -28,20 +30,20 @@ PC Recap never creates demo activity or placeholder statistics. A new archive is
 
 ## Download
 
-The current Windows beta installer is available from the [PC Recap 1.1.0 Beta release](https://github.com/TheAgencyMGE/pc-recap/releases/tag/v1.1.0).
+PC Recap 1.2 packages are prepared for Windows x64 (NSIS), macOS Intel and Apple Silicon (DMG), and Linux x64 (AppImage and deb). Download the package for your computer from [GitHub Releases](https://github.com/TheAgencyMGE/pc-recap/releases/latest).
 
-Requirements: Windows 10 or Windows 11, x64.
+Linux foreground tracking currently requires an X11 session. Wayland does not expose a reliable universal foreground-window API, so PC Recap shows the collector as unavailable there.
 
-> Windows may show a SmartScreen warning because the installer is not yet signed with a publicly trusted Authenticode certificate.
-
-PC Recap does not update automatically yet. Install newer beta versions manually from GitHub Releases.
+Windows may show SmartScreen because the installer is not Authenticode-signed. macOS may show Gatekeeper because the beta DMGs are not yet signed or notarized. PC Recap does not update automatically yet.
 
 ## Privacy
 
 - No account, telemetry, advertising identifier, cloud sync, or external AI API.
 - No keystrokes, screenshots, clipboard contents, or file contents.
-- Browser-domain recovery is off by default and runs only after explicit consent; recovered clues never count as usage duration.
+- No browser-history or URL scanning. Recovered clues never count as usage duration.
 - Window titles are off by default.
+- Performance history stores supported system utilization samples locally and can be disabled independently.
+- Performance sampling and database growth have a reproducible local benchmark in [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md).
 - Tracking can be paused immediately and individual executables can be excluded.
 - All history can be exported or erased from the app.
 - The marketing website uses Plausible for aggregate page and download analytics; the desktop app remains telemetry-free and never sends activity history.
@@ -52,7 +54,7 @@ Third-party font notices are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTI
 
 ## Development
 
-Requirements: Windows 10/11, Node.js 22 or newer, and npm.
+Requirements: Node.js 22 or newer and npm. Build distributables on their target operating system.
 
 ```powershell
 npm ci
@@ -71,11 +73,15 @@ npm run build
 npm run smoke:visual
 ```
 
-Create the Windows installer:
+Create platform packages:
 
-```powershell
-npm run package
+```text
+npm run package:win
+npm run package:mac
+npm run package:linux
 ```
+
+Packaging uses prebuilt branded PNG and ICO resources from `build/`, so release builds do not depend on converting the source SVG at package time.
 
 Prepare the current website, Netlify archive, and release post copy:
 
@@ -88,24 +94,24 @@ This refreshes versioned download links and sitemap dates, validates the static 
 ## Architecture
 
 ```text
-Windows foreground bridge
-          |
-ActivityTracker -> SQLite repository -> daily rollups / recovery / backups
-                                  |
-                 analytics + deterministic rules
-                                  |
-                     validated Electron IPC
-                                  |
-                    React renderer experience
+Windows / macOS / Linux activity source
+                 |
+ActivityTracker + performance sampler
+                 |
+ SQLite raw history + hourly/daily rollups + portable backups
+                 |
+ analytics + deterministic rules
+                 |
+ validated Electron IPC -> React renderer
 ```
 
-- `src/main` — Electron lifecycle, tray, Windows activity collection, SQLite, historical recovery, backups, and IPC.
+- `src/main` — Electron lifecycle, tray, platform activity sources, lightweight performance history, SQLite, historical recovery, backups, and IPC.
 - `src/shared` — domain contracts, period math, analytics, and the deterministic observation engine.
 - `src/renderer` — React UI, archive visualizations, Day Replay, Recap Studio, Memory Pins, and share cards.
 - `website` — dependency-free product and download site for static hosting.
 - `scripts` — activity and website verification utilities.
 
-The renderer runs with context isolation, sandboxing, no Node integration, and an explicit preload API. Platform-specific activity collection is isolated behind the activity-source boundary so additional operating systems can be added without changing analytics or persistence.
+The renderer runs with context isolation, sandboxing, no Node integration, and an explicit preload API. Platform-specific activity collection stays behind the activity-source boundary; all platforms share analytics and persistence.
 
 ## Contributing
 

@@ -4,6 +4,7 @@ import { buildBaselines } from './analytics/baselines.js';
 import { detectLifecycleMoments } from './analytics/lifecycle.js';
 import { buildRelationships, detectRoutines } from './analytics/relationships.js';
 import type {
+  ActivityStateInterval,
   ActivitySession,
   AppUsage,
   CategoryUsage,
@@ -23,6 +24,8 @@ interface SummaryOptions {
   comparisonLabel?: string;
   lifecycleSessions?: ActivitySession[];
   lifecycleAsOf?: Date;
+  stateIntervals?: ActivityStateInterval[];
+  includeIdleInRecapTotals?: boolean;
 }
 
 const CATEGORY_META: Record<string, { name: string; color: string }> = {
@@ -195,6 +198,8 @@ export function summarizeSessions(
   previousSessions: ActivitySession[],
   options: SummaryOptions,
 ): PeriodSummary {
+  sessions = sessions.filter((session) => !isIdleLikeSession(session));
+  previousSessions = previousSessions.filter((session) => !isIdleLikeSession(session));
   const totalSeconds = sessions.reduce((total, item) => total + item.durationSeconds, 0);
   const previousTotalSeconds = previousSessions.reduce((total, item) => total + item.durationSeconds, 0);
   const appMap = new Map<string, AppUsage>();
@@ -334,9 +339,41 @@ export function summarizeSessions(
     records,
     sessionCount: sessions.length,
     activeDays: dailyMap.size,
+    activity: buildActivityBreakdown(totalSeconds, options.stateIntervals ?? [], Boolean(options.includeIdleInRecapTotals)),
   };
   summary.observations = generateObservations(summary);
   return summary;
+}
+
+function buildActivityBreakdown(
+  activeSeconds: number,
+  intervals: ActivityStateInterval[],
+  includesIdleInRecapTotal: boolean,
+) {
+  const secondsFor = (state: ActivityStateInterval['state']) => intervals
+    .filter((interval) => interval.state === state)
+    .reduce((sum, interval) => sum + interval.durationSeconds, 0);
+  const passiveSeconds = secondsFor('passive');
+  const idleSeconds = secondsFor('idle');
+  const observedSeconds = activeSeconds + passiveSeconds + idleSeconds;
+  return {
+    activeSeconds,
+    passiveSeconds,
+    idleSeconds,
+    lockedSeconds: secondsFor('locked'),
+    suspendedSeconds: secondsFor('suspended'),
+    unavailableSeconds: secondsFor('unavailable'),
+    untrackedSeconds: secondsFor('untracked'),
+    observedSeconds,
+    awayPercentage: observedSeconds ? Math.round((idleSeconds / observedSeconds) * 100) : 0,
+    recapTotalSeconds: activeSeconds + passiveSeconds + (includesIdleInRecapTotal ? idleSeconds : 0),
+    includesIdleInRecapTotal,
+  };
+}
+
+function isIdleLikeSession(session: ActivitySession) {
+  const identity = `${session.appId} ${session.appName}`.trim().toLowerCase();
+  return identity === 'idle idle' || session.appId.toLowerCase() === 'idle' || session.appName.trim().toLowerCase() === 'idle';
 }
 
 function winner(values?: Map<string, number>) {

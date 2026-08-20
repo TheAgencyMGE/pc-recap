@@ -68,13 +68,17 @@ export class HistoryImportService {
 function stableRecoveredEventKey(event: ImportPreview['recoveredEvents'][number]) {
   return [
     event.sourceKind.trim().toLowerCase(), event.eventType, event.occurredAt,
-    event.appId?.trim().toLowerCase() ?? '', event.appName.trim().toLowerCase(), event.detail?.trim() ?? '',
+    event.appId?.trim().toLowerCase() ?? '', event.appName.trim().toLowerCase(), event.evidenceType ?? '',
+    event.playtimeSeconds ?? '', event.detail?.trim() ?? '',
   ].join('\u0000');
 }
 
 function validateRecoveredEvent(event: ImportPreview['recoveredEvents'][number]) {
   if (!event.appName?.trim() || !event.sourceKind?.trim() || !Number.isFinite(Date.parse(event.occurredAt))) {
     throw new Error('Import contains an invalid recovered event.');
+  }
+  if (event.playtimeSeconds !== undefined && (!Number.isFinite(event.playtimeSeconds) || event.playtimeSeconds < 0)) {
+    throw new Error('Import contains invalid recovered playtime evidence.');
   }
 }
 

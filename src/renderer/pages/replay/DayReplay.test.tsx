@@ -42,4 +42,31 @@ describe('DayReplay', () => {
     render(<DayReplay api={api} day="2026-08-15" />);
     expect(await screen.findByRole('button', { name: /Discord, 11:50 PM to 12:00 AM/i })).toBeVisible();
   });
+
+  it('labels active and idle time clearly and reveals optional performance history', async () => {
+    const api = createTestApi();
+    const at = (hour: number, minute = 0) => new Date(2026, 7, 15, hour, minute).toISOString();
+    api.getDayReplay = async () => ({
+      day: '2026-08-15', firstActivity: at(9), lastActivity: at(10),
+      appSwitches: 0, totalSeconds: 2_700,
+      segments: [{ id: 'code', appId: 'visual-studio-code', appName: 'Visual Studio Code', categoryId: 'coding', startedAt: at(9), endedAt: at(9, 45), durationSeconds: 2_700, color: '#8D87FF' }],
+      idleGaps: [{ startedAt: at(9, 45), endedAt: at(10), durationSeconds: 900 }],
+      activityStates: [{ id: 'idle-1', machineId: 'machine-1', source: 'os-idle', state: 'idle', startedAt: at(9, 45), endedAt: at(10), durationSeconds: 900 }],
+      performanceSamples: [
+        { id: 'perf-1', sampledAt: at(9), cpuPercent: 12, memoryPercent: 48 },
+        { id: 'perf-2', sampledAt: at(9, 30), cpuPercent: 84, memoryPercent: 62 },
+      ],
+      relationships: [], recoveredClues: [], pins: [],
+    });
+
+    render(<DayReplay api={api} day="2026-08-15" />);
+
+    expect(await screen.findByText('Active app time')).toBeVisible();
+    expect(screen.getByText('45 minutes')).toBeVisible();
+    expect(screen.getByText('Longest idle')).toBeVisible();
+    expect(screen.queryByRole('region', { name: 'System performance during this day' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Show performance' }));
+    expect(screen.getByRole('region', { name: 'System performance during this day' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Hide performance' })).toBeVisible();
+  });
 });

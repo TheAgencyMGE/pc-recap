@@ -27,7 +27,7 @@
 .collection-cover { --cover-radius: 22px; position: relative; display: flex; width: clamp(212px, 20vw, 260px); height: 292px; flex-direction: column; justify-content: space-between; overflow: hidden; padding: 20px; border-radius: var(--cover-radius); background: var(--cover-bg); color: var(--cover-fg); text-align: left; box-shadow: 0 12px 28px rgba(21,21,21,.11); isolation: isolate; }
 .collection-cover::before { position: absolute; z-index: -1; top: -20%; right: -26%; width: 72%; aspect-ratio: 1; border-radius: 50%; background: var(--cover-accent); opacity: .88; content: ''; }
 .collection-cover::after { position: absolute; z-index: -1; right: -14%; bottom: -22%; width: 78%; aspect-ratio: 1; border: 18px solid var(--cover-support); border-radius: 50%; opacity: .76; content: ''; }
-.collection-cover__symbol { display: grid; width: 46px; height: 46px; place-items: center; border-radius: 50%; background: var(--cover-support); color: var(--ink); }
+.collection-cover__symbol { position: relative; z-index: 3; display: grid; width: 46px; height: 46px; flex: none; place-items: center; border-radius: 50%; background: var(--cover-support); color: var(--ink); }
 .collection-cover__symbol svg { width: 21px; height: 21px; }
 .collection-cover__copy { position: relative; z-index: 2; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
 .collection-cover__copy b { font: 740 18px/1 var(--display); }
@@ -43,7 +43,7 @@
 .collection-cover--year { width: clamp(270px, 25vw, 325px); background: var(--ink); }
 .collection-cover--year::before { top: -15%; right: -5%; width: 85%; border-radius: 0; transform: rotate(24deg); }
 .collection-cover--archive { border-radius: 50% 50% 20px 20px; }
-.collection-cover--archive .collection-cover__symbol { align-self: center; margin: 16px auto 0; }
+.collection-cover--archive .collection-cover__symbol { align-self: center; margin: 20px auto 0; box-shadow: 0 0 0 5px color-mix(in srgb, var(--cover-bg) 72%, transparent); }
 .collection-cover--record::before { width: 54%; border: 13px dotted var(--cover-support); background: transparent; }
 .collection-cover--app { width: 196px; height: 242px; align-items: flex-start; padding: 17px; }
 .collection-cover--app::before { top: auto; right: -25%; bottom: -28%; width: 85%; }

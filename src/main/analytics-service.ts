@@ -1,4 +1,5 @@
 import { summarizeSessions } from '../shared/analytics.js';
+import { performanceRecords, summarizePerformance } from '../shared/analytics/performance.js';
 import { clipSessionToRange, localDayKey, localMonthKey, splitSessionByLocalDay, splitSessionByLocalHour } from '../shared/calendar.js';
 import { getPeriodRange } from '../shared/periods.js';
 import type {
@@ -29,15 +30,18 @@ export class AnalyticsService {
 
   getSummary(kind: PeriodKind, year?: number): PeriodSummary {
     const range = getPeriodRange(kind, this.now(), year);
-    return summarizeSessions(
+    const summary = summarizeSessions(
       this.querySessionsWithLive(range.start, range.end),
       this.querySessionsWithLive(range.previousStart, range.previousEnd),
       {
         kind, label: range.label, rangeStart: range.start, rangeEnd: range.end,
         isComplete: range.isComplete, comparisonLabel: range.comparisonLabel,
         lifecycleSessions: this.archiveSessionsWithLive(), lifecycleAsOf: this.now(),
+        stateIntervals: this.repository.queryActivityStateIntervals(range.start, range.end),
+        includeIdleInRecapTotals: this.repository.getSettings().includeIdleInRecapTotals,
       },
     );
+    return this.attachPerformance(summary, range.start, range.end);
   }
 
   private querySessionsWithLive(start: string, end: string): ActivitySession[] {
@@ -82,7 +86,8 @@ export class AnalyticsService {
     for (const segment of segments) {
       for (const allocation of splitSessionByLocalHour(segment)) byHour[allocation.hour] += allocation.seconds;
     }
-    const idleGaps = segments.slice(1).flatMap((segment, index) => {
+    const activityStates = this.repository.queryActivityStateIntervals(range.start, range.end);
+    const legacyGaps = segments.slice(1).flatMap((segment, index) => {
       const previous = segments[index];
       const milliseconds = new Date(segment.startedAt).getTime() - new Date(previous.endedAt).getTime();
       return milliseconds > 0 ? [{
@@ -91,6 +96,13 @@ export class AnalyticsService {
         durationSeconds: Math.round(milliseconds / 1_000),
       }] : [];
     });
+    const idleGaps = activityStates.length
+      ? activityStates.filter((interval) => interval.state === 'idle').map((interval) => ({
+        startedAt: interval.startedAt,
+        endedAt: interval.endedAt,
+        durationSeconds: interval.durationSeconds,
+      }))
+      : legacyGaps;
     const summarized = summarizeSessions(segments, [], {
       kind: 'today', label: day, rangeStart: range.start, rangeEnd: range.end, isComplete: range.end <= this.now().toISOString(),
     });
@@ -107,6 +119,8 @@ export class AnalyticsService {
       relationships: summarized.relationships,
       recoveredClues: this.repository.listRecoveredEvents().filter((event) => localDayKey(event.occurredAt) === day),
       pins: this.repository.listMemoryPins(range.start, range.end),
+      activityStates,
+      performanceSamples: this.repository.queryPerformanceSamples(range.start, range.end),
     };
   }
 
@@ -122,21 +136,44 @@ export class AnalyticsService {
         : selection.kind === 'year' ? 'year'
           : selection.kind === 'decade' ? 'decade'
             : selection.kind === 'day' ? 'today' : 'all-time';
+    const summary = summarizeSessions(sessions, this.querySessionsWithLive(previousStart, selection.start), {
+      kind: summaryKind,
+      label: selection.label,
+      rangeStart: selection.start,
+      rangeEnd: selection.end,
+      isComplete: selection.complete,
+      comparisonLabel: `Previous ${selection.label.toLowerCase()}`,
+      lifecycleSessions: this.archiveSessionsWithLive(), lifecycleAsOf: this.now(),
+      stateIntervals: this.repository.queryActivityStateIntervals(selection.start, selection.end),
+      includeIdleInRecapTotals: this.repository.getSettings().includeIdleInRecapTotals,
+    });
     return {
       selection,
-      summary: summarizeSessions(sessions, this.querySessionsWithLive(previousStart, selection.start), {
-        kind: summaryKind,
-        label: selection.label,
-        rangeStart: selection.start,
-        rangeEnd: selection.end,
-        isComplete: selection.complete,
-        comparisonLabel: `Previous ${selection.label.toLowerCase()}`,
-        lifecycleSessions: this.archiveSessionsWithLive(), lifecycleAsOf: this.now(),
-      }),
+      summary: this.attachPerformance(summary, selection.start, selection.end),
       timeline: monthlyTimeline(sessions),
       recoveredClues: this.repository.listRecoveredEvents().filter((event) => event.occurredAt >= selection.start && event.occurredAt < selection.end),
       pins: this.repository.listMemoryPins(selection.start, selection.end),
     };
+  }
+
+  private attachPerformance(summary: PeriodSummary, start: string, end: string) {
+    const durationDays = (Date.parse(end) - Date.parse(start)) / 86_400_000;
+    const rollups = this.repository.queryPerformanceRollups(durationDays <= 45 ? 'hour' : 'day', start, end);
+    const performance = summarizePerformance(rollups, this.repository.queryAppPerformanceRollups(start, end));
+    if (!performance) return summary;
+    summary.performance = performance;
+    summary.records = [...summary.records, ...performanceRecords(performance)];
+    if (performance.sampleCount >= 6 && performance.cpuPeak !== undefined && performance.cpuPeakAt) {
+      summary.observations = [...summary.observations, {
+        id: 'performance-peak',
+        eyebrow: 'System load',
+        text: `Your PC worked hardest at ${new Date(performance.cpuPeakAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}.`,
+        detail: `Recorded system CPU load reached ${Math.round(performance.cpuPeak)}%.`,
+        accent: '#F2C66D',
+        priority: 76,
+      }].sort((a, b) => b.priority - a.priority || a.id.localeCompare(b.id));
+    }
+    return summary;
   }
 
   getAppDetail(appId: string): AppDetail | null {

@@ -41,6 +41,16 @@
 .local-first-note span { display: grid; color: var(--muted); font-size: 12px; }
 .local-first-note b { color: var(--ink); font-size: 15px; }
 .toast-note { margin-bottom: 20px; padding: 14px 18px; border: var(--rule); background: var(--acid); font-weight: 720; box-shadow: 4px 4px 0 var(--ink); }
+.privacy-facts { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 22px; }
+.privacy-facts span { padding: 7px 11px; border-radius: 999px; background: var(--clean-paper); color: var(--soft-ink); font: 700 10px var(--mono); box-shadow: 0 2px 9px rgba(21,21,21,.05); }
+.diagnostics-card { background: var(--yellow); }
+.diagnostics-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; margin: 0; background: color-mix(in srgb, var(--ink) 12%, transparent); }
+.diagnostics-grid > div { min-width: 0; padding: 13px 16px; background: var(--clean-paper); }
+.diagnostics-grid dt { color: var(--muted); font: 700 9px var(--mono); letter-spacing: .03em; text-transform: uppercase; }
+.diagnostics-grid dd { overflow: hidden; margin: 5px 0 0; font-weight: 720; text-overflow: ellipsis; white-space: nowrap; }
+.diagnostics-loading { padding: 18px; color: var(--muted); }
+.copy-diagnostics { display: flex; width: calc(100% - 32px); min-height: 44px; align-items: center; justify-content: center; gap: 9px; margin: 16px; border: 0; border-radius: 999px; background: var(--ink); color: var(--clean-paper); font-weight: 760; }
+.copy-diagnostics svg { width: 17px; height: 17px; }
 
 .recovery-page { max-width: 1050px; }
 .recovery-truth { display: grid; grid-template-columns: 28px auto 1fr; align-items: center; gap: 12px; margin: 22px 0; padding: 16px 18px; border-radius: 16px; background: var(--acid); }
@@ -48,11 +58,10 @@
 .recovery-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .recovery-actions button { display: grid; grid-template-columns: 36px 1fr; align-items: center; gap: 14px; min-height: 96px; padding: 18px; border: 1px solid var(--line); border-radius: 18px; background: var(--clean-paper); text-align: left; }
 .recovery-actions button:hover { border-color: var(--ink); transform: translateY(-2px); }
-.recovery-actions span, .browser-consent span { display: grid; gap: 4px; }
+.recovery-actions span { display: grid; gap: 4px; }
 .recovery-actions b { font-size: 17px; }
-.recovery-actions small, .browser-consent small { color: var(--muted); line-height: 1.35; }
-.browser-consent { display: flex; align-items: center; gap: 12px; margin: 15px 0 24px; padding: 14px 16px; border-radius: 14px; background: var(--paper); cursor: pointer; }
-.browser-consent input { width: 19px; height: 19px; accent-color: var(--cobalt); }
+.recovery-actions small { color: var(--muted); line-height: 1.35; }
+.recovery-boundary { margin: 14px 0 24px; color: var(--muted); font-size: 12px; line-height: 1.5; }
 .recovery-status, .recovery-result { display: flex; align-items: center; gap: 12px; margin: 16px 0; padding: 16px 18px; border-radius: 16px; background: var(--yellow); font-weight: 700; }
 .recovery-status svg { animation: recovery-pulse 1.2s ease-in-out infinite; }
 .recovery-result { background: var(--acid); }
@@ -127,6 +136,7 @@
   .recovery-samples > div:nth-child(even) { padding-left: 0; border-left: 0; }
   .recovery-truth { grid-template-columns: 28px 1fr; }
   .recovery-truth span { grid-column: 2; }
+  .diagnostics-grid { grid-template-columns: 1fr; }
 }
 
 .settings-group { overflow: hidden; border: 0; border-radius: 20px; background: var(--clean-paper); box-shadow: 0 7px 22px rgba(21,21,21,.06); }

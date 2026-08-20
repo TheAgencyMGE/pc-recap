@@ -61,6 +61,94 @@ export interface LiveActivitySession extends ActivitySession {
   provisional: true;
 }
 
+export type ActivityStateKind = 'idle' | 'passive' | 'locked' | 'suspended' | 'unavailable' | 'untracked';
+
+export interface ActivityStateInterval {
+  id: string;
+  state: ActivityStateKind;
+  startedAt: string;
+  endedAt: string;
+  durationSeconds: number;
+  machineId: string;
+  source: 'os-idle' | 'power-monitor' | 'collector' | 'sampling-gap' | 'privacy-rule';
+  reason?: string;
+}
+
+export interface SystemPerformanceSample {
+  id?: string;
+  sampledAt: string;
+  machineId?: string;
+  intervalSeconds?: number;
+  cpuPercent?: number;
+  memoryUsedBytes?: number;
+  memoryAvailableBytes?: number;
+  memoryTotalBytes?: number;
+  memoryPercent?: number;
+  uptimeSeconds?: number;
+  batteryPercent?: number;
+  powerState?: 'ac' | 'battery' | 'charging' | 'unknown';
+  thermalState?: 'nominal' | 'fair' | 'serious' | 'critical';
+  gpuPercent?: number;
+  gpuMemoryUsedBytes?: number;
+  diskReadBytesPerSecond?: number;
+  diskWriteBytesPerSecond?: number;
+  foregroundAppId?: string;
+  foregroundAppName?: string;
+}
+
+export interface PerformanceCapabilities {
+  cpu: boolean;
+  memory: boolean;
+  uptime: boolean;
+  battery: boolean;
+  powerState: boolean;
+  gpu: boolean;
+  gpuMemory: boolean;
+  diskActivity: boolean;
+  thermalState: boolean;
+}
+
+export interface PerformanceRollup {
+  kind: 'hour' | 'day';
+  bucketStart: string;
+  machineId: string;
+  sampleCount: number;
+  cpuSampleCount: number;
+  cpuAverage?: number;
+  cpuMinimum?: number;
+  cpuMaximum?: number;
+  memorySampleCount: number;
+  memoryPercentAverage?: number;
+  memoryPercentMinimum?: number;
+  memoryPercentMaximum?: number;
+  memoryUsedAverageBytes?: number;
+  memoryUsedMaximumBytes?: number;
+  batteryMetricCount: number;
+  batteryAverage?: number;
+  batteryMinimum?: number;
+  batteryMaximum?: number;
+  batterySampleCount: number;
+  acSampleCount: number;
+  chargingSampleCount: number;
+  highLoadSeconds: number;
+  peakCpuAt?: string;
+}
+
+export interface AppPerformanceRollup {
+  day: string;
+  machineId: string;
+  appId: string;
+  appName: string;
+  sampleCount: number;
+  cpuSampleCount: number;
+  cpuAverage?: number;
+  cpuMaximum?: number;
+  memorySampleCount: number;
+  memoryPercentAverage?: number;
+  memoryPercentMaximum?: number;
+  highLoadSeconds: number;
+}
+
 export type SessionSourceKind =
   | 'pc_recap'
   | 'pc_recap_backup'
@@ -100,6 +188,12 @@ export interface RecoveredEvent {
   occurredAt: string;
   sourceKind: string;
   confidence: 'high' | 'medium' | 'low';
+  provenance?: 'tracked' | 'imported' | 'recovered' | 'inferred';
+  evidenceType?: string;
+  datePrecision?: 'exact' | 'approximate';
+  durationKnown?: boolean;
+  playtimeSeconds?: number;
+  represents?: 'installation' | 'execution' | 'presence' | 'context';
   detail?: string;
   importBatchId?: string;
 }
@@ -185,6 +279,8 @@ export interface DayReplayData {
   relationships: AppRelationship[];
   recoveredClues: RecoveredEvent[];
   pins: MemoryPin[];
+  activityStates?: ActivityStateInterval[];
+  performanceSamples?: SystemPerformanceSample[];
 }
 
 export interface RecapSelection {
@@ -332,6 +428,50 @@ export interface PeriodSummary {
   records: RecordItem[];
   sessionCount: number;
   activeDays: number;
+  activity: ActivityBreakdown;
+  performance?: PerformanceSummary;
+}
+
+export interface PerformanceSummary {
+  sampleCount: number;
+  cpuSampleCount: number;
+  cpuAverage?: number;
+  cpuPeak?: number;
+  cpuPeakAt?: string;
+  memorySampleCount: number;
+  memoryPercentAverage?: number;
+  memoryPercentPeak?: number;
+  memoryUsedAverageBytes?: number;
+  memoryUsedPeakBytes?: number;
+  highLoadSeconds: number;
+  batteryUsagePercentage?: number;
+  pluggedInPercentage?: number;
+  batteryAverage?: number;
+  highestLoadContext?: {
+    appId: string;
+    appName: string;
+    sampleCount: number;
+    cpuAverage?: number;
+    cpuPeak?: number;
+    memoryPercentAverage?: number;
+    memoryPercentPeak?: number;
+    highLoadSeconds: number;
+    wording: 'system-load-while-foreground';
+  };
+}
+
+export interface ActivityBreakdown {
+  activeSeconds: number;
+  passiveSeconds: number;
+  idleSeconds: number;
+  lockedSeconds: number;
+  suspendedSeconds: number;
+  unavailableSeconds: number;
+  untrackedSeconds: number;
+  observedSeconds: number;
+  awayPercentage: number;
+  recapTotalSeconds: number;
+  includesIdleInRecapTotal: boolean;
 }
 
 export interface TimelineBucket {
@@ -373,16 +513,36 @@ export interface TrackingSettings {
   captureWindowTitles: boolean;
   sampleIntervalSeconds: number;
   idleThresholdSeconds: number;
+  includeIdleInRecapTotals: boolean;
+  performanceHistoryEnabled: boolean;
+  performanceSampleIntervalSeconds: number;
   excludedExecutables: string[];
   includedExecutables: string[];
   onboardingComplete: boolean;
 }
 
 export interface TrackingStatus {
-  state: 'tracking' | 'paused' | 'idle' | 'ignored' | 'unavailable';
+  state: 'tracking' | 'paused' | 'idle' | 'locked' | 'suspended' | 'ignored' | 'unavailable';
   activeApp?: string;
   since?: string;
   reason?: string;
+}
+
+export interface TrackingDiagnostics {
+  version: string;
+  os: string;
+  architecture: string;
+  activityCollector: string;
+  collectorAvailable: boolean;
+  sessionType?: string;
+  windowTitleCapability: 'disabled' | 'available' | 'permission-required' | 'unavailable';
+  trackingState: TrackingStatus['state'];
+  latestActivitySample?: string;
+  latestPerformanceSample?: string;
+  idleThresholdSeconds: number;
+  startupEnabled: boolean;
+  trayAvailable: boolean;
+  performanceHistoryEnabled: boolean;
 }
 
 export interface DashboardData {
@@ -415,6 +575,9 @@ export const DEFAULT_SETTINGS: TrackingSettings = {
   captureWindowTitles: false,
   sampleIntervalSeconds: 10,
   idleThresholdSeconds: 300,
+  includeIdleInRecapTotals: false,
+  performanceHistoryEnabled: true,
+  performanceSampleIntervalSeconds: 10,
   excludedExecutables: [],
   includedExecutables: [],
   onboardingComplete: false,

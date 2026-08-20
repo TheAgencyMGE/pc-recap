@@ -39,6 +39,8 @@ function summary(kind = 'today', label = kind === 'year' ? String(year) : kind =
     routines: [], baselines: { activeDays: 1, averageDailySeconds: totalSeconds, medianDailySeconds: totalSeconds, busiestWeekday: now.getDay(), typicalFirstHour: 8, typicalLastHour: 11, nightSeconds: 0 },
     lifecycle: [], eras: [], observations: [{ id: 'real-fixture', eyebrow: 'HANDOFF', text: 'Chrome handed the day to Visual Studio Code.', detail: 'Based on two isolated smoke-test sessions.', accent: '#4256F4', priority: 1 }],
     records: [], sessionCount: sessions.length, activeDays: 1,
+    activity: { activeSeconds: totalSeconds, passiveSeconds: 0, idleSeconds: 0, lockedSeconds: 0, suspendedSeconds: 0, unavailableSeconds: 0, untrackedSeconds: 0, observedSeconds: totalSeconds, awayPercentage: 0, recapTotalSeconds: totalSeconds, includesIdleInRecapTotal: false },
+    performance: { sampleCount: 24, averageCpu: 31.2, cpuPeak: 84.6, cpuPeakAt: hour(10), memoryPercentAverage: 47.8, memoryPercentPeak: 63.1, memoryUsedPeakBytes: 10844792422, highLoadSeconds: 1200, highestLoadContext: { appId: 'code', appName: 'Visual Studio Code', averageCpu: 72.4, sampleCount: 6 } },
   };
 }
 
@@ -58,17 +60,17 @@ const api = {
   getAppIcon: async () => null,
   listApps: async () => apps,
   getAchievements: async () => [],
-  getOnThisDay: async () => [],
-  getSettings: async () => ({ trackingEnabled: true, launchAtStartup: false, minimizeToTray: true, captureWindowTitles: false, sampleIntervalSeconds: 10, idleThresholdSeconds: 300, excludedExecutables: [], onboardingComplete: true }),
-  updateSettings: async (patch) => ({ trackingEnabled: true, launchAtStartup: false, minimizeToTray: true, captureWindowTitles: false, sampleIntervalSeconds: 10, idleThresholdSeconds: 300, excludedExecutables: [], onboardingComplete: true, ...patch }),
+  getOnThisDay: async () => [{ year: year - 1, totalSeconds: 7200, topApp: 'Visual Studio Code', firstActivity: new Date(year - 1, now.getMonth(), now.getDate(), 8).toISOString(), lastActivity: new Date(year - 1, now.getMonth(), now.getDate(), 10).toISOString() }],
+  getSettings: async () => ({ trackingEnabled: true, launchAtStartup: false, minimizeToTray: true, captureWindowTitles: false, sampleIntervalSeconds: 10, idleThresholdSeconds: 300, includeIdleInRecapTotals: false, performanceHistoryEnabled: true, performanceSampleIntervalSeconds: 10, excludedExecutables: [], onboardingComplete: true }),
+  updateSettings: async (patch) => ({ trackingEnabled: true, launchAtStartup: false, minimizeToTray: true, captureWindowTitles: false, sampleIntervalSeconds: 10, idleThresholdSeconds: 300, includeIdleInRecapTotals: false, performanceHistoryEnabled: true, performanceSampleIntervalSeconds: 10, excludedExecutables: [], onboardingComplete: true, ...patch }),
   getCategories: async () => [{ id: 'coding', name: 'Coding', color: '#8D87FF', icon: 'code-2', isDefault: true }, { id: 'browsing', name: 'Browsing', color: '#5AB7FF', icon: 'globe-2', isDefault: true }],
   saveCategory: async (category) => category, updateCategory: async (category) => category, deleteCategory: async () => {}, setAppCategory: async () => {}, setAppExcluded: async () => {},
-  getTrackingStatus: async () => ({ state: 'tracking' }), setTrackingEnabled: async (enabled) => ({ state: enabled ? 'tracking' : 'paused' }), onTrackingStatus: () => () => {},
+  getTrackingStatus: async () => ({ state: 'tracking' }), getTrackingDiagnostics: async () => ({ version: '1.2.0', os: 'Windows', architecture: 'x64', activityCollector: 'visual-smoke', collectorAvailable: true, windowTitleCapability: 'disabled', trackingState: 'tracking', idleThresholdSeconds: 300, startupEnabled: false, trayAvailable: true, performanceHistoryEnabled: true }), copyTrackingDiagnostics: async () => {}, setTrackingEnabled: async (enabled) => ({ state: enabled ? 'tracking' : 'paused' }), onTrackingStatus: () => () => {},
   exportBackup: async () => ({ ok: true }), importBackup: async () => ({ ok: true, importedSessions: 0 }),
   previewHistoryFile: async () => null, scanWindowsHistory: async () => ({ id: 'preview', sourceKind: 'windows_recovery', sourceLabel: 'This PC', exactSessions: [], exactSessionCount: 0, recoveredEvents: [], recoveredEventCount: 0, warnings: [], sources: [] }),
   commitHistoryImport: async () => ({ importedSessions: 0, duplicates: 0, recoveredEvents: 0 }), cancelHistoryPreview: async () => {},
   listMemoryPins: async () => [], saveMemoryPin: async (pin) => pin, deleteMemoryPin: async () => {},
-  saveShareCard: async () => ({ ok: true }), deleteAllHistory: async () => {}, getVersion: async () => '1.1.0',
+  saveShareCard: async () => ({ ok: true }), deleteAllHistory: async () => {}, getVersion: async () => '1.2.0',
 };
 
 contextBridge.exposeInMainWorld('pcRecap', api);

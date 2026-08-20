@@ -32,6 +32,9 @@ async function main() {
   if (packageJson.version !== metadata.version) {
     throw new Error(`Package version ${packageJson.version} does not match release metadata version ${metadata.version}.`);
   }
+  if (!metadata.platforms || !metadata.platforms.windows || !metadata.platforms.macArm64 || !metadata.platforms.macX64 || !metadata.platforms.linuxAppImage || !metadata.platforms.linuxDeb) {
+    throw new Error('Release metadata must list every supported platform artifact.');
+  }
 
   const websiteDirectory = resolve(root, 'website');
   const htmlPath = resolve(websiteDirectory, 'index.html');
@@ -63,10 +66,24 @@ async function main() {
     `https://github.com/TheAgencyMGE/pc-recap/releases/tag/v${metadata.version}`,
     'release notes links',
   );
+  for (const [platform, artifact] of [
+    ['windows', metadata.platforms.windows],
+    ['mac-arm64', metadata.platforms.macArm64],
+    ['mac-x64', metadata.platforms.macX64],
+    ['linux-appimage', metadata.platforms.linuxAppImage],
+    ['linux-deb', metadata.platforms.linuxDeb],
+  ]) {
+    html = replaceRequired(
+      html,
+      new RegExp(`(<a\\b[^>]*data-platform="${platform}"[^>]*href=")[^"]+("[^>]*>)`, 'g'),
+      `$1${artifact.downloadUrl}$2`,
+      `${platform} download links`,
+    );
+  }
   html = replaceRequired(
     html,
-    /v\d+\.\d+\.\d+ beta · x64/,
-    `v${metadata.version} beta · x64`,
+    /v\d+\.\d+\.\d+ beta(?: · x64)?/,
+    `v${metadata.version} beta`,
     'visible release label',
   );
   html = replaceRequired(
