@@ -1,7 +1,7 @@
 {
   "name": "PC Recap",
   "short_name": "PC Recap",
-  "description": "Windows app usage history, visual recaps, timelines, eras, and records.",
+  "description": "Visual computer history, app usage recaps, timelines, eras, and records for Windows, macOS, and Linux.",
   "id": "/",
   "start_url": "/",
   "scope": "/",

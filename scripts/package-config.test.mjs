@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 
 const packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
 const ciWorkflow = await readFile(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8');
+const releaseWorkflow = await readFile(new URL('../.github/workflows/release.yml', import.meta.url), 'utf8');
 
 test('cross-platform package metadata uses electron-builder 26 schema locations', () => {
   assert.equal(packageJson.desktopName, 'pc-recap.desktop');
@@ -14,6 +15,8 @@ test('cross-platform package metadata uses electron-builder 26 schema locations'
   assert.equal(packageJson.build.linux.executableName, 'pc-recap');
   assert.equal(packageJson.build.linux.maintainer, 'PC Recap <TheAgencyMGE@users.noreply.github.com>');
   assert.equal(packageJson.build.linux.vendor, 'PC Recap');
+  assert.equal(packageJson.build.appImage.artifactName, 'PC-Recap-${version}-linux-x64.AppImage');
+  assert.equal(packageJson.build.deb.artifactName, 'PC-Recap-${version}-linux-x64.deb');
   assert.deepEqual(packageJson.build.win.target, [{ target: 'nsis', arch: ['x64'] }]);
   assert.deepEqual(packageJson.build.mac.target, [{ target: 'dmg', arch: ['x64', 'arm64'] }]);
   assert.deepEqual(packageJson.build.linux.target, [
@@ -25,11 +28,29 @@ test('cross-platform package metadata uses electron-builder 26 schema locations'
   assert.equal(packageJson.build.linux.icon, 'build/icon.png');
 });
 
+test('CI package commands never trigger electron-builder implicit publishing', () => {
+  assert.match(packageJson.scripts['package:win'], /--publish never$/);
+  assert.match(packageJson.scripts['package:mac'], /--publish never$/);
+  assert.match(packageJson.scripts['package:linux'], /--publish never$/);
+});
+
 test('CI retains unsigned macOS test installers without publishing a release', () => {
   assert.match(ciWorkflow, /name: Upload unsigned macOS test installers/);
   assert.match(ciWorkflow, /if: matrix\.command == 'package:mac'/);
   assert.match(ciWorkflow, /release\/\*\.dmg/);
   assert.match(ciWorkflow, /retention-days: 7/);
+});
+
+test('tag releases build and publish every supported desktop package', () => {
+  assert.match(releaseWorkflow, /command: package:win/);
+  assert.match(releaseWorkflow, /command: package:mac/);
+  assert.match(releaseWorkflow, /command: package:linux/);
+  assert.match(releaseWorkflow, /run: npm run \$\{\{ matrix\.command \}\}/);
+  assert.match(releaseWorkflow, /release\/\*\.exe/);
+  assert.match(releaseWorkflow, /release\/\*\.dmg/);
+  assert.match(releaseWorkflow, /release\/\*\.AppImage/);
+  assert.match(releaseWorkflow, /release\/\*\.deb/);
+  assert.match(releaseWorkflow, /release:verify-all/);
 });
 
 test('prebuilt package icons are valid binary assets', async () => {

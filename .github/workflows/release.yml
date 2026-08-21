@@ -12,11 +12,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  windows:
-    runs-on: windows-latest
-    timeout-minutes: 35
-    env:
-      RELEASE_TAG: ${{ github.ref_name }}
+  verify:
+    name: Verify tagged source
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - name: Check out source
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -32,23 +31,95 @@ jobs:
           npm ci --ignore-scripts
           npm run postinstall
 
-      - name: Verify source
+      - name: Verify source and release metadata
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
         run: |
+          node -e "const assert=require('node:assert/strict');const p=require('./package.json');const m=require('./release-metadata.json');assert.equal(p.version,m.version);assert.equal(process.env.RELEASE_TAG,'v'+p.version)"
           npm run test:run
           npm run typecheck
           npm run website:validate
+          npm run promotion:test
 
-      - name: Package installer and checksum
+  package:
+    name: Package ${{ matrix.name }}
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows x64
+            os: windows-latest
+            command: package:win
+            artifact: pc-recap-windows-x64
+            paths: release/*.exe
+          - name: macOS Intel and Apple Silicon
+            os: macos-latest
+            command: package:mac
+            artifact: pc-recap-macos
+            paths: release/*.dmg
+          - name: Linux x64
+            os: ubuntu-latest
+            command: package:linux
+            artifact: pc-recap-linux-x64
+            paths: |-
+              release/*.AppImage
+              release/*.deb
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 50
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
         run: |
-          npm run package
-          npm run release:prepare
+          npm ci --ignore-scripts
+          npm run postinstall
 
-      - name: Publish GitHub Release
+      - name: Build unsigned packages without implicit publishing
+        run: npm run ${{ matrix.command }}
+
+      - name: Stage release packages
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.paths }}
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
+  publish:
+    name: Publish GitHub Release
+    needs: package
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Download packaged applications
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          pattern: pc-recap-*
+          path: release
+          merge-multiple: true
+
+      - name: Verify every package and write checksums
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: npm run release:verify-all -- --write-checksums
+
+      - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
-        shell: pwsh
+          RELEASE_TAG: ${{ github.ref_name }}
+        shell: bash
         run: |
-          $metadata = Get-Content -Raw release-metadata.json | ConvertFrom-Json
-          $installer = Join-Path release $metadata.fileName
-          $checksum = "$installer.sha256"
-          gh release create $env:RELEASE_TAG $installer $checksum --verify-tag --title "PC Recap $($metadata.version)" --generate-notes
+          VERSION=$(node -p "require('./package.json').version")
+          gh release create "$RELEASE_TAG" release/* --verify-tag --latest --title "PC Recap $VERSION Beta" --notes-file "docs/releases/$VERSION.md"
