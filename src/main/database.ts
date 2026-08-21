@@ -2,16 +2,20 @@ import Database from 'better-sqlite3';
 import { createHash } from 'node:crypto';
 import type {
   ActivitySession,
+  ActivityStateInterval,
+  AppPerformanceRollup,
   ApplicationAlias,
   Category,
   ImportBatch,
   MemoryPin,
   OpenSessionCheckpoint,
+  PerformanceRollup,
   RecoveredEvent,
   RecoveredEventInput,
   TimelineBucket,
   TrackedApp,
   TrackingSettings,
+  SystemPerformanceSample,
 } from '../shared/types.js';
 import { DEFAULT_SETTINGS } from '../shared/types.js';
 import { clipSessionToRange, localDayKey, localMonthKey, localYearKey, splitSessionByLocalDay } from '../shared/calendar.js';
@@ -53,6 +57,80 @@ interface DailyRow {
   last_activity: string;
 }
 
+interface ActivityStateRow {
+  id: string;
+  state: ActivityStateInterval['state'];
+  started_at: string;
+  ended_at: string;
+  duration_seconds: number;
+  machine_id: string;
+  source: ActivityStateInterval['source'];
+  reason: string | null;
+}
+
+interface PerformanceSampleRow {
+  id: string;
+  sampled_at: string;
+  machine_id: string;
+  interval_seconds: number;
+  cpu_percent: number | null;
+  memory_used_bytes: number | null;
+  memory_available_bytes: number | null;
+  memory_total_bytes: number | null;
+  memory_percent: number | null;
+  uptime_seconds: number | null;
+  battery_percent: number | null;
+  power_state: SystemPerformanceSample['powerState'] | null;
+  thermal_state: SystemPerformanceSample['thermalState'] | null;
+  gpu_percent: number | null;
+  gpu_memory_used_bytes: number | null;
+  disk_read_bytes_per_second: number | null;
+  disk_write_bytes_per_second: number | null;
+  foreground_app_id: string | null;
+  foreground_app_name: string | null;
+}
+
+interface PerformanceRollupRow {
+  bucket_kind: PerformanceRollup['kind'];
+  bucket_start: string;
+  machine_id: string;
+  sample_count: number;
+  cpu_count: number;
+  cpu_sum: number;
+  cpu_min: number | null;
+  cpu_max: number | null;
+  memory_count: number;
+  memory_percent_sum: number;
+  memory_percent_min: number | null;
+  memory_percent_max: number | null;
+  memory_used_sum: number;
+  memory_used_max: number | null;
+  battery_metric_count: number;
+  battery_sum: number;
+  battery_min: number | null;
+  battery_max: number | null;
+  battery_power_count: number;
+  ac_power_count: number;
+  charging_power_count: number;
+  high_load_seconds: number;
+  peak_cpu_at: string | null;
+}
+
+interface AppPerformanceRollupRow {
+  day: string;
+  machine_id: string;
+  app_id: string;
+  app_name: string;
+  sample_count: number;
+  cpu_count: number;
+  cpu_sum: number;
+  cpu_max: number | null;
+  memory_count: number;
+  memory_percent_sum: number;
+  memory_percent_max: number | null;
+  high_load_seconds: number;
+}
+
 export interface BackupSnapshot {
   apps: TrackedApp[];
   sessions: ActivitySession[];
@@ -60,6 +138,10 @@ export interface BackupSnapshot {
   settings: TrackingSettings;
   recoveredEvents?: RecoveredEvent[];
   memoryPins?: MemoryPin[];
+  activityStates?: ActivityStateInterval[];
+  performanceSamples?: SystemPerformanceSample[];
+  performanceRollups?: PerformanceRollup[];
+  appPerformanceRollups?: AppPerformanceRollup[];
 }
 
 export interface HistoryBatchInput {
@@ -106,6 +188,80 @@ const appFromRow = (row: AppRow): TrackedApp => ({
   firstSeenAt: row.first_seen_at,
   lastSeenAt: row.last_seen_at,
   isExcluded: Boolean(row.is_excluded),
+});
+
+const activityStateFromRow = (row: ActivityStateRow): ActivityStateInterval => ({
+  id: row.id,
+  state: row.state,
+  startedAt: row.started_at,
+  endedAt: row.ended_at,
+  durationSeconds: row.duration_seconds,
+  machineId: row.machine_id,
+  source: row.source,
+  reason: row.reason ?? undefined,
+});
+
+const performanceSampleFromRow = (row: PerformanceSampleRow): SystemPerformanceSample => ({
+  id: row.id,
+  sampledAt: row.sampled_at,
+  machineId: row.machine_id,
+  intervalSeconds: row.interval_seconds,
+  cpuPercent: row.cpu_percent ?? undefined,
+  memoryUsedBytes: row.memory_used_bytes ?? undefined,
+  memoryAvailableBytes: row.memory_available_bytes ?? undefined,
+  memoryTotalBytes: row.memory_total_bytes ?? undefined,
+  memoryPercent: row.memory_percent ?? undefined,
+  uptimeSeconds: row.uptime_seconds ?? undefined,
+  batteryPercent: row.battery_percent ?? undefined,
+  powerState: row.power_state ?? undefined,
+  thermalState: row.thermal_state ?? undefined,
+  gpuPercent: row.gpu_percent ?? undefined,
+  gpuMemoryUsedBytes: row.gpu_memory_used_bytes ?? undefined,
+  diskReadBytesPerSecond: row.disk_read_bytes_per_second ?? undefined,
+  diskWriteBytesPerSecond: row.disk_write_bytes_per_second ?? undefined,
+  foregroundAppId: row.foreground_app_id ?? undefined,
+  foregroundAppName: row.foreground_app_name ?? undefined,
+});
+
+const performanceRollupFromRow = (row: PerformanceRollupRow): PerformanceRollup => ({
+  kind: row.bucket_kind,
+  bucketStart: row.bucket_start,
+  machineId: row.machine_id,
+  sampleCount: row.sample_count,
+  cpuSampleCount: row.cpu_count,
+  cpuAverage: row.cpu_count ? roundMetric(row.cpu_sum / row.cpu_count) : undefined,
+  cpuMinimum: row.cpu_min ?? undefined,
+  cpuMaximum: row.cpu_max ?? undefined,
+  memorySampleCount: row.memory_count,
+  memoryPercentAverage: row.memory_count ? roundMetric(row.memory_percent_sum / row.memory_count) : undefined,
+  memoryPercentMinimum: row.memory_percent_min ?? undefined,
+  memoryPercentMaximum: row.memory_percent_max ?? undefined,
+  memoryUsedAverageBytes: row.memory_count ? Math.round(row.memory_used_sum / row.memory_count) : undefined,
+  memoryUsedMaximumBytes: row.memory_used_max ?? undefined,
+  batteryMetricCount: row.battery_metric_count,
+  batteryAverage: row.battery_metric_count ? roundMetric(row.battery_sum / row.battery_metric_count) : undefined,
+  batteryMinimum: row.battery_min ?? undefined,
+  batteryMaximum: row.battery_max ?? undefined,
+  batterySampleCount: row.battery_power_count,
+  acSampleCount: row.ac_power_count,
+  chargingSampleCount: row.charging_power_count,
+  highLoadSeconds: row.high_load_seconds,
+  peakCpuAt: row.peak_cpu_at ?? undefined,
+});
+
+const appPerformanceRollupFromRow = (row: AppPerformanceRollupRow): AppPerformanceRollup => ({
+  day: row.day,
+  machineId: row.machine_id,
+  appId: row.app_id,
+  appName: row.app_name,
+  sampleCount: row.sample_count,
+  cpuSampleCount: row.cpu_count,
+  cpuAverage: row.cpu_count ? roundMetric(row.cpu_sum / row.cpu_count) : undefined,
+  cpuMaximum: row.cpu_max ?? undefined,
+  memorySampleCount: row.memory_count,
+  memoryPercentAverage: row.memory_count ? roundMetric(row.memory_percent_sum / row.memory_count) : undefined,
+  memoryPercentMaximum: row.memory_percent_max ?? undefined,
+  highLoadSeconds: row.high_load_seconds,
 });
 
 export class ActivityRepository {
@@ -167,6 +323,83 @@ export class ActivityRepository {
       CREATE INDEX IF NOT EXISTS idx_sessions_started ON activity_sessions(started_at);
       CREATE INDEX IF NOT EXISTS idx_sessions_day_app ON activity_sessions(day, app_id);
       CREATE INDEX IF NOT EXISTS idx_sessions_machine ON activity_sessions(machine_id, started_at);
+      CREATE TABLE IF NOT EXISTS activity_state_intervals (
+        id TEXT PRIMARY KEY,
+        state TEXT NOT NULL CHECK(state IN ('idle', 'passive', 'locked', 'suspended', 'unavailable', 'untracked')),
+        started_at TEXT NOT NULL,
+        ended_at TEXT NOT NULL,
+        duration_seconds INTEGER NOT NULL CHECK(duration_seconds >= 0),
+        machine_id TEXT NOT NULL DEFAULT 'local',
+        source TEXT NOT NULL,
+        reason TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_activity_states_range ON activity_state_intervals(started_at, ended_at);
+      CREATE INDEX IF NOT EXISTS idx_activity_states_machine ON activity_state_intervals(machine_id, started_at);
+      CREATE TABLE IF NOT EXISTS performance_samples (
+        id TEXT PRIMARY KEY,
+        sampled_at TEXT NOT NULL,
+        machine_id TEXT NOT NULL DEFAULT 'local',
+        interval_seconds INTEGER NOT NULL,
+        cpu_percent REAL,
+        memory_used_bytes INTEGER,
+        memory_available_bytes INTEGER,
+        memory_total_bytes INTEGER,
+        memory_percent REAL,
+        uptime_seconds INTEGER,
+        battery_percent REAL,
+        power_state TEXT,
+        thermal_state TEXT,
+        gpu_percent REAL,
+        gpu_memory_used_bytes INTEGER,
+        disk_read_bytes_per_second INTEGER,
+        disk_write_bytes_per_second INTEGER,
+        foreground_app_id TEXT,
+        foreground_app_name TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_performance_samples_time ON performance_samples(sampled_at);
+      CREATE TABLE IF NOT EXISTS performance_rollups (
+        bucket_kind TEXT NOT NULL CHECK(bucket_kind IN ('hour', 'day')),
+        bucket_start TEXT NOT NULL,
+        machine_id TEXT NOT NULL,
+        sample_count INTEGER NOT NULL,
+        cpu_count INTEGER NOT NULL,
+        cpu_sum REAL NOT NULL,
+        cpu_min REAL,
+        cpu_max REAL,
+        memory_count INTEGER NOT NULL,
+        memory_percent_sum REAL NOT NULL,
+        memory_percent_min REAL,
+        memory_percent_max REAL,
+        memory_used_sum REAL NOT NULL,
+        memory_used_max INTEGER,
+        battery_metric_count INTEGER NOT NULL,
+        battery_sum REAL NOT NULL,
+        battery_min REAL,
+        battery_max REAL,
+        battery_power_count INTEGER NOT NULL,
+        ac_power_count INTEGER NOT NULL,
+        charging_power_count INTEGER NOT NULL,
+        high_load_seconds INTEGER NOT NULL,
+        peak_cpu_at TEXT,
+        PRIMARY KEY(bucket_kind, bucket_start, machine_id)
+      ) WITHOUT ROWID;
+      CREATE INDEX IF NOT EXISTS idx_performance_rollups_range ON performance_rollups(bucket_kind, bucket_start);
+      CREATE TABLE IF NOT EXISTS performance_app_rollups (
+        day TEXT NOT NULL,
+        machine_id TEXT NOT NULL,
+        app_id TEXT NOT NULL,
+        app_name TEXT NOT NULL,
+        sample_count INTEGER NOT NULL,
+        cpu_count INTEGER NOT NULL,
+        cpu_sum REAL NOT NULL,
+        cpu_max REAL,
+        memory_count INTEGER NOT NULL,
+        memory_percent_sum REAL NOT NULL,
+        memory_percent_max REAL,
+        high_load_seconds INTEGER NOT NULL,
+        PRIMARY KEY(day, machine_id, app_id)
+      ) WITHOUT ROWID;
+      CREATE INDEX IF NOT EXISTS idx_performance_app_range ON performance_app_rollups(day, app_id);
       CREATE TABLE IF NOT EXISTS daily_app_rollups (
         day TEXT NOT NULL,
         app_id TEXT NOT NULL REFERENCES applications(id),
@@ -232,6 +465,12 @@ export class ActivityRepository {
         occurred_at TEXT NOT NULL,
         source_kind TEXT NOT NULL,
         confidence TEXT NOT NULL,
+        provenance TEXT NOT NULL DEFAULT 'recovered',
+        evidence_type TEXT,
+        date_precision TEXT NOT NULL DEFAULT 'approximate',
+        duration_known INTEGER NOT NULL DEFAULT 0,
+        playtime_seconds INTEGER,
+        represents TEXT,
         detail TEXT,
         import_batch_id TEXT REFERENCES import_batches(id)
       );
@@ -250,6 +489,7 @@ export class ActivityRepository {
       CREATE INDEX IF NOT EXISTS idx_memory_pins_range ON memory_pins(start_at, end_at);
     `);
     this.ensureSessionProvenanceColumns();
+    this.ensureRecoveredEventProvenanceColumns();
     this.ensureCheckpointSessionIdColumn();
     this.database.exec(`
       CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_source_record
@@ -371,14 +611,18 @@ export class ActivityRepository {
     }
     const insertEvent = this.database.prepare(`
       INSERT OR IGNORE INTO recovered_events(
-        id, app_id, app_name, event_type, occurred_at, source_kind, confidence, detail, import_batch_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        id, app_id, app_name, event_type, occurred_at, source_kind, confidence,
+        provenance, evidence_type, date_precision, duration_known, playtime_seconds, represents,
+        detail, import_batch_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     let recoveredEvents = 0;
     for (const event of input.recoveredEvents) {
       recoveredEvents += Number(insertEvent.run(
         event.id, event.appId ?? null, event.appName, event.eventType, event.occurredAt,
-        event.sourceKind, event.confidence, event.detail ?? null, input.batch.id,
+        event.sourceKind, event.confidence, event.provenance ?? 'recovered', event.evidenceType ?? null,
+        event.datePrecision ?? 'approximate', event.durationKnown ? 1 : 0, event.playtimeSeconds ?? null,
+        event.represents ?? null, event.detail ?? null, input.batch.id,
       ).changes);
     }
     return {
@@ -391,12 +635,16 @@ export class ActivityRepository {
 
   listRecoveredEvents(): RecoveredEvent[] {
     const rows = this.database.prepare(`
-      SELECT id, app_id, app_name, event_type, occurred_at, source_kind, confidence, detail, import_batch_id
+      SELECT id, app_id, app_name, event_type, occurred_at, source_kind, confidence,
+        provenance, evidence_type, date_precision, duration_known, playtime_seconds, represents,
+        detail, import_batch_id
       FROM recovered_events ORDER BY occurred_at ASC, id ASC
     `).all() as Array<{
       id: string; app_id: string | null; app_name: string; event_type: RecoveredEvent['eventType'];
       occurred_at: string; source_kind: string; confidence: RecoveredEvent['confidence'];
-      detail: string | null; import_batch_id: string | null;
+      provenance: RecoveredEvent['provenance']; evidence_type: string | null;
+      date_precision: RecoveredEvent['datePrecision']; duration_known: number; playtime_seconds: number | null;
+      represents: RecoveredEvent['represents'] | null; detail: string | null; import_batch_id: string | null;
     }>;
     return rows.map((row) => ({
       id: row.id,
@@ -406,6 +654,12 @@ export class ActivityRepository {
       occurredAt: row.occurred_at,
       sourceKind: row.source_kind,
       confidence: row.confidence,
+      provenance: row.provenance ?? 'recovered',
+      evidenceType: row.evidence_type ?? undefined,
+      datePrecision: row.date_precision ?? 'approximate',
+      durationKnown: Boolean(row.duration_known),
+      playtimeSeconds: row.playtime_seconds ?? undefined,
+      represents: row.represents ?? undefined,
       detail: row.detail ?? undefined,
       importBatchId: row.import_batch_id ?? undefined,
     }));
@@ -465,6 +719,322 @@ export class ActivityRepository {
 
   getAllSessions(): ActivitySession[] {
     return this.querySessions('0000-01-01T00:00:00.000Z', '9999-12-31T23:59:59.999Z');
+  }
+
+  insertActivityStateInterval(interval: ActivityStateInterval): boolean {
+    const allowedStates = new Set<ActivityStateInterval['state']>([
+      'idle', 'passive', 'locked', 'suspended', 'unavailable', 'untracked',
+    ]);
+    const start = Date.parse(interval.startedAt);
+    const end = Date.parse(interval.endedAt);
+    if (
+      !interval.id?.trim()
+      || interval.id.length > 200
+      || !allowedStates.has(interval.state)
+      || !Number.isFinite(start)
+      || !Number.isFinite(end)
+      || end < start
+      || !interval.machineId?.trim()
+      || interval.machineId.length > 200
+      || !interval.source?.trim()
+      || interval.source.length > 80
+      || (interval.reason?.length ?? 0) > 500
+    ) {
+      throw new Error('Activity state interval is invalid.');
+    }
+    const durationSeconds = Math.max(0, Math.round((end - start) / 1_000));
+    const result = this.database.prepare(`
+      INSERT OR IGNORE INTO activity_state_intervals(
+        id, state, started_at, ended_at, duration_seconds, machine_id, source, reason
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      interval.id,
+      interval.state,
+      new Date(start).toISOString(),
+      new Date(end).toISOString(),
+      durationSeconds,
+      interval.machineId,
+      interval.source,
+      interval.reason?.trim() || null,
+    );
+    return result.changes > 0;
+  }
+
+  queryActivityStateIntervals(start: string, end: string): ActivityStateInterval[] {
+    const rangeStart = Date.parse(start);
+    const rangeEnd = Date.parse(end);
+    if (!Number.isFinite(rangeStart) || !Number.isFinite(rangeEnd) || rangeEnd <= rangeStart) return [];
+    const rows = this.database.prepare(`
+      SELECT id, state, started_at, ended_at, duration_seconds, machine_id, source, reason
+      FROM activity_state_intervals
+      WHERE ended_at > ? AND started_at < ?
+      ORDER BY started_at, id
+    `).all(new Date(rangeStart).toISOString(), new Date(rangeEnd).toISOString()) as ActivityStateRow[];
+    return rows.map(activityStateFromRow).map((interval) => {
+      const clippedStart = Math.max(rangeStart, Date.parse(interval.startedAt));
+      const clippedEnd = Math.min(rangeEnd, Date.parse(interval.endedAt));
+      return {
+        ...interval,
+        startedAt: new Date(clippedStart).toISOString(),
+        endedAt: new Date(clippedEnd).toISOString(),
+        durationSeconds: Math.max(0, Math.round((clippedEnd - clippedStart) / 1_000)),
+      };
+    });
+  }
+
+  getAllActivityStateIntervals(): ActivityStateInterval[] {
+    const rows = this.database.prepare(`
+      SELECT id, state, started_at, ended_at, duration_seconds, machine_id, source, reason
+      FROM activity_state_intervals ORDER BY started_at, id
+    `).all() as ActivityStateRow[];
+    return rows.map(activityStateFromRow);
+  }
+
+  insertPerformanceSample(sample: SystemPerformanceSample): boolean {
+    this.database.exec('BEGIN IMMEDIATE');
+    try {
+      const inserted = this.insertPerformanceSampleWithinTransaction(sample);
+      this.database.exec('COMMIT');
+      return inserted;
+    } catch (error) {
+      this.database.exec('ROLLBACK');
+      throw error;
+    }
+  }
+
+  private insertPerformanceSampleWithinTransaction(sample: SystemPerformanceSample, updateRollups = true): boolean {
+    const normalized = normalizePerformanceSample(sample);
+    const result = this.database.prepare(`
+        INSERT OR IGNORE INTO performance_samples(
+          id, sampled_at, machine_id, interval_seconds, cpu_percent, memory_used_bytes,
+          memory_available_bytes, memory_total_bytes, memory_percent, uptime_seconds,
+          battery_percent, power_state, thermal_state, gpu_percent, gpu_memory_used_bytes,
+          disk_read_bytes_per_second, disk_write_bytes_per_second, foreground_app_id, foreground_app_name
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      normalized.id, normalized.sampledAt, normalized.machineId, normalized.intervalSeconds,
+      normalized.cpuPercent ?? null, normalized.memoryUsedBytes ?? null, normalized.memoryAvailableBytes ?? null,
+      normalized.memoryTotalBytes ?? null, normalized.memoryPercent ?? null, normalized.uptimeSeconds ?? null,
+      normalized.batteryPercent ?? null, normalized.powerState ?? null, normalized.thermalState ?? null,
+      normalized.gpuPercent ?? null, normalized.gpuMemoryUsedBytes ?? null,
+      normalized.diskReadBytesPerSecond ?? null, normalized.diskWriteBytesPerSecond ?? null,
+      normalized.foregroundAppId ?? null, normalized.foregroundAppName ?? null,
+    );
+    if (!result.changes) return false;
+    if (updateRollups) {
+      this.updatePerformanceRollup('hour', normalized);
+      this.updatePerformanceRollup('day', normalized);
+      if (normalized.foregroundAppId && normalized.foregroundAppName) this.updateAppPerformanceRollup(normalized);
+    }
+    return true;
+  }
+
+  queryPerformanceSamples(start: string, end: string): SystemPerformanceSample[] {
+    if (!validRange(start, end)) return [];
+    const rows = this.database.prepare(`
+      SELECT * FROM performance_samples WHERE sampled_at >= ? AND sampled_at < ? ORDER BY sampled_at, id
+    `).all(new Date(start).toISOString(), new Date(end).toISOString()) as PerformanceSampleRow[];
+    return rows.map(performanceSampleFromRow);
+  }
+
+  getAllPerformanceSamples(): SystemPerformanceSample[] {
+    return (this.database.prepare('SELECT * FROM performance_samples ORDER BY sampled_at, id').all() as PerformanceSampleRow[])
+      .map(performanceSampleFromRow);
+  }
+
+  queryPerformanceRollups(kind: 'hour' | 'day', start: string, end: string): PerformanceRollup[] {
+    if (!validRange(start, end)) return [];
+    const rows = this.database.prepare(`
+      SELECT * FROM performance_rollups
+      WHERE bucket_kind = ? AND bucket_start >= ? AND bucket_start < ?
+      ORDER BY bucket_start, machine_id
+    `).all(kind, new Date(start).toISOString(), new Date(end).toISOString()) as PerformanceRollupRow[];
+    return rows.map(performanceRollupFromRow);
+  }
+
+  getAllPerformanceRollups(): PerformanceRollup[] {
+    return (this.database.prepare('SELECT * FROM performance_rollups ORDER BY bucket_kind, bucket_start, machine_id').all() as PerformanceRollupRow[])
+      .map(performanceRollupFromRow);
+  }
+
+  queryAppPerformanceRollups(start: string, end: string): AppPerformanceRollup[] {
+    if (!validRange(start, end)) return [];
+    const startDay = new Date(start).toISOString();
+    const endDay = new Date(end).toISOString();
+    const rows = this.database.prepare(`
+      SELECT * FROM performance_app_rollups WHERE day >= ? AND day < ? ORDER BY app_name, day, machine_id
+    `).all(startDay, endDay) as AppPerformanceRollupRow[];
+    return rows.map(appPerformanceRollupFromRow);
+  }
+
+  getAllAppPerformanceRollups(): AppPerformanceRollup[] {
+    return (this.database.prepare('SELECT * FROM performance_app_rollups ORDER BY day, machine_id, app_id').all() as AppPerformanceRollupRow[])
+      .map(appPerformanceRollupFromRow);
+  }
+
+  prunePerformanceSamples(before: string): number {
+    if (!Number.isFinite(Date.parse(before))) return 0;
+    return this.database.prepare('DELETE FROM performance_samples WHERE sampled_at < ?')
+      .run(new Date(before).toISOString()).changes;
+  }
+
+  private updatePerformanceRollup(kind: 'hour' | 'day', sample: Required<Pick<SystemPerformanceSample, 'id' | 'sampledAt' | 'machineId' | 'intervalSeconds'>> & SystemPerformanceSample) {
+    const bucketStart = performanceBucketStart(sample.sampledAt, kind);
+    const existing = this.database.prepare(`
+      SELECT * FROM performance_rollups WHERE bucket_kind = ? AND bucket_start = ? AND machine_id = ?
+    `).get(kind, bucketStart, sample.machineId) as PerformanceRollupRow | undefined;
+    const cpuCount = (existing?.cpu_count ?? 0) + (sample.cpuPercent === undefined ? 0 : 1);
+    const memoryCount = (existing?.memory_count ?? 0) + (sample.memoryPercent === undefined ? 0 : 1);
+    const batteryMetricCount = (existing?.battery_metric_count ?? 0) + (sample.batteryPercent === undefined ? 0 : 1);
+    const peakCpuAt = sample.cpuPercent !== undefined && (existing?.cpu_max == null || sample.cpuPercent > existing.cpu_max)
+      ? sample.sampledAt
+      : existing?.peak_cpu_at ?? null;
+    const next: PerformanceRollupRow = {
+      bucket_kind: kind,
+      bucket_start: bucketStart,
+      machine_id: sample.machineId,
+      sample_count: (existing?.sample_count ?? 0) + 1,
+      cpu_count: cpuCount,
+      cpu_sum: (existing?.cpu_sum ?? 0) + (sample.cpuPercent ?? 0),
+      cpu_min: metricMin(existing?.cpu_min, sample.cpuPercent),
+      cpu_max: metricMax(existing?.cpu_max, sample.cpuPercent),
+      memory_count: memoryCount,
+      memory_percent_sum: (existing?.memory_percent_sum ?? 0) + (sample.memoryPercent ?? 0),
+      memory_percent_min: metricMin(existing?.memory_percent_min, sample.memoryPercent),
+      memory_percent_max: metricMax(existing?.memory_percent_max, sample.memoryPercent),
+      memory_used_sum: (existing?.memory_used_sum ?? 0) + (sample.memoryUsedBytes ?? 0),
+      memory_used_max: metricMax(existing?.memory_used_max, sample.memoryUsedBytes),
+      battery_metric_count: batteryMetricCount,
+      battery_sum: (existing?.battery_sum ?? 0) + (sample.batteryPercent ?? 0),
+      battery_min: metricMin(existing?.battery_min, sample.batteryPercent),
+      battery_max: metricMax(existing?.battery_max, sample.batteryPercent),
+      battery_power_count: (existing?.battery_power_count ?? 0) + (sample.powerState === 'battery' ? 1 : 0),
+      ac_power_count: (existing?.ac_power_count ?? 0) + (sample.powerState === 'ac' ? 1 : 0),
+      charging_power_count: (existing?.charging_power_count ?? 0) + (sample.powerState === 'charging' ? 1 : 0),
+      high_load_seconds: (existing?.high_load_seconds ?? 0) + ((sample.cpuPercent ?? 0) >= 75 ? sample.intervalSeconds : 0),
+      peak_cpu_at: peakCpuAt,
+    };
+    this.database.prepare(`
+      INSERT INTO performance_rollups(
+        bucket_kind, bucket_start, machine_id, sample_count,
+        cpu_count, cpu_sum, cpu_min, cpu_max,
+        memory_count, memory_percent_sum, memory_percent_min, memory_percent_max, memory_used_sum, memory_used_max,
+        battery_metric_count, battery_sum, battery_min, battery_max,
+        battery_power_count, ac_power_count, charging_power_count, high_load_seconds, peak_cpu_at
+      ) VALUES (
+        @bucket_kind, @bucket_start, @machine_id, @sample_count,
+        @cpu_count, @cpu_sum, @cpu_min, @cpu_max,
+        @memory_count, @memory_percent_sum, @memory_percent_min, @memory_percent_max, @memory_used_sum, @memory_used_max,
+        @battery_metric_count, @battery_sum, @battery_min, @battery_max,
+        @battery_power_count, @ac_power_count, @charging_power_count, @high_load_seconds, @peak_cpu_at
+      )
+      ON CONFLICT(bucket_kind, bucket_start, machine_id) DO UPDATE SET
+        sample_count = excluded.sample_count,
+        cpu_count = excluded.cpu_count, cpu_sum = excluded.cpu_sum, cpu_min = excluded.cpu_min, cpu_max = excluded.cpu_max,
+        memory_count = excluded.memory_count, memory_percent_sum = excluded.memory_percent_sum,
+        memory_percent_min = excluded.memory_percent_min, memory_percent_max = excluded.memory_percent_max,
+        memory_used_sum = excluded.memory_used_sum, memory_used_max = excluded.memory_used_max,
+        battery_metric_count = excluded.battery_metric_count, battery_sum = excluded.battery_sum,
+        battery_min = excluded.battery_min, battery_max = excluded.battery_max,
+        battery_power_count = excluded.battery_power_count, ac_power_count = excluded.ac_power_count,
+        charging_power_count = excluded.charging_power_count,
+        high_load_seconds = excluded.high_load_seconds, peak_cpu_at = excluded.peak_cpu_at
+    `).run(next);
+  }
+
+  private updateAppPerformanceRollup(sample: Required<Pick<SystemPerformanceSample, 'id' | 'sampledAt' | 'machineId' | 'intervalSeconds'>> & SystemPerformanceSample) {
+    if (!sample.foregroundAppId || !sample.foregroundAppName) return;
+    const day = performanceBucketStart(sample.sampledAt, 'day');
+    const existing = this.database.prepare(`
+      SELECT * FROM performance_app_rollups WHERE day = ? AND machine_id = ? AND app_id = ?
+    `).get(day, sample.machineId, sample.foregroundAppId) as AppPerformanceRollupRow | undefined;
+    const next: AppPerformanceRollupRow = {
+      day,
+      machine_id: sample.machineId,
+      app_id: sample.foregroundAppId,
+      app_name: sample.foregroundAppName,
+      sample_count: (existing?.sample_count ?? 0) + 1,
+      cpu_count: (existing?.cpu_count ?? 0) + (sample.cpuPercent === undefined ? 0 : 1),
+      cpu_sum: (existing?.cpu_sum ?? 0) + (sample.cpuPercent ?? 0),
+      cpu_max: metricMax(existing?.cpu_max, sample.cpuPercent),
+      memory_count: (existing?.memory_count ?? 0) + (sample.memoryPercent === undefined ? 0 : 1),
+      memory_percent_sum: (existing?.memory_percent_sum ?? 0) + (sample.memoryPercent ?? 0),
+      memory_percent_max: metricMax(existing?.memory_percent_max, sample.memoryPercent),
+      high_load_seconds: (existing?.high_load_seconds ?? 0) + ((sample.cpuPercent ?? 0) >= 75 ? sample.intervalSeconds : 0),
+    };
+    this.database.prepare(`
+      INSERT INTO performance_app_rollups(
+        day, machine_id, app_id, app_name, sample_count, cpu_count, cpu_sum, cpu_max,
+        memory_count, memory_percent_sum, memory_percent_max, high_load_seconds
+      ) VALUES (
+        @day, @machine_id, @app_id, @app_name, @sample_count, @cpu_count, @cpu_sum, @cpu_max,
+        @memory_count, @memory_percent_sum, @memory_percent_max, @high_load_seconds
+      )
+      ON CONFLICT(day, machine_id, app_id) DO UPDATE SET
+        app_name = excluded.app_name, sample_count = excluded.sample_count,
+        cpu_count = excluded.cpu_count, cpu_sum = excluded.cpu_sum, cpu_max = excluded.cpu_max,
+        memory_count = excluded.memory_count, memory_percent_sum = excluded.memory_percent_sum,
+        memory_percent_max = excluded.memory_percent_max, high_load_seconds = excluded.high_load_seconds
+    `).run(next);
+  }
+
+  private insertArchivedPerformanceRollup(rollup: PerformanceRollup) {
+    validatePerformanceRollup(rollup);
+    this.database.prepare(`
+      INSERT OR IGNORE INTO performance_rollups(
+        bucket_kind, bucket_start, machine_id, sample_count,
+        cpu_count, cpu_sum, cpu_min, cpu_max,
+        memory_count, memory_percent_sum, memory_percent_min, memory_percent_max, memory_used_sum, memory_used_max,
+        battery_metric_count, battery_sum, battery_min, battery_max,
+        battery_power_count, ac_power_count, charging_power_count, high_load_seconds, peak_cpu_at
+      ) VALUES (
+        @bucket_kind, @bucket_start, @machine_id, @sample_count,
+        @cpu_count, @cpu_sum, @cpu_min, @cpu_max,
+        @memory_count, @memory_percent_sum, @memory_percent_min, @memory_percent_max, @memory_used_sum, @memory_used_max,
+        @battery_metric_count, @battery_sum, @battery_min, @battery_max,
+        @battery_power_count, @ac_power_count, @charging_power_count, @high_load_seconds, @peak_cpu_at
+      )
+    `).run({
+      bucket_kind: rollup.kind,
+      bucket_start: new Date(rollup.bucketStart).toISOString(),
+      machine_id: rollup.machineId,
+      sample_count: rollup.sampleCount,
+      cpu_count: rollup.cpuSampleCount,
+      cpu_sum: (rollup.cpuAverage ?? 0) * rollup.cpuSampleCount,
+      cpu_min: rollup.cpuMinimum ?? null,
+      cpu_max: rollup.cpuMaximum ?? null,
+      memory_count: rollup.memorySampleCount,
+      memory_percent_sum: (rollup.memoryPercentAverage ?? 0) * rollup.memorySampleCount,
+      memory_percent_min: rollup.memoryPercentMinimum ?? null,
+      memory_percent_max: rollup.memoryPercentMaximum ?? null,
+      memory_used_sum: (rollup.memoryUsedAverageBytes ?? 0) * rollup.memorySampleCount,
+      memory_used_max: rollup.memoryUsedMaximumBytes ?? null,
+      battery_metric_count: rollup.batteryMetricCount,
+      battery_sum: (rollup.batteryAverage ?? 0) * rollup.batteryMetricCount,
+      battery_min: rollup.batteryMinimum ?? null,
+      battery_max: rollup.batteryMaximum ?? null,
+      battery_power_count: rollup.batterySampleCount,
+      ac_power_count: rollup.acSampleCount,
+      charging_power_count: rollup.chargingSampleCount,
+      high_load_seconds: rollup.highLoadSeconds,
+      peak_cpu_at: rollup.peakCpuAt ?? null,
+    });
+  }
+
+  private insertArchivedAppPerformanceRollup(rollup: AppPerformanceRollup) {
+    validateAppPerformanceRollup(rollup);
+    this.database.prepare(`
+      INSERT OR IGNORE INTO performance_app_rollups(
+        day, machine_id, app_id, app_name, sample_count, cpu_count, cpu_sum, cpu_max,
+        memory_count, memory_percent_sum, memory_percent_max, high_load_seconds
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      new Date(rollup.day).toISOString(), rollup.machineId, rollup.appId, rollup.appName,
+      rollup.sampleCount, rollup.cpuSampleCount, (rollup.cpuAverage ?? 0) * rollup.cpuSampleCount,
+      rollup.cpuMaximum ?? null, rollup.memorySampleCount,
+      (rollup.memoryPercentAverage ?? 0) * rollup.memorySampleCount,
+      rollup.memoryPercentMaximum ?? null, rollup.highLoadSeconds,
+    );
   }
 
   getDailyRollups(startDay: string, endDay: string) {
@@ -619,6 +1189,7 @@ export class ActivityRepository {
       ...patch,
       sampleIntervalSeconds: Math.min(60, Math.max(5, patch.sampleIntervalSeconds ?? current.sampleIntervalSeconds)),
       idleThresholdSeconds: Math.min(3_600, Math.max(60, patch.idleThresholdSeconds ?? current.idleThresholdSeconds)),
+      performanceSampleIntervalSeconds: Math.min(60, Math.max(5, patch.performanceSampleIntervalSeconds ?? current.performanceSampleIntervalSeconds)),
       excludedExecutables: [...new Set(executableList(patch.excludedExecutables, current.excludedExecutables))],
       includedExecutables: [...new Set(executableList(patch.includedExecutables, current.includedExecutables))],
     };
@@ -744,6 +1315,10 @@ export class ActivityRepository {
         DELETE FROM open_session_checkpoints;
         DELETE FROM application_aliases;
         DELETE FROM memory_pins;
+        DELETE FROM activity_state_intervals;
+        DELETE FROM performance_samples;
+        DELETE FROM performance_rollups;
+        DELETE FROM performance_app_rollups;
         DELETE FROM daily_app_rollups;
         DELETE FROM daily_rollups;
         DELETE FROM activity_sessions;
@@ -797,6 +1372,22 @@ export class ActivityRepository {
     }
   }
 
+  private ensureRecoveredEventProvenanceColumns() {
+    const columns = new Set((this.database.prepare('PRAGMA table_info(recovered_events)').all() as Array<{ name: string }>)
+      .map((column) => column.name));
+    const additions = [
+      ['provenance', "TEXT NOT NULL DEFAULT 'recovered'"],
+      ['evidence_type', 'TEXT'],
+      ['date_precision', "TEXT NOT NULL DEFAULT 'approximate'"],
+      ['duration_known', 'INTEGER NOT NULL DEFAULT 0'],
+      ['playtime_seconds', 'INTEGER'],
+      ['represents', 'TEXT'],
+    ] as const;
+    for (const [name, definition] of additions) {
+      if (!columns.has(name)) this.database.exec(`ALTER TABLE recovered_events ADD COLUMN ${name} ${definition}`);
+    }
+  }
+
   private ensureCheckpointSessionIdColumn() {
     const columns = new Set((this.database.prepare('PRAGMA table_info(open_session_checkpoints)').all() as Array<{ name: string }>)
       .map((column) => column.name));
@@ -842,6 +1433,10 @@ export class ActivityRepository {
       settings: this.getSettings(),
       recoveredEvents: this.listRecoveredEvents(),
       memoryPins: this.listMemoryPins(),
+      activityStates: this.getAllActivityStateIntervals(),
+      performanceSamples: this.getAllPerformanceSamples(),
+      performanceRollups: this.getAllPerformanceRollups(),
+      appPerformanceRollups: this.getAllAppPerformanceRollups(),
     };
   }
 
@@ -884,6 +1479,13 @@ export class ActivityRepository {
         this.saveMemoryPin(pin);
         importedMemoryPins += 1;
       }
+      for (const interval of snapshot.activityStates ?? []) this.insertActivityStateInterval(interval);
+      const rebuildPerformanceRollups = !(snapshot.performanceRollups?.length || snapshot.appPerformanceRollups?.length);
+      for (const sample of snapshot.performanceSamples ?? []) {
+        this.insertPerformanceSampleWithinTransaction(sample, rebuildPerformanceRollups);
+      }
+      for (const rollup of snapshot.performanceRollups ?? []) this.insertArchivedPerformanceRollup(rollup);
+      for (const rollup of snapshot.appPerformanceRollups ?? []) this.insertArchivedAppPerformanceRollup(rollup);
       this.database.exec('COMMIT');
     } catch (error) {
       this.database.exec('ROLLBACK');
@@ -906,4 +1508,117 @@ function validateMemoryPin(pin: MemoryPin) {
   if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start || !/^#[0-9a-f]{6}$/i.test(pin.color)) {
     throw new Error('Memory Pin range is invalid.');
   }
+}
+
+function validatePerformanceRollup(rollup: PerformanceRollup) {
+  if (
+    !['hour', 'day'].includes(rollup.kind)
+    || !Number.isFinite(Date.parse(rollup.bucketStart))
+    || !rollup.machineId?.trim() || rollup.machineId.length > 200
+    || !validNonNegativeCounts([
+      rollup.sampleCount, rollup.cpuSampleCount, rollup.memorySampleCount, rollup.batteryMetricCount,
+      rollup.batterySampleCount, rollup.acSampleCount, rollup.chargingSampleCount, rollup.highLoadSeconds,
+    ])
+    || !validOptionalMetrics([
+      rollup.cpuAverage, rollup.cpuMinimum, rollup.cpuMaximum,
+      rollup.memoryPercentAverage, rollup.memoryPercentMinimum, rollup.memoryPercentMaximum,
+      rollup.batteryAverage, rollup.batteryMinimum, rollup.batteryMaximum,
+    ], 100)
+    || !validOptionalMetrics([rollup.memoryUsedAverageBytes, rollup.memoryUsedMaximumBytes], Number.MAX_SAFE_INTEGER)
+    || (rollup.peakCpuAt !== undefined && !Number.isFinite(Date.parse(rollup.peakCpuAt)))
+  ) throw new Error('Performance rollup is invalid.');
+}
+
+function validateAppPerformanceRollup(rollup: AppPerformanceRollup) {
+  if (
+    !Number.isFinite(Date.parse(rollup.day))
+    || !rollup.machineId?.trim() || rollup.machineId.length > 200
+    || !rollup.appId?.trim() || rollup.appId.length > 200
+    || !rollup.appName?.trim() || rollup.appName.length > 500
+    || !validNonNegativeCounts([
+      rollup.sampleCount, rollup.cpuSampleCount, rollup.memorySampleCount, rollup.highLoadSeconds,
+    ])
+    || !validOptionalMetrics([
+      rollup.cpuAverage, rollup.cpuMaximum, rollup.memoryPercentAverage, rollup.memoryPercentMaximum,
+    ], 100)
+  ) throw new Error('Application performance rollup is invalid.');
+}
+
+function validNonNegativeCounts(values: number[]) {
+  return values.every((value) => Number.isFinite(value) && value >= 0 && Number.isInteger(value));
+}
+
+function validOptionalMetrics(values: Array<number | undefined>, maximum: number) {
+  return values.every((value) => value === undefined || (Number.isFinite(value) && value >= 0 && value <= maximum));
+}
+
+function normalizePerformanceSample(sample: SystemPerformanceSample) {
+  const sampledAt = Date.parse(sample.sampledAt);
+  const id = sample.id?.trim();
+  const machineId = sample.machineId?.trim() || 'local';
+  const intervalSeconds = sample.intervalSeconds ?? 10;
+  if (
+    !id || id.length > 200 || !Number.isFinite(sampledAt)
+    || machineId.length > 200
+    || !Number.isFinite(intervalSeconds) || intervalSeconds < 1 || intervalSeconds > 3_600
+  ) throw new Error('Performance sample identity is invalid.');
+  return {
+    ...sample,
+    id,
+    sampledAt: new Date(sampledAt).toISOString(),
+    machineId,
+    intervalSeconds: Math.round(intervalSeconds),
+    cpuPercent: optionalPercent(sample.cpuPercent, 'CPU'),
+    memoryPercent: optionalPercent(sample.memoryPercent, 'memory'),
+    batteryPercent: optionalPercent(sample.batteryPercent, 'battery'),
+    gpuPercent: optionalPercent(sample.gpuPercent, 'GPU'),
+    memoryUsedBytes: optionalCount(sample.memoryUsedBytes, 'memory used'),
+    memoryAvailableBytes: optionalCount(sample.memoryAvailableBytes, 'memory available'),
+    memoryTotalBytes: optionalCount(sample.memoryTotalBytes, 'memory total'),
+    uptimeSeconds: optionalCount(sample.uptimeSeconds, 'uptime'),
+    gpuMemoryUsedBytes: optionalCount(sample.gpuMemoryUsedBytes, 'GPU memory'),
+    diskReadBytesPerSecond: optionalCount(sample.diskReadBytesPerSecond, 'disk read'),
+    diskWriteBytesPerSecond: optionalCount(sample.diskWriteBytesPerSecond, 'disk write'),
+    foregroundAppId: sample.foregroundAppId?.trim().slice(0, 200) || undefined,
+    foregroundAppName: sample.foregroundAppName?.trim().slice(0, 200) || undefined,
+  };
+}
+
+function optionalPercent(value: number | undefined, label: string) {
+  if (value === undefined) return undefined;
+  if (!Number.isFinite(value) || value < 0 || value > 100) throw new Error(`${label} percentage is invalid.`);
+  return roundMetric(value);
+}
+
+function optionalCount(value: number | undefined, label: string) {
+  if (value === undefined) return undefined;
+  if (!Number.isFinite(value) || value < 0 || value > Number.MAX_SAFE_INTEGER) throw new Error(`${label} metric is invalid.`);
+  return Math.round(value);
+}
+
+function validRange(start: string, end: string) {
+  const rangeStart = Date.parse(start);
+  const rangeEnd = Date.parse(end);
+  return Number.isFinite(rangeStart) && Number.isFinite(rangeEnd) && rangeEnd > rangeStart;
+}
+
+function performanceBucketStart(sampledAt: string, kind: 'hour' | 'day') {
+  const date = new Date(sampledAt);
+  return new Date(
+    date.getFullYear(), date.getMonth(), date.getDate(), kind === 'hour' ? date.getHours() : 0,
+  ).toISOString();
+}
+
+function metricMin(previous: number | null | undefined, next: number | undefined) {
+  if (next === undefined) return previous ?? null;
+  return previous == null ? next : Math.min(previous, next);
+}
+
+function metricMax(previous: number | null | undefined, next: number | undefined) {
+  if (next === undefined) return previous ?? null;
+  return previous == null ? next : Math.max(previous, next);
+}
+
+function roundMetric(value: number) {
+  return Number(value.toFixed(1));
 }

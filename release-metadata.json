@@ -1,6 +1,33 @@
 {
-  "version": "1.1.0",
-  "fileName": "PC-Recap-1.1.0-Setup.exe",
-  "downloadUrl": "https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.1.0/PC-Recap-1.1.0-Setup.exe",
-  "checksumUrl": "https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.1.0/PC-Recap-1.1.0-Setup.exe.sha256"
+  "version": "1.2.0",
+  "fileName": "PC-Recap-1.2.0-Setup.exe",
+  "downloadUrl": "https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.2.0/PC-Recap-1.2.0-Setup.exe",
+  "checksumUrl": "https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.2.0/PC-Recap-1.2.0-Setup.exe.sha256",
+  "platforms": {
+    "windows": {
+      "label": "Windows x64",
+      "fileName": "PC-Recap-1.2.0-Setup.exe",
+      "downloadUrl": "https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.2.0/PC-Recap-1.2.0-Setup.exe"
+    },
+    "macArm64": {
+      "label": "macOS Apple Silicon",
+      "fileName": "PC-Recap-1.2.0-mac-arm64.dmg",
+      "downloadUrl": "https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.2.0/PC-Recap-1.2.0-mac-arm64.dmg"
+    },
+    "macX64": {
+      "label": "macOS Intel",
+      "fileName": "PC-Recap-1.2.0-mac-x64.dmg",
+      "downloadUrl": "https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.2.0/PC-Recap-1.2.0-mac-x64.dmg"
+    },
+    "linuxAppImage": {
+      "label": "Linux AppImage x64",
+      "fileName": "PC-Recap-1.2.0-linux-x64.AppImage",
+      "downloadUrl": "https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.2.0/PC-Recap-1.2.0-linux-x64.AppImage"
+    },
+    "linuxDeb": {
+      "label": "Linux deb x64",
+      "fileName": "PC-Recap-1.2.0-linux-x64.deb",
+      "downloadUrl": "https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.2.0/PC-Recap-1.2.0-linux-x64.deb"
+    }
+  }
 }

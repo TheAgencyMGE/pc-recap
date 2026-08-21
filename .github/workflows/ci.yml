@@ -15,8 +15,13 @@ concurrency:
 
 jobs:
   verify:
-    runs-on: windows-latest
-    timeout-minutes: 20
+    name: Verify (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     steps:
       - name: Check out source
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -32,14 +37,71 @@ jobs:
           npm ci --ignore-scripts
           npm run postinstall
 
-      - name: Run tests
+      - name: Run deterministic tests
         run: npm run test:run
 
-      - name: Typecheck
+      - name: Typecheck both processes
         run: npm run typecheck
 
-      - name: Validate website
-        run: npm run website:validate
-
-      - name: Build application
+      - name: Build renderer, main process, and preload
         run: npm run build
+
+      - name: Check the selected platform collector
+        run: npm run smoke:activity
+
+      - name: Validate website and archive tooling
+        run: |
+          npm run website:validate
+          npm run promotion:test
+
+      - name: Run visual smoke tests on Windows
+        if: runner.os == 'Windows'
+        run: npm run smoke:visual
+
+  package-check:
+    name: Package check (${{ matrix.name }})
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows x64 NSIS
+            os: windows-latest
+            command: package:win
+          - name: macOS Intel and Apple Silicon DMG
+            os: macos-latest
+            command: package:mac
+          - name: Linux x64 AppImage and deb
+            os: ubuntu-latest
+            command: package:linux
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: |
+          npm ci --ignore-scripts
+          npm run postinstall
+
+      - name: Build unsigned local package
+        run: npm run ${{ matrix.command }}
+
+      - name: Upload unsigned macOS test installers
+        if: matrix.command == 'package:mac'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: PC-Recap-1.2.0-macOS-unsigned-${{ github.run_attempt }}
+          path: release/*.dmg
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
+      # CI artifacts are retained only for hands-on testing. Nothing is published to a release.

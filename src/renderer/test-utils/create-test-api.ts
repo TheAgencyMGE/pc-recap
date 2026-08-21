@@ -90,6 +90,14 @@ export function createTestApi(overrides: Partial<TrackingSettings> = {}): PCReca
     setAppCategory: async () => undefined,
     setAppExcluded: async () => undefined,
     getTrackingStatus: async () => status,
+    getTrackingDiagnostics: async () => ({
+      version: '1.2.0-test', os: 'Windows', architecture: 'x64', activityCollector: 'windows-foreground',
+      collectorAvailable: true, sessionType: 'windows', windowTitleCapability: 'disabled', trackingState: status.state,
+      latestActivitySample: sessions.at(-1)?.endedAt, idleThresholdSeconds: settings.idleThresholdSeconds,
+      startupEnabled: settings.launchAtStartup, trayAvailable: true,
+      performanceHistoryEnabled: settings.performanceHistoryEnabled,
+    }),
+    copyTrackingDiagnostics: async () => undefined,
     setTrackingEnabled: async (enabled) => {
       settings = { ...settings, trackingEnabled: enabled };
       return (status = { state: enabled ? 'tracking' : 'paused' });

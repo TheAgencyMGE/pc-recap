@@ -5,6 +5,7 @@ import { ObservationPoster } from '../components/ObservationPoster';
 import { TrackList } from '../components/TrackList';
 import { SparkBars } from '../components/Visuals';
 import { StatCard } from '../components/StatCard';
+import { SystemLinerNotes } from '../components/SystemLinerNotes';
 import { formatClock, formatDuration } from '../lib/format';
 import { themeForPeriod } from '../lib/visual-theme';
 import type { RouteId } from '../routes';
@@ -13,7 +14,7 @@ export function Dashboard({ summary, timeline: _timeline, onNavigate }: { summar
   const lead = summary.observations[0];
   const theme = themeForPeriod('today', summary.label);
   const colors = summary.topApps.map((app) => app.color);
-  return <motion.main className="page today-page" style={{ '--page-bg': theme.background, '--page-fg': theme.foreground, '--page-accent': theme.accent } as React.CSSProperties} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+  return <motion.main className="page today-page" style={{ '--page-bg': theme.background, '--page-fg': theme.foreground, '--page-accent': theme.accent } as React.CSSProperties} initial={false} animate={{ opacity: 1 }}>
     <header className="simple-page-heading"><h1>Today</h1><span>{summary.label}</span></header>
     <section className="today-cover">
       <div className="today-cover__number"><strong>{formatDuration(summary.totalSeconds)}</strong></div>
@@ -30,5 +31,6 @@ export function Dashboard({ summary, timeline: _timeline, onNavigate }: { summar
       {lead && <ObservationPoster observation={lead} />}
     </section>
     <section className="print-chart-section"><header><h2>Activity by hour</h2></header><SparkBars data={summary.hourly} color={theme.accent} scale="hour" /></section>
+    <SystemLinerNotes activity={summary.activity} performance={summary.performance} />
   </motion.main>;
 }

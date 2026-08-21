@@ -8,6 +8,7 @@ const { app, BrowserWindow } = require('electron');
 const root = process.env.PC_RECAP_SMOKE_ROOT;
 if (!root || process.env.PC_RECAP_VISUAL_SMOKE !== '1') throw new Error('Visual smoke must run through scripts/visual-smoke.mjs.');
 const artifactDirectory = resolve(root, 'artifacts', 'visual-smoke');
+const viewportMatrix = JSON.parse(process.env.PC_RECAP_SMOKE_VIEWPORTS || '[{"width":980,"height":680},{"width":1440,"height":900}]');
 mkdirSync(artifactDirectory, { recursive: true });
 writeFileSync(resolve(artifactDirectory, 'stage-log.jsonl'), '');
 writeFileSync(resolve(artifactDirectory, 'stage.json'), JSON.stringify({ stage: 'helper-loaded', electron: process.versions.electron ?? null }));
@@ -40,7 +41,98 @@ app.whenReady().then(async () => {
     window.webContents.invalidate();
     await delay(100);
     writeStage('animation-settled');
-    const layout = await window.webContents.executeJavaScript(`(() => {
+    const viewportResults = [];
+    let layout;
+    let minimumImage;
+    for (const viewport of viewportMatrix) {
+      window.setSize(viewport.width, viewport.height);
+      await delay(220);
+      window.webContents.invalidate();
+      await delay(80);
+      layout = await inspectHome(window);
+      viewportResults.push({ width: viewport.width, height: viewport.height, ...layout });
+      assert.equal(layout.searchButtonCount, 1);
+      assert.equal(layout.symbolsContained, true);
+      assert.equal(layout.horizontalOverflow, false);
+      assert.equal(layout.todayCoverVisible, true);
+      assert.equal(layout.firstShelfCoverVisible, true);
+      if (viewport.width === 980 && viewport.height === 680) minimumImage = await save(window, 'home-minimum.png');
+      if (viewport.width === 1440 && viewport.height === 900) await save(window, 'home-default.png');
+    }
+    window.setSize(980, 680);
+    await delay(160);
+    await window.webContents.executeJavaScript(`document.querySelector('[aria-label="Search"]').click()`);
+    await waitForVisible(window, `[role="dialog"][aria-label="Search PC Recap"]`);
+    await delay(250);
+    window.webContents.invalidate();
+    await delay(75);
+    const searchImage = await save(window, 'search-overlay.png');
+    assert.notDeepEqual(searchImage, minimumImage, 'Search overlay screenshot must differ from the home screenshot.');
+
+    await window.webContents.executeJavaScript(`document.querySelector('[aria-label="Open On this day"]').click()`);
+    await waitForVisible(window, '.day-echoes > article');
+    await delay(450);
+    window.webContents.invalidate();
+    await delay(80);
+    const onThisDay = await window.webContents.executeJavaScript(`(() => {
+      const card = document.querySelector('.day-echoes__card').getBoundingClientRect();
+      const icon = document.querySelector('.day-echoes__card > svg').getBoundingClientRect();
+      const year = document.querySelector('.day-echoes__year').getBoundingClientRect();
+      const scroll = document.querySelector('.interior-scroll');
+      return {
+        horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+        nestedHorizontalOverflow: scroll.scrollWidth > scroll.clientWidth,
+        iconContained: icon.left >= card.left && icon.right <= card.right && icon.top >= card.top && icon.bottom <= card.bottom,
+        yearClearOfCard: year.right <= card.left + 1,
+      };
+    })()`);
+    assert.equal(onThisDay.horizontalOverflow, false);
+    assert.equal(onThisDay.nestedHorizontalOverflow, false);
+    assert.equal(onThisDay.iconContained, true);
+    assert.equal(onThisDay.yearClearOfCard, true);
+    await save(window, 'on-this-day.png');
+
+    await window.webContents.executeJavaScript(`document.querySelector('[aria-label="Back home"]').click()`);
+    await waitForVisible(window, '.today-feature .collection-cover');
+    await window.webContents.executeJavaScript(`document.querySelector('[aria-label="Search"]').click()`);
+    await waitForVisible(window, '[aria-label="Open Yearly recap"]');
+    await window.webContents.executeJavaScript(`document.querySelector('[aria-label="Open Yearly recap"]').click()`);
+    await waitForVisible(window, '.yearly-recap');
+    for (let attempt = 0; attempt < 14; attempt += 1) {
+      const ready = await window.webContents.executeJavaScript(`Boolean(document.querySelector('.recap-scene--system'))`);
+      if (ready) break;
+      await window.webContents.executeJavaScript(`document.querySelector('[aria-label="Next scene"]')?.click()`);
+      await delay(520);
+    }
+    await waitForVisible(window, '.recap-scene--system');
+    const yearlySystem = await window.webContents.executeJavaScript(`(() => {
+      const scene = document.querySelector('.recap-scene--system').getBoundingClientRect();
+      const facts = document.querySelector('.recap-system-facts').getBoundingClientRect();
+      return {
+        horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+        contentContained: facts.left >= scene.left && facts.right <= scene.right && facts.top >= scene.top && facts.bottom <= scene.bottom,
+      };
+    })()`);
+    assert.equal(yearlySystem.horizontalOverflow, false);
+    assert.equal(yearlySystem.contentContained, true);
+    await save(window, 'yearly-system.png');
+
+    const report = { ...layout, viewports: viewportResults, onThisDay, yearlySystem, searchDialogVisible: true, isolatedProfile: true, screenshots: ['home-default.png', 'home-minimum.png', 'search-overlay.png', 'on-this-day.png', 'yearly-system.png'] };
+    await writeFile(resolve(artifactDirectory, 'report.json'), JSON.stringify(report, null, 2));
+    writeStage('complete');
+  } finally {
+    window.destroy();
+    await rm(isolatedProfile, { recursive: true, force: true });
+    app.quit();
+  }
+}).catch((error) => {
+  writeFileSync(resolve(artifactDirectory, 'stage.json'), JSON.stringify({ stage: 'failed', error: error?.stack ?? String(error) }));
+  console.error(error);
+  app.exit(1);
+});
+
+async function inspectHome(window) {
+  return window.webContents.executeJavaScript(`(() => {
       const symbols = [...document.querySelectorAll('.collection-cover__symbol')];
       const isVisible = (element) => {
         if (!element) return false;
@@ -61,35 +153,7 @@ app.whenReady().then(async () => {
         firstShelfCoverVisible: isVisible(document.querySelector('.cover-shelf__track .collection-cover')),
       };
     })()`);
-    assert.equal(layout.searchButtonCount, 1);
-    assert.equal(layout.symbolsContained, true);
-    assert.equal(layout.horizontalOverflow, false);
-    assert.equal(layout.todayCoverVisible, true);
-    assert.equal(layout.firstShelfCoverVisible, true);
-    await save(window, 'home-default.png');
-    window.setSize(980, 680);
-    await delay(250);
-    const minimumImage = await save(window, 'home-minimum.png');
-    await window.webContents.executeJavaScript(`document.querySelector('[aria-label="Search"]').click()`);
-    await waitForVisible(window, `[role="dialog"][aria-label="Search PC Recap"]`);
-    await delay(250);
-    window.webContents.invalidate();
-    await delay(75);
-    const searchImage = await save(window, 'search-overlay.png');
-    assert.notDeepEqual(searchImage, minimumImage, 'Search overlay screenshot must differ from the home screenshot.');
-    const report = { ...layout, searchDialogVisible: true, isolatedProfile: true, screenshots: ['home-default.png', 'home-minimum.png', 'search-overlay.png'] };
-    await writeFile(resolve(artifactDirectory, 'report.json'), JSON.stringify(report, null, 2));
-    writeStage('complete');
-  } finally {
-    window.destroy();
-    await rm(isolatedProfile, { recursive: true, force: true });
-    app.quit();
-  }
-}).catch((error) => {
-  writeFileSync(resolve(artifactDirectory, 'stage.json'), JSON.stringify({ stage: 'failed', error: error?.stack ?? String(error) }));
-  console.error(error);
-  app.exit(1);
-});
+}
 
 async function save(window, name) {
   const image = await window.webContents.capturePage();

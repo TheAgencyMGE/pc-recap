@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Activity, DatabaseBackup, HardDrive, LoaderCircle, ShieldCheck, Upload } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { PCRecapAPI } from '../shared/ipc';
@@ -42,6 +42,7 @@ const routeTitle = (route: RouteId, detail?: AppDetailData | null) => {
 };
 
 export function App({ api = rendererApi }: { api?: PCRecapAPI }) {
+  const reduceMotion = useReducedMotion();
   const [route, setRoute] = useState<RouteId>('home');
   const [data, setData] = useState<DashboardData>();
   const [summaries, setSummaries] = useState<Partial<Record<PeriodKind, PeriodSummary>>>({});
@@ -135,7 +136,7 @@ export function App({ api = rendererApi }: { api?: PCRecapAPI }) {
   if (route === 'home') return <AppIconProvider api={api}>{page}</AppIconProvider>;
   return <AppIconProvider api={api}><div className="interior-app">
     <InteriorHeader title={routeTitle(route, appDetail)} onBack={() => setRoute('home')} />
-    <div className="interior-scroll"><AnimatePresence mode="wait"><motion.div key={route} initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }}>{page}</motion.div></AnimatePresence></div>
+    <div className="interior-scroll"><AnimatePresence mode="wait"><motion.div key={route} initial={reduceMotion ? false : { opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={reduceMotion ? undefined : { opacity: 0, x: -12 }}>{page}</motion.div></AnimatePresence></div>
   </div></AppIconProvider>;
 }
 

@@ -35,6 +35,19 @@ const summary: PeriodSummary = {
   records: [],
   sessionCount: 7,
   activeDays: 3,
+  activity: {
+    activeSeconds: 36_000,
+    passiveSeconds: 0,
+    idleSeconds: 0,
+    lockedSeconds: 0,
+    suspendedSeconds: 0,
+    unavailableSeconds: 0,
+    untrackedSeconds: 0,
+    observedSeconds: 36_000,
+    awayPercentage: 0,
+    recapTotalSeconds: 36_000,
+    includesIdleInRecapTotal: false,
+  },
 };
 
 describe('generateObservations', () => {

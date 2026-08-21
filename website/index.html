@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#f6f6f1" />
     <meta name="application-name" content="PC Recap" />
     <meta name="robots" content="index, follow, max-image-preview:large" />
-    <meta name="description" content="PC Recap turns real Windows app usage into beautiful daily, weekly, monthly, and yearly visual recaps, timelines, eras, and records." />
+    <meta name="description" content="PC Recap turns real app activity into visual daily, weekly, monthly, and yearly recaps on Windows, macOS, and Linux." />
     <link rel="canonical" href="https://pcrecap.online/" />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="manifest" href="manifest.webmanifest" />
@@ -15,17 +15,17 @@
     <meta property="og:locale" content="en_US" />
     <meta property="og:url" content="https://pcrecap.online/" />
     <meta property="og:title" content="PC Recap — Your PC, remembered." />
-    <meta property="og:description" content="Turn your Windows app usage into daily, weekly, monthly, and yearly visual recaps." />
+    <meta property="og:description" content="Turn your computer activity into visual recaps, eras, records, and a history you can replay." />
     <meta property="og:image" content="https://pcrecap.online/og.png" />
     <meta property="og:image:alt" content="PC Recap visual recap covers for Today, This Week, 2026, Timeline, and On This Day" />
     <meta property="og:image:width" content="1731" />
     <meta property="og:image:height" content="909" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="PC Recap — Your PC, remembered." />
-    <meta name="twitter:description" content="Turn your Windows app usage into daily, weekly, monthly, and yearly visual recaps." />
+    <meta name="twitter:description" content="Turn your computer activity into visual recaps, eras, records, and a history you can replay." />
     <meta name="twitter:image" content="https://pcrecap.online/og.png" />
     <meta name="twitter:image:alt" content="PC Recap visual recap covers" />
-    <title>PC Recap — Windows App Usage History &amp; Visual Recaps</title>
+    <title>PC Recap — Visual Computer History for Windows, macOS &amp; Linux</title>
     <link rel="preload" href="fonts/archivo.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="fonts/instrument-sans.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="styles.css" />
@@ -35,12 +35,12 @@
         "@type": "SoftwareApplication",
         "name": "PC Recap",
         "url": "https://pcrecap.online/",
-        "description": "PC Recap turns real Windows app usage into daily, weekly, monthly, and yearly visual recaps, timelines, eras, and records.",
+        "description": "PC Recap turns real app activity into daily, weekly, monthly, and yearly visual recaps, timelines, eras, records, and local performance context.",
         "applicationCategory": "UtilitiesApplication",
-        "operatingSystem": "Windows 10, Windows 11",
-        "softwareVersion": "1.1.0",
-        "downloadUrl": "https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.1.0/PC-Recap-1.1.0-Setup.exe",
-        "releaseNotes": "https://github.com/TheAgencyMGE/pc-recap/releases/tag/v1.1.0",
+        "operatingSystem": "Windows, macOS, Linux",
+        "softwareVersion": "1.2.0",
+        "downloadUrl": "https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.2.0/PC-Recap-1.2.0-Setup.exe",
+        "releaseNotes": "https://github.com/TheAgencyMGE/pc-recap/releases/tag/v1.2.0",
         "codeRepository": "https://github.com/TheAgencyMGE/pc-recap",
         "license": "https://www.gnu.org/licenses/gpl-3.0.html",
         "image": "https://pcrecap.online/og.png",
@@ -67,21 +67,27 @@
         <span class="brand__stamp" aria-hidden="true">PC</span>
         <span class="brand__name"><b>PC</b><em>RECAP</em></span>
       </a>
-      <a class="header-download" data-download-location="header" href="https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.1.0/PC-Recap-1.1.0-Setup.exe">Download</a>
+      <a class="header-download" data-download-location="header-windows" data-platform="windows" href="https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.2.0/PC-Recap-1.2.0-Setup.exe">Download</a>
     </header>
 
     <main id="main">
       <section class="hero" id="top">
         <div class="hero__copy reveal">
-          <p class="overline">Windows 10/11</p>
+          <p class="overline">Windows · macOS · Linux</p>
           <h1>Your PC,<br /><em>remembered.</em></h1>
           <p class="hero__lede">See the apps, eras, and late nights that made up your year.</p>
           <div class="hero__actions">
-            <a class="download-button" data-download-location="hero" href="https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.1.0/PC-Recap-1.1.0-Setup.exe">
+            <a class="download-button" data-download-location="hero-windows" data-platform="windows" href="https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.2.0/PC-Recap-1.2.0-Setup.exe">
               <span>Download for Windows</span>
               <span aria-hidden="true">↓</span>
             </a>
-            <span class="release-line">v1.1.0 beta · x64</span>
+            <span class="release-line">v1.2.0 beta</span>
+          </div>
+          <div class="platform-links" aria-label="Other downloads">
+            <a data-download-location="hero-mac-arm64" data-platform="mac-arm64" href="https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.2.0/PC-Recap-1.2.0-mac-arm64.dmg">Mac · Apple Silicon</a>
+            <a data-download-location="hero-mac-x64" data-platform="mac-x64" href="https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.2.0/PC-Recap-1.2.0-mac-x64.dmg">Mac · Intel</a>
+            <a data-download-location="hero-linux-appimage" data-platform="linux-appimage" href="https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.2.0/PC-Recap-1.2.0-linux-x64.AppImage">Linux · AppImage</a>
+            <a data-download-location="hero-linux-deb" data-platform="linux-deb" href="https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.2.0/PC-Recap-1.2.0-linux-x64.deb">Linux · deb</a>
           </div>
         </div>
 
@@ -116,7 +122,15 @@
           <article class="scene scene--favorite"><span>Top app</span><b>Your favorite</b><i aria-hidden="true"></i></article>
           <article class="scene scene--era"><span>Era</span><b>Your chapter</b><i aria-hidden="true">ERA</i></article>
           <article class="scene scene--fact"><span>Observation</span><b>Your weird fact</b><i aria-hidden="true">“</i></article>
+          <article class="scene scene--system"><span>Computer pulse</span><b>Your hardest-working moment</b><i aria-hidden="true">∿</i></article>
         </div>
+      </section>
+
+      <section class="release-notes reveal" aria-labelledby="release-title">
+        <div><p class="overline">Version 1.2</p><h2 id="release-title">More of your computer story.</h2></div>
+        <article><b>Cross-platform</b><span>Foreground tracking on Windows, macOS, and Linux X11.</span></article>
+        <article><b>Better time</b><span>Active, idle, locked, asleep, and unavailable time stay distinct.</span></article>
+        <article><b>Computer pulse</b><span>Optional local CPU, memory, battery, and power context for recaps.</span></article>
       </section>
 
       <section class="principles" aria-label="Product principles">
@@ -127,14 +141,20 @@
 
       <section class="download-panel reveal" aria-labelledby="download-title">
         <div>
-          <p class="overline">PC Recap 1.1.0 Beta</p>
+          <p class="overline">PC Recap 1.2.0 Beta</p>
           <h2 id="download-title">Start your archive.</h2>
         </div>
-        <a class="download-button download-button--light" data-download-location="footer-panel" href="https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.1.0/PC-Recap-1.1.0-Setup.exe">
+        <a class="download-button download-button--light" data-download-location="footer-panel-windows" data-platform="windows" href="https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.2.0/PC-Recap-1.2.0-Setup.exe">
           <span>Download for Windows</span>
           <span aria-hidden="true">↓</span>
         </a>
-        <a class="checksum" href="https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.1.0/PC-Recap-1.1.0-Setup.exe.sha256" aria-label="Download installer SHA-256 checksum">
+        <div class="download-platforms" aria-label="Downloads for every platform">
+          <a data-download-location="footer-mac-arm64" data-platform="mac-arm64" href="https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.2.0/PC-Recap-1.2.0-mac-arm64.dmg"><b>macOS</b><span>Apple Silicon</span></a>
+          <a data-download-location="footer-mac-x64" data-platform="mac-x64" href="https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.2.0/PC-Recap-1.2.0-mac-x64.dmg"><b>macOS</b><span>Intel</span></a>
+          <a data-download-location="footer-linux-appimage" data-platform="linux-appimage" href="https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.2.0/PC-Recap-1.2.0-linux-x64.AppImage"><b>Linux</b><span>AppImage x64</span></a>
+          <a data-download-location="footer-linux-deb" data-platform="linux-deb" href="https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.2.0/PC-Recap-1.2.0-linux-x64.deb"><b>Linux</b><span>deb x64</span></a>
+        </div>
+        <a class="checksum" href="https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.2.0/PC-Recap-1.2.0-Setup.exe.sha256" aria-label="Download installer SHA-256 checksum">
           <span>SHA-256</span>
           <strong>Download checksum</strong>
           <i aria-hidden="true">→</i>

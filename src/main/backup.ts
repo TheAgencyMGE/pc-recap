@@ -1,10 +1,10 @@
 import { readFile, stat } from 'node:fs/promises';
 import { gunzip, gzipSync } from 'node:zlib';
-import type { ActivitySession, Category, MemoryPin, RecoveredEvent, TrackedApp } from '../shared/types.js';
+import type { ActivitySession, ActivityStateInterval, AppPerformanceRollup, Category, MemoryPin, PerformanceRollup, RecoveredEvent, SystemPerformanceSample, TrackedApp } from '../shared/types.js';
 import { isSupportedBackupProduct, PRODUCT_NAME } from '../shared/brand.js';
 import type { ActivityRepository, BackupSnapshot } from './database.js';
 
-const BACKUP_VERSION = 2;
+const BACKUP_VERSION = 3;
 const DEFAULT_LIMITS = {
   maxCompressedBytes: 64 * 1024 * 1024,
   maxDecodedBytes: 256 * 1024 * 1024,
@@ -103,6 +103,10 @@ function validateArchive(value: unknown): BackupArchive {
     || !value.data.categories.every(isCategory)
     || (value.data.recoveredEvents !== undefined && (!Array.isArray(value.data.recoveredEvents) || !value.data.recoveredEvents.every(isRecoveredEvent)))
     || (value.data.memoryPins !== undefined && (!Array.isArray(value.data.memoryPins) || !value.data.memoryPins.every(isMemoryPin)))
+    || (value.data.activityStates !== undefined && (!Array.isArray(value.data.activityStates) || !value.data.activityStates.every(isActivityStateInterval)))
+    || (value.data.performanceSamples !== undefined && (!Array.isArray(value.data.performanceSamples) || !value.data.performanceSamples.every(isPerformanceSample)))
+    || (value.data.performanceRollups !== undefined && (!Array.isArray(value.data.performanceRollups) || !value.data.performanceRollups.every(isPerformanceRollup)))
+    || (value.data.appPerformanceRollups !== undefined && (!Array.isArray(value.data.appPerformanceRollups) || !value.data.appPerformanceRollups.every(isAppPerformanceRollup)))
   ) {
     throw invalidBackup();
   }
@@ -166,6 +170,12 @@ function isRecoveredEvent(value: unknown): value is RecoveredEvent {
     && isIsoDate(value.occurredAt)
     && isString(value.sourceKind, 200)
     && ['high', 'medium', 'low'].includes(String(value.confidence))
+    && (value.provenance === undefined || ['tracked', 'imported', 'recovered', 'inferred'].includes(String(value.provenance)))
+    && isOptionalString(value.evidenceType, 200)
+    && (value.datePrecision === undefined || ['exact', 'approximate'].includes(String(value.datePrecision)))
+    && (value.durationKnown === undefined || typeof value.durationKnown === 'boolean')
+    && optionalNumber(value.playtimeSeconds)
+    && (value.represents === undefined || ['installation', 'execution', 'presence', 'context'].includes(String(value.represents)))
     && isOptionalString(value.detail, 10_000)
     && isOptionalString(value.importBatchId, 200);
 }
@@ -180,6 +190,53 @@ function isMemoryPin(value: unknown): value is MemoryPin {
     && typeof value.includeInRecaps === 'boolean'
     && isIsoDate(value.createdAt) && isIsoDate(value.updatedAt);
 }
+
+function isActivityStateInterval(value: unknown): value is ActivityStateInterval {
+  return isRecord(value)
+    && isString(value.id, 200)
+    && ['idle', 'passive', 'locked', 'suspended', 'unavailable', 'untracked'].includes(String(value.state))
+    && isIsoDate(value.startedAt) && isIsoDate(value.endedAt) && Date.parse(value.endedAt) >= Date.parse(value.startedAt)
+    && isNumberInRange(value.durationSeconds, 0, 31_536_000)
+    && isString(value.machineId, 200)
+    && ['os-idle', 'power-monitor', 'collector', 'sampling-gap', 'privacy-rule'].includes(String(value.source))
+    && isOptionalString(value.reason, 500);
+}
+
+function isPerformanceSample(value: unknown): value is SystemPerformanceSample {
+  return isRecord(value)
+    && isString(value.id, 200) && isIsoDate(value.sampledAt)
+    && isString(value.machineId, 200) && isNumberInRange(value.intervalSeconds, 1, 3_600)
+    && optionalNumber(value.cpuPercent, 100) && optionalNumber(value.memoryPercent, 100)
+    && optionalNumber(value.batteryPercent, 100) && optionalNumber(value.gpuPercent, 100)
+    && optionalNumber(value.memoryUsedBytes) && optionalNumber(value.memoryAvailableBytes)
+    && optionalNumber(value.memoryTotalBytes) && optionalNumber(value.uptimeSeconds)
+    && optionalNumber(value.gpuMemoryUsedBytes) && optionalNumber(value.diskReadBytesPerSecond)
+    && optionalNumber(value.diskWriteBytesPerSecond)
+    && (value.powerState === undefined || ['ac', 'battery', 'charging', 'unknown'].includes(String(value.powerState)))
+    && (value.thermalState === undefined || ['nominal', 'fair', 'serious', 'critical'].includes(String(value.thermalState)))
+    && isOptionalString(value.foregroundAppId, 200) && isOptionalString(value.foregroundAppName, 500);
+}
+
+function isPerformanceRollup(value: unknown): value is PerformanceRollup {
+  return isRecord(value)
+    && ['hour', 'day'].includes(String(value.kind)) && isIsoDate(value.bucketStart) && isString(value.machineId, 200)
+    && numberFields(value, ['sampleCount', 'cpuSampleCount', 'memorySampleCount', 'batteryMetricCount', 'batterySampleCount', 'acSampleCount', 'chargingSampleCount', 'highLoadSeconds'])
+    && optionalFields(value, ['cpuAverage', 'cpuMinimum', 'cpuMaximum', 'memoryPercentAverage', 'memoryPercentMinimum', 'memoryPercentMaximum', 'batteryAverage', 'batteryMinimum', 'batteryMaximum'], 100)
+    && optionalFields(value, ['memoryUsedAverageBytes', 'memoryUsedMaximumBytes'])
+    && (value.peakCpuAt === undefined || isIsoDate(value.peakCpuAt));
+}
+
+function isAppPerformanceRollup(value: unknown): value is AppPerformanceRollup {
+  return isRecord(value) && isIsoDate(value.day) && isString(value.machineId, 200)
+    && isString(value.appId, 200) && isString(value.appName, 500)
+    && numberFields(value, ['sampleCount', 'cpuSampleCount', 'memorySampleCount', 'highLoadSeconds'])
+    && optionalFields(value, ['cpuAverage', 'cpuMaximum', 'memoryPercentAverage', 'memoryPercentMaximum'], 100);
+}
+
+const isNumberInRange = (value: unknown, minimum: number, maximum = Number.MAX_SAFE_INTEGER) => typeof value === 'number' && Number.isFinite(value) && value >= minimum && value <= maximum;
+const optionalNumber = (value: unknown, maximum = Number.MAX_SAFE_INTEGER) => value === undefined || isNumberInRange(value, 0, maximum);
+const numberFields = (value: Record<string, unknown>, fields: string[]) => fields.every((field) => isNumberInRange(value[field], 0));
+const optionalFields = (value: Record<string, unknown>, fields: string[], maximum = Number.MAX_SAFE_INTEGER) => fields.every((field) => optionalNumber(value[field], maximum));
 
 function invalidBackup() {
   return new Error(`This is not a valid ${PRODUCT_NAME} backup.`);

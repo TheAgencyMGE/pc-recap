@@ -3,7 +3,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { app, BrowserWindow, Menu, nativeImage, powerMonitor, Tray } from 'electron';
 import { APP_ID, PRODUCT_NAME } from '../shared/brand.js';
-import { WindowsActivitySource } from './activity-source.js';
+import { DEFAULT_SETTINGS } from '../shared/types.js';
+import { createPlatformActivitySource } from './activity-source.js';
 import { AppIconService } from './app-icon-service.js';
 import { AnalyticsService } from './analytics-service.js';
 import { BackupService } from './backup.js';
@@ -14,6 +15,11 @@ import { HistoryRecoveryService } from './history-recovery-service.js';
 import { HistoryImportService } from './importers/import-service.js';
 import { isTrustedNavigation, resolveRendererTarget } from './renderer-security.js';
 import { ActivityTracker } from './tracker.js';
+import { DiagnosticsService } from './diagnostics-service.js';
+import { PerformanceTracker } from './performance/performance-tracker.js';
+import { createPlatformPowerReader } from './performance/power-source.js';
+import { createNodeMetricProvider, SystemPerformanceSampler } from './performance/system-sampler.js';
+import { configureLaunchAtStartup } from './startup.js';
 
 const currentDirectory = dirname(fileURLToPath(import.meta.url));
 app.setName(PRODUCT_NAME);
@@ -25,6 +31,8 @@ let tray: Tray | null = null;
 let isQuitting = false;
 let repository: ActivityRepository | null = null;
 let tracker: ActivityTracker | null = null;
+let performanceTracker: PerformanceTracker | null = null;
+const startHidden = process.argv.includes('--hidden');
 
 const rendererTarget = resolveRendererTarget({
   isPackaged: app.isPackaged,
@@ -52,7 +60,7 @@ function createWindow() {
       spellcheck: false,
     },
   });
-  mainWindow.once('ready-to-show', () => mainWindow?.show());
+  mainWindow.once('ready-to-show', () => { if (!startHidden) mainWindow?.show(); });
   mainWindow.on('close', (event) => {
     if (!isQuitting && repository?.getSettings().minimizeToTray) {
       event.preventDefault();
@@ -96,11 +104,39 @@ app.whenReady().then(async () => {
   app.setAppUserModelId(APP_ID);
   const databasePath = await prepareActivityDatabase(app.getPath('userData'), app.getPath('appData'));
   repository = new ActivityRepository(databasePath);
-  tracker = new ActivityTracker(repository, new WindowsActivitySource(), {
+  const activitySource = createPlatformActivitySource({
+    captureWindowTitles: () => repository?.getSettings().captureWindowTitles ?? false,
+  });
+  tracker = new ActivityTracker(repository, activitySource.source, {
     idleSeconds: () => powerMonitor.getSystemIdleTime(),
     machineId: hostname(),
     onStatus: (status) => mainWindow?.webContents.send('tracking:changed', status),
   });
+  performanceTracker = new PerformanceTracker(
+    repository,
+    new SystemPerformanceSampler(createNodeMetricProvider(createPlatformPowerReader())),
+    {
+      machineId: hostname(),
+      getForegroundSession: () => {
+        const session = tracker?.getLiveSession();
+        return session ? { appId: session.appId, appName: session.appName } : undefined;
+      },
+    },
+  );
+  const setLaunchAtStartup = async (enabled: boolean) => {
+    await configureLaunchAtStartup({
+      platform: process.platform,
+      enabled,
+      isPackaged: app.isPackaged,
+      executablePath: process.execPath,
+      setNativeLoginItemSettings: (settings) => app.setLoginItemSettings(settings),
+    });
+  };
+  try {
+    await setLaunchAtStartup(repository.getSettings().launchAtStartup);
+  } catch {
+    repository.updateSettings({ launchAtStartup: false });
+  }
   const analytics = new AnalyticsService(
     repository,
     () => tracker?.getStatus() ?? { state: 'unavailable' },
@@ -111,15 +147,30 @@ app.whenReady().then(async () => {
     getFileIcon: (path) => app.getFileIcon(path, { size: 'normal' }),
   });
   const history = new HistoryRecoveryService(new HistoryImportService(repository));
+  const diagnostics = new DiagnosticsService({
+    getVersion: () => app.getVersion(),
+    platform: process.platform,
+    architecture: process.arch,
+    activityCapabilities: activitySource.capabilities,
+    getTrackingStatus: () => tracker?.getStatus() ?? { state: 'unavailable' },
+    getSettings: () => repository?.getSettings() ?? { ...DEFAULT_SETTINGS },
+    getLatestActivitySample: () => tracker?.getLatestSuccessfulSampleAt(),
+    getLatestPerformanceSample: () => performanceTracker?.getLatestSuccessfulSampleAt(),
+    isTrayAvailable: () => Boolean(tray),
+  });
   registerIpcHandlers({
     repository,
     analytics,
     tracker,
     backup: new BackupService(repository),
     history,
+    diagnostics,
+    setLaunchAtStartup,
+    getVersion: () => app.getVersion(),
     eraseHistory: async () => {
       const resumeTracking = repository?.getSettings().trackingEnabled ?? false;
       await tracker?.suspendForErase();
+      await performanceTracker?.suspendForErase();
       history.clearPreviews();
       try {
         await removeMigrationSafetyCopy(databasePath);
@@ -127,6 +178,7 @@ app.whenReady().then(async () => {
         repository?.deleteAllHistory();
       } finally {
         if (resumeTracking) await tracker?.resumeAfterErase();
+        await performanceTracker?.resumeAfterErase();
       }
     },
     icons,
@@ -135,7 +187,18 @@ app.whenReady().then(async () => {
   });
   createWindow();
   createTray();
+  powerMonitor.on('lock-screen', () => tracker?.handleLock());
+  powerMonitor.on('unlock-screen', () => {
+    tracker?.handleUnlock();
+    void tracker?.sample();
+  });
+  powerMonitor.on('suspend', () => tracker?.handleSuspend());
+  powerMonitor.on('resume', () => {
+    tracker?.handleResume();
+    void tracker?.sample();
+  });
   tracker.start();
+  performanceTracker.start();
   app.on('activate', () => { if (!mainWindow) createWindow(); else mainWindow.show(); });
 });
 
@@ -146,6 +209,7 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   isQuitting = true;
   tracker?.stop();
+  performanceTracker?.stop();
   repository?.close();
   repository = null;
 });

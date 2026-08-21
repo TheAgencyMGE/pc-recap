@@ -6,7 +6,15 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const currentDirectory = dirname(fileURLToPath(import.meta.url));
-export const artifactNames = ['home-default.png', 'home-minimum.png', 'search-overlay.png'];
+export const viewportMatrix = [
+  { width: 980, height: 680 },
+  { width: 1024, height: 768 },
+  { width: 1280, height: 720 },
+  { width: 1366, height: 768 },
+  { width: 1440, height: 900 },
+  { width: 1920, height: 1080 },
+];
+export const artifactNames = ['home-default.png', 'home-minimum.png', 'search-overlay.png', 'on-this-day.png', 'yearly-system.png'];
 
 export function resolveSmokePaths(root = resolve(currentDirectory, '..')) {
   return {
@@ -29,6 +37,7 @@ export async function runVisualSmoke(root = resolve(currentDirectory, '..')) {
   await mkdir(command.paths.artifactDirectory, { recursive: true });
   await rm(resolve(command.paths.artifactDirectory, 'report.json'), { force: true });
   const environment = { ...process.env, PC_RECAP_SMOKE_ROOT: root, PC_RECAP_VISUAL_SMOKE: '1' };
+  environment.PC_RECAP_SMOKE_VIEWPORTS = JSON.stringify(viewportMatrix);
   delete environment.ELECTRON_RUN_AS_NODE;
   await new Promise((resolveRun, reject) => {
     const child = spawn(command.executable, command.args, { cwd: root, env: environment, stdio: 'inherit', windowsHide: true });
@@ -42,6 +51,16 @@ export async function runVisualSmoke(root = resolve(currentDirectory, '..')) {
   assert.equal(report.todayCoverVisible, true);
   assert.equal(report.firstShelfCoverVisible, true);
   assert.equal(report.searchDialogVisible, true);
+  assert.equal(report.viewports.length, viewportMatrix.length);
+  for (const viewport of report.viewports) {
+    assert.equal(viewport.horizontalOverflow, false, `Horizontal overflow at ${viewport.width}x${viewport.height}`);
+    assert.equal(viewport.symbolsContained, true, `Cover symbol escaped at ${viewport.width}x${viewport.height}`);
+    assert.equal(viewport.todayCoverVisible, true, `Today cover hidden at ${viewport.width}x${viewport.height}`);
+  }
+  assert.equal(report.onThisDay.iconContained, true);
+  assert.equal(report.onThisDay.yearClearOfCard, true);
+  assert.equal(report.onThisDay.nestedHorizontalOverflow, false);
+  assert.equal(report.yearlySystem.contentContained, true);
   for (const name of artifactNames) assert.ok(report.screenshots.includes(name), `Missing ${name}`);
   return report;
 }

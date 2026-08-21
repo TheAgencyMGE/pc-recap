@@ -39,20 +39,16 @@ describe('Windows history recovery', () => {
     expect(result.warnings).toEqual([expect.stringMatching(/prefetch.*access denied/i)]);
   });
 
-  it('does nothing on unsupported operating systems', async () => {
-    const result = await scanWindowsHistory({ platform: 'linux' });
+  it('supports launcher-only recovery outside Windows without running Windows readers', async () => {
+    const result = await scanWindowsHistory({ platform: 'linux', readers: [] });
     expect(result.events).toEqual([]);
-    expect(result.warnings[0]).toMatch(/only available on Windows/i);
+    expect(result.warnings).toEqual([]);
   });
 
-  it('reads browser history only after explicit consent', async () => {
-    const read = vi.fn().mockResolvedValue([]);
-    const browserReader = { id: 'browser-history', label: 'Browser history', read };
+  it('keeps browser data outside every built-in recovery source', async () => {
+    const result = await scanWindowsHistory({ platform: 'win32', readers: [] });
 
-    await scanWindowsHistory({ platform: 'win32', readers: [], browserReader, includeBrowserHistory: false });
-    expect(read).not.toHaveBeenCalled();
-
-    await scanWindowsHistory({ platform: 'win32', readers: [], browserReader, includeBrowserHistory: true });
-    expect(read).toHaveBeenCalledOnce();
+    expect(result.sources).toEqual([]);
+    expect(result.warnings).toEqual([]);
   });
 });

@@ -2,17 +2,117 @@ import { basename } from 'node:path';
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { createInterface, type Interface } from 'node:readline';
 import { chooseHostedApplication } from './tracking/app-identity.js';
+import { LinuxX11ActivitySource } from './platform/linux-activity-source.js';
+import { MacOSActivitySource } from './platform/macos-activity-source.js';
+import { runPlatformCommand } from './platform/command.js';
+import type { ActivitySourceSelection, CommandRunner } from './platform/types.js';
 
 export interface ActiveWindowInfo {
   name: string;
   executable: string;
   path?: string;
   title?: string;
+  pid?: number;
+  bundleId?: string;
 }
 
 export interface ActivitySource {
   getActiveWindow(): Promise<ActiveWindowInfo | null>;
   dispose?(): void;
+}
+
+export function createPlatformActivitySource(
+  options: {
+    platform?: NodeJS.Platform;
+    env?: NodeJS.ProcessEnv;
+    captureWindowTitles?: () => boolean;
+    commandRunner?: CommandRunner;
+  } = {},
+): ActivitySourceSelection {
+  const platform = options.platform ?? process.platform;
+  const captureWindowTitles = options.captureWindowTitles ?? (() => false);
+  const commandRunner = options.commandRunner ?? runPlatformCommand;
+  if (platform === 'win32') {
+    return {
+      id: 'windows-foreground',
+      available: true,
+      source: new WindowsActivitySource(captureWindowTitles),
+      capabilities: {
+        platform,
+        collector: 'windows-foreground',
+        available: true,
+        sessionType: 'windows',
+        windowTitles: 'available',
+      },
+    };
+  }
+  if (platform === 'darwin') {
+    return {
+      id: 'macos-workspace',
+      available: true,
+      source: new MacOSActivitySource(commandRunner, captureWindowTitles),
+      capabilities: {
+        platform,
+        collector: 'macos-workspace',
+        available: true,
+        sessionType: 'aqua',
+        windowTitles: 'permission-required',
+      },
+    };
+  }
+  if (platform === 'linux') {
+    const env = options.env ?? process.env;
+    const sessionType = env.XDG_SESSION_TYPE?.trim().toLowerCase()
+      || (env.WAYLAND_DISPLAY ? 'wayland' : env.DISPLAY ? 'x11' : 'unknown');
+    if (sessionType === 'x11' && env.DISPLAY) {
+      return {
+        id: 'linux-x11',
+        available: true,
+        source: new LinuxX11ActivitySource(commandRunner, captureWindowTitles),
+        capabilities: {
+          platform,
+          collector: 'linux-x11',
+          available: true,
+          sessionType: 'x11',
+          windowTitles: 'available',
+        },
+      };
+    }
+    if (sessionType === 'wayland') {
+      const reason = 'Foreground application tracking is unavailable in this Wayland session.';
+      return {
+        id: 'linux-wayland-unavailable',
+        available: false,
+        reason,
+        source: new UnavailableActivitySource(),
+        capabilities: {
+          platform,
+          collector: 'linux-wayland-unavailable',
+          available: false,
+          sessionType: 'wayland',
+          windowTitles: 'unavailable',
+        },
+      };
+    }
+  }
+  const reason = `Foreground application tracking is unavailable on ${platform}.`;
+  return {
+    id: 'unavailable',
+    available: false,
+    reason,
+    source: new UnavailableActivitySource(),
+    capabilities: {
+      platform,
+      collector: 'unavailable',
+      available: false,
+      sessionType: 'unknown',
+      windowTitles: 'unavailable',
+    },
+  };
+}
+
+class UnavailableActivitySource implements ActivitySource {
+  async getActiveWindow() { return null; }
 }
 
 export class WindowsActivitySource implements ActivitySource {
@@ -24,6 +124,8 @@ export class WindowsActivitySource implements ActivitySource {
     timer: ReturnType<typeof setTimeout>;
   }> = [];
 
+  constructor(private readonly captureWindowTitles: () => boolean = () => false) {}
+
   async getActiveWindow(): Promise<ActiveWindowInfo | null> {
     if (process.platform !== 'win32') return null;
     this.ensureBridge();
@@ -34,7 +136,7 @@ export class WindowsActivitySource implements ActivitySource {
         reject(new Error('Windows did not return the foreground application in time.'));
       }, 3_000);
       this.pending.push({ resolve, reject, timer });
-      this.child?.stdin.write("sample\n");
+      this.child?.stdin.write(this.captureWindowTitles() ? "sample-title\n" : "sample\n");
     });
   }
 
@@ -48,7 +150,7 @@ export class WindowsActivitySource implements ActivitySource {
 
   private ensureBridge() {
     if (this.child && !this.child.killed) return;
-    const encoded = Buffer.from(WINDOWS_BRIDGE, 'utf16le').toString('base64');
+    const encoded = Buffer.from(WINDOWS_ACTIVITY_BRIDGE, 'utf16le').toString('base64');
     this.child = spawn('powershell.exe', [
       '-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encoded,
     ], { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
@@ -97,7 +199,7 @@ const friendlyName = (name: string) => ({
   Spotify: 'Spotify', WindowsTerminal: 'Windows Terminal', explorer: 'File Explorer',
 }[name] ?? name);
 
-const WINDOWS_BRIDGE = String.raw`
+export const WINDOWS_ACTIVITY_BRIDGE = String.raw`
 $source = @'
 using System;
 using System.Runtime.InteropServices;
@@ -112,7 +214,7 @@ public static class PCRecapForeground {
 '@
 Add-Type -TypeDefinition $source
 while (($request = [Console]::In.ReadLine()) -ne $null) {
-  if ($request -ne 'sample') { continue }
+  if ($request -ne 'sample' -and $request -ne 'sample-title') { continue }
   try {
     $process = Get-Process -Id ([PCRecapForeground]::GetProcessId()) -ErrorAction Stop
     $path = ''
@@ -127,7 +229,8 @@ while (($request = [Console]::In.ReadLine()) -ne $null) {
         })
       } catch {}
     }
-    [pscustomobject]@{ name = $process.ProcessName; executable = $executable; path = $path; title = [PCRecapForeground]::GetTitle(); children = $children } | ConvertTo-Json -Compress -Depth 3
+    $title = if ($request -eq 'sample-title') { [PCRecapForeground]::GetTitle() } else { '' }
+    [pscustomobject]@{ name = $process.ProcessName; executable = $executable; path = $path; title = $title; pid = $process.Id; children = $children } | ConvertTo-Json -Compress -Depth 3
   } catch {
     [pscustomobject]@{ error = $_.Exception.Message } | ConvertTo-Json -Compress
   }

@@ -3,13 +3,16 @@ import test from 'node:test';
 import { basename, join } from 'node:path';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { artifactNames, buildSmokeCommand, resolveSmokePaths, waitForReport } from './visual-smoke.mjs';
+import { artifactNames, buildSmokeCommand, resolveSmokePaths, viewportMatrix, waitForReport } from './visual-smoke.mjs';
 
 test('visual smoke uses an Electron helper and isolated screenshot artifacts', () => {
   const paths = resolveSmokePaths('C:\\workspace\\pc-recap');
   assert.equal(basename(paths.helper), 'visual-smoke-electron.cjs');
   assert.equal(basename(paths.renderer), 'index.html');
-  assert.deepEqual(artifactNames, ['home-default.png', 'home-minimum.png', 'search-overlay.png']);
+  assert.deepEqual(artifactNames, ['home-default.png', 'home-minimum.png', 'search-overlay.png', 'on-this-day.png', 'yearly-system.png']);
+  assert.deepEqual(viewportMatrix.map(({ width, height }) => `${width}x${height}`), [
+    '980x680', '1024x768', '1280x720', '1366x768', '1440x900', '1920x1080',
+  ]);
   const command = buildSmokeCommand(process.cwd());
   assert.ok(command.executable.toLowerCase().includes('electron'));
   assert.deepEqual(command.args, [command.paths.helper]);
@@ -51,4 +54,7 @@ test('visual smoke waits for the populated Today cover before its first screensh
   assert.match(helper, /assert\.equal\(layout\.firstShelfCoverVisible, true\)/);
   assert.match(helper, /await waitForVisible\(window, `\[role="dialog"\]/);
   assert.match(helper, /assert\.notDeepEqual\(searchImage, minimumImage/);
+  assert.match(helper, /\.day-echoes__card/);
+  assert.match(helper, /\.recap-scene--system/);
+  assert.match(helper, /viewportResults/);
 });

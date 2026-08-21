@@ -5,6 +5,7 @@
 .yearly-recap--sprint { background: var(--acid); }
 .yearly-recap--era { background: var(--pink); }
 .yearly-recap--memory { background: var(--cobalt); color: var(--clean-paper); }
+.yearly-recap--system { background: var(--ink); color: var(--clean-paper); }
 .yearly-recap--record { background: var(--ink); color: var(--clean-paper); }
 .yearly-recap--relationship { background: var(--acid); }
 .yearly-recap--rhythm { background: var(--yellow); }
@@ -59,6 +60,11 @@
 .recap-memory-ticket { position: absolute; right: 6%; bottom: 10%; display: grid; width: 180px; height: 260px; place-items: center; align-content: center; gap: 14px; border: 3px solid currentColor; background: var(--memory-color, var(--yellow)); color: var(--ink); transform: rotate(5deg); }
 .recap-memory-ticket span, .recap-memory-ticket i { font: 750 10px var(--mono); font-style: normal; }
 .recap-memory-ticket b { font: 850 48px/.8 var(--display); }
+.recap-system-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: min(920px, 100%); margin-top: 36px; border: 3px solid var(--clean-paper); }
+.recap-system-facts > div { display: grid; min-height: 140px; align-content: space-between; gap: 12px; padding: 20px; border-right: 2px solid var(--clean-paper); }
+.recap-system-facts > div:last-child { border-right: 0; }
+.recap-system-facts span { font: 700 10px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+.recap-system-facts b { color: var(--acid); font: 850 clamp(38px, 6vw, 76px)/.8 var(--display); letter-spacing: -.06em; }
 .recap-scene--record > strong { margin-top: 20px; color: var(--acid); font: 850 clamp(70px, 10vw, 150px)/.8 var(--display); letter-spacing: -.075em; }
 .recap-record-lines { position: absolute; top: 15%; right: 5%; display: grid; gap: 14px; width: 32%; transform: rotate(-9deg); }
 .recap-record-lines i { height: 36px; border: 2px solid var(--clean-paper); }
@@ -90,6 +96,9 @@
   .recap-mini-chart li:nth-child(2) { border-right: 0; }
   .finale-card { display: none; }
   .recap-months, .recap-era-stamp, .recap-memory-ticket { opacity: .25; }
+  .recap-system-facts { grid-template-columns: 1fr; }
+  .recap-system-facts > div { min-height: 78px; border-right: 0; border-bottom: 2px solid var(--clean-paper); }
+  .recap-system-facts > div:last-child { border-bottom: 0; }
 }
 
 .recap-studio { max-width: 1120px; }

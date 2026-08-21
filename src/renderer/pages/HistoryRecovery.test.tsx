@@ -39,8 +39,23 @@ describe('HistoryRecovery', () => {
     expect(api.commitHistoryImport).toHaveBeenCalledWith('preview-1');
   });
 
-  it('keeps browser history disabled until explicit consent', () => {
+  it('does not offer invasive browser-history recovery', () => {
     render(<HistoryRecovery api={createTestApi()} onChanged={() => undefined} />);
-    expect(screen.getByRole('checkbox', { name: /include browser history clues/i })).not.toBeChecked();
+    expect(screen.queryByRole('checkbox', { name: /browser history/i })).not.toBeInTheDocument();
+    expect(screen.getByText(/never reads browser history/i)).toBeVisible();
+  });
+
+  it('describes the available launcher recovery outside Windows without promising Windows or Epic metadata', async () => {
+    const api = createTestApi();
+    api.getTrackingDiagnostics = vi.fn().mockResolvedValue({
+      version: '1.2.0', os: 'Linux', architecture: 'x64', activityCollector: 'linux-x11', collectorAvailable: true,
+      sessionType: 'x11', windowTitleCapability: 'disabled', trackingState: 'tracking', idleThresholdSeconds: 300,
+      startupEnabled: false, trayAvailable: true, performanceHistoryEnabled: true,
+    });
+
+    render(<HistoryRecovery api={api} onChanged={() => undefined} />);
+
+    expect(await screen.findByText('Local Steam metadata')).toBeVisible();
+    expect(screen.queryByText(/Steam and Epic metadata/)).not.toBeInTheDocument();
   });
 });

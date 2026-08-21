@@ -22,6 +22,8 @@ const api: PCRecapAPI = {
   setAppCategory: (appId, categoryId) => ipcRenderer.invoke('app:set-category', appId, categoryId),
   setAppExcluded: (appId, excluded) => ipcRenderer.invoke('app:set-excluded', appId, excluded),
   getTrackingStatus: () => ipcRenderer.invoke('tracking:status'),
+  getTrackingDiagnostics: () => ipcRenderer.invoke('diagnostics:get'),
+  copyTrackingDiagnostics: () => ipcRenderer.invoke('diagnostics:copy'),
   setTrackingEnabled: (enabled) => ipcRenderer.invoke('tracking:set', enabled),
   onTrackingStatus: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, status: TrackingStatus) => callback(status);
@@ -31,7 +33,7 @@ const api: PCRecapAPI = {
   exportBackup: () => ipcRenderer.invoke('backup:export'),
   importBackup: () => ipcRenderer.invoke('backup:import'),
   previewHistoryFile: () => ipcRenderer.invoke('history:preview-file'),
-  scanWindowsHistory: (includeBrowserHistory) => ipcRenderer.invoke('history:scan-windows', includeBrowserHistory),
+  scanWindowsHistory: () => ipcRenderer.invoke('history:scan-windows'),
   commitHistoryImport: (previewId) => ipcRenderer.invoke('history:commit-import', previewId),
   cancelHistoryPreview: (previewId) => ipcRenderer.invoke('history:cancel-preview', previewId),
   listMemoryPins: (start, end) => ipcRenderer.invoke('memory-pins:list', start, end),

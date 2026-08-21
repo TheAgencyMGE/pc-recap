@@ -34,6 +34,35 @@ const FRIENDLY_NAMES: Record<string, string> = {
   'pc recap': 'PC Recap',
 };
 
+interface CanonicalPackage {
+  id: string;
+  name: string;
+  identifiers: readonly string[];
+}
+
+const CANONICAL_PACKAGES: CanonicalPackage[] = [
+  { id: 'chrome', name: 'Chrome', identifiers: ['chrome', 'chrome.exe', 'google chrome', 'google-chrome', 'google-chrome-stable', 'com.google.chrome'] },
+  { id: 'firefox', name: 'Firefox', identifiers: ['firefox', 'firefox.exe', 'org.mozilla.firefox'] },
+  { id: 'microsoft-edge', name: 'Microsoft Edge', identifiers: ['msedge', 'msedge.exe', 'microsoft-edge', 'com.microsoft.edgemac'] },
+  { id: 'discord', name: 'Discord', identifiers: ['discord', 'discord.exe', 'com.hnc.discord'] },
+  { id: 'spotify', name: 'Spotify', identifiers: ['spotify', 'spotify.exe', 'com.spotify.client'] },
+  { id: 'steam', name: 'Steam', identifiers: ['steam', 'steam.exe', 'com.valvesoftware.steam'] },
+  { id: 'visual-studio-code', name: 'Visual Studio Code', identifiers: ['code', 'code.exe', 'visual studio code', 'com.microsoft.vscode'] },
+  { id: 'visual-studio', name: 'Visual Studio', identifiers: ['devenv', 'devenv.exe', 'com.microsoft.visual-studio'] },
+  { id: 'slack', name: 'Slack', identifiers: ['slack', 'slack.exe', 'com.tinyspeck.slackmacgap'] },
+  { id: 'microsoft-teams', name: 'Microsoft Teams', identifiers: ['teams', 'teams.exe', 'ms-teams', 'ms-teams.exe', 'com.microsoft.teams2'] },
+  { id: 'windows-terminal', name: 'Windows Terminal', identifiers: ['windowsterminal', 'windowsterminal.exe', 'microsoft.windows.terminal'] },
+  { id: 'apple-terminal', name: 'Terminal', identifiers: ['terminal', 'com.apple.terminal'] },
+  { id: 'iterm2', name: 'iTerm2', identifiers: ['iterm2', 'com.googlecode.iterm2'] },
+  { id: 'pycharm', name: 'PyCharm', identifiers: ['pycharm', 'pycharm64.exe', 'com.jetbrains.pycharm'] },
+  { id: 'intellij-idea', name: 'IntelliJ IDEA', identifiers: ['idea', 'idea64.exe', 'com.jetbrains.intellij'] },
+  { id: 'webstorm', name: 'WebStorm', identifiers: ['webstorm', 'webstorm64.exe', 'com.jetbrains.webstorm'] },
+];
+
+const PACKAGE_BY_IDENTIFIER = new Map(
+  CANONICAL_PACKAGES.flatMap((entry) => entry.identifiers.map((identifier) => [identifier, entry] as const)),
+);
+
 const SHELL_ONLY_EXECUTABLES = new Set<string>(DEFAULT_IGNORED_APPLICATIONS.map((item) => item.executable));
 
 export function isDefaultIgnoredApplication(info: Pick<ActiveWindowInfo, 'name' | 'executable' | 'path' | 'title'>): boolean {
@@ -71,6 +100,18 @@ export function normalizeApplication(info: ActiveWindowInfo, alias?: Application
     };
   }
 
+  const packaged = resolveCanonicalPackage(info);
+  if (packaged) {
+    return {
+      ...info,
+      name: packaged.name,
+      canonicalId: packaged.id,
+      canonicalName: packaged.name,
+      ignoredByDefault: isDefaultIgnoredApplication({ ...info, name: packaged.name }),
+      identitySource: 'package',
+    };
+  }
+
   const processName = info.executable.replace(/\.exe$/i, '').trim();
   const rawName = info.name.trim();
   const lookup = (rawName || processName).toLowerCase();
@@ -87,6 +128,13 @@ export function normalizeApplication(info: ActiveWindowInfo, alias?: Application
     ignoredByDefault: isDefaultIgnoredApplication({ ...info, name: meaningfulName }),
     identitySource: rawName ? 'process' : 'fallback',
   };
+}
+
+function resolveCanonicalPackage(info: ActiveWindowInfo): CanonicalPackage | undefined {
+  const identifiers = [info.bundleId, info.executable, info.name]
+    .filter((value): value is string => Boolean(value?.trim()))
+    .map((value) => value.trim().toLowerCase());
+  return identifiers.map((value) => PACKAGE_BY_IDENTIFIER.get(value)).find(Boolean);
 }
 
 export function chooseHostedApplication(host: ActiveWindowInfo, children: ActiveWindowInfo[]): ActiveWindowInfo {

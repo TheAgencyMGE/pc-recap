@@ -1,6 +1,6 @@
 import type { RecoveredEventInput } from '../../shared/types.js';
 import { readWindowsActivityHistoryEvents } from './activity-history.js';
-import { readBrowserHistoryEvents } from './browser-history.js';
+import { readEpicGameEvents, readSteamGameEvents } from './game-launchers.js';
 import { readInstalledAppEvents } from './installed-apps.js';
 import { readPrefetchEvents } from './prefetch.js';
 import { readUserAssistEvents } from './user-assist.js';
@@ -17,26 +17,26 @@ export interface RecoveryScanResult {
   warnings: string[];
 }
 
-const defaultReaders = (): RecoveryReader[] => [
-  { id: 'installed-apps', label: 'Installed apps', read: readInstalledAppEvents },
-  { id: 'userassist', label: 'Windows UserAssist', read: readUserAssistEvents },
-  { id: 'prefetch', label: 'Windows Prefetch', read: readPrefetchEvents },
-  { id: 'activity-history', label: 'Windows Activity History', read: readWindowsActivityHistoryEvents },
+const defaultReaders = (platform: NodeJS.Platform): RecoveryReader[] => [
+  ...(platform === 'win32' ? [
+    { id: 'installed-apps', label: 'Installed apps', read: readInstalledAppEvents },
+    { id: 'userassist', label: 'Windows UserAssist', read: readUserAssistEvents },
+    { id: 'prefetch', label: 'Windows Prefetch', read: readPrefetchEvents },
+    { id: 'activity-history', label: 'Windows Activity History', read: readWindowsActivityHistoryEvents },
+    { id: 'epic-games', label: 'Epic Games local manifests', read: readEpicGameEvents },
+  ] : []),
+  { id: 'steam-games', label: 'Steam local metadata', read: readSteamGameEvents },
 ];
 
 export async function scanWindowsHistory(options: {
   platform?: NodeJS.Platform;
   readers?: RecoveryReader[];
-  includeBrowserHistory?: boolean;
-  browserReader?: RecoveryReader;
 } = {}): Promise<RecoveryScanResult> {
-  if ((options.platform ?? process.platform) !== 'win32') {
-    return { events: [], sources: [], warnings: ['Pre-install history recovery is currently only available on Windows.'] };
+  const platform = options.platform ?? process.platform;
+  if (!['win32', 'darwin', 'linux'].includes(platform)) {
+    return { events: [], sources: [], warnings: ['Local history recovery is unavailable on this operating system.'] };
   }
-  const readers = [...(options.readers ?? defaultReaders())];
-  if (options.includeBrowserHistory) readers.push(options.browserReader ?? {
-    id: 'browser-history', label: 'Browser history', read: readBrowserHistoryEvents,
-  });
+  const readers = [...(options.readers ?? defaultReaders(platform))];
   const settled = await Promise.all(readers.map(async (reader) => {
     try {
       const events = await reader.read();

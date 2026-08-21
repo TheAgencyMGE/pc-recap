@@ -1,10 +1,20 @@
-import { WindowsActivitySource } from '../dist/main/activity-source.js';
+import { createPlatformActivitySource } from '../dist/main/activity-source.js';
 
-const source = new WindowsActivitySource();
+const selection = createPlatformActivitySource();
 
 try {
-  const activeWindow = await source.getActiveWindow();
-  console.log(JSON.stringify(activeWindow));
+  try {
+    const activeWindow = await selection.source.getActiveWindow();
+    console.log(JSON.stringify({ collector: selection.id, available: selection.available, reason: selection.reason, sampleAvailable: Boolean(activeWindow) }));
+  } catch (error) {
+    console.log(JSON.stringify({
+      collector: selection.id,
+      available: selection.available,
+      reason: selection.reason,
+      sampleAvailable: false,
+      sampleError: error instanceof Error ? error.message : 'Collector sample unavailable in this environment.',
+    }));
+  }
 } finally {
-  source.dispose();
+  selection.source.dispose?.();
 }

@@ -1,6 +1,7 @@
 {
   "name": "pc-recap",
-  "version": "1.1.0",
+  "desktopName": "pc-recap.desktop",
+  "version": "1.2.0",
   "private": true,
   "author": "PC Recap",
   "license": "GPL-3.0-only",
@@ -19,7 +20,7 @@
   "description": "A local-first visual time capsule for your PC life.",
   "main": "dist/main/main.js",
   "scripts": {
-    "dev": "npm run build:main && concurrently -k \"vite --host 127.0.0.1\" \"tsc -p tsconfig.main.json --watch --preserveWatchOutput\" \"esbuild src/main/preload.ts --bundle --platform=node --format=cjs --external:electron --outfile=dist/main/preload.cjs --watch\" \"wait-on tcp:127.0.0.1:5173 dist/main/main.js dist/main/preload.cjs && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron .\"",
+    "dev": "npm run build:main && concurrently -k \"vite --host 127.0.0.1\" \"tsc -p tsconfig.main.json --watch --preserveWatchOutput\" \"esbuild ./src/main/preload.ts --bundle --platform=node --format=cjs --external:electron --outfile=dist/main/preload.cjs --watch\" \"wait-on tcp:127.0.0.1:5173 dist/main/main.js dist/main/preload.cjs && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron .\"",
     "test": "cross-env ELECTRON_RUN_AS_NODE=1 electron ./node_modules/vitest/vitest.mjs",
     "test:run": "cross-env ELECTRON_RUN_AS_NODE=1 electron ./node_modules/vitest/vitest.mjs run",
     "smoke:activity": "cross-env ELECTRON_RUN_AS_NODE=1 electron scripts/smoke-activity.mjs",
@@ -33,9 +34,14 @@
     "release:verify": "node scripts/verify-installer.mjs",
     "release:prepare": "node scripts/verify-installer.mjs --write-checksum",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.main.json --noEmit",
-    "build:main": "tsc -p tsconfig.main.json && esbuild src/main/preload.ts --bundle --platform=node --format=cjs --external:electron --outfile=dist/main/preload.cjs",
+    "build:main": "tsc -p tsconfig.main.json && esbuild ./src/main/preload.ts --bundle --platform=node --format=cjs --external:electron --outfile=dist/main/preload.cjs",
     "build": "rimraf dist && npm run build:main && vite build",
     "package": "npm run build && electron-builder",
+    "package:win": "npm run build && electron-builder --win --x64",
+    "package:mac": "npm run build && electron-builder --mac --x64 --arm64",
+    "package:linux": "npm run build && electron-builder --linux --x64",
+    "package:check": "npm run build && electron-builder --dir",
+    "benchmark:performance": "npm run build:main && cross-env ELECTRON_RUN_AS_NODE=1 electron scripts/benchmark-performance.mjs",
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
@@ -70,10 +76,11 @@
   "build": {
     "appId": "com.pcrecap.app",
     "productName": "PC Recap",
-    "electronDist": "node_modules/electron/dist",
+    "electronLanguages": ["en-US"],
     "asar": true,
     "directories": {
-      "output": "release"
+      "output": "release",
+      "buildResources": "build"
     },
     "files": [
       "dist/**/*",
@@ -90,9 +97,33 @@
       }
     ],
     "win": {
-      "target": "nsis",
-      "icon": "build/icon.svg",
+      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "icon": "build/icon.ico",
       "artifactName": "PC-Recap-${version}-Setup.${ext}"
+    },
+    "mac": {
+      "target": [{ "target": "dmg", "arch": ["x64", "arm64"] }],
+      "icon": "build/icon.png",
+      "artifactName": "PC-Recap-${version}-mac-${arch}.${ext}",
+      "category": "public.app-category.utilities",
+      "extendInfo": {
+        "NSAppleEventsUsageDescription": "PC Recap uses System Events only when you enable optional window-title capture. Activity and titles stay on this Mac."
+      }
+    },
+    "linux": {
+      "target": [
+        { "target": "AppImage", "arch": ["x64"] },
+        { "target": "deb", "arch": ["x64"] }
+      ],
+      "icon": "build/icon.png",
+      "artifactName": "PC-Recap-${version}-linux-${arch}.${ext}",
+      "category": "Utility",
+      "executableName": "pc-recap",
+      "syncDesktopName": true,
+      "maintainer": "PC Recap <TheAgencyMGE@users.noreply.github.com>",
+      "vendor": "PC Recap",
+      "synopsis": "A visual time capsule for your computer life",
+      "description": "PC Recap turns locally recorded application activity into visual daily, weekly, monthly, and yearly recaps."
     },
     "nsis": {
       "oneClick": false,

@@ -5,6 +5,7 @@ import { ObservationPoster } from '../components/ObservationPoster';
 import { StatCard } from '../components/StatCard';
 import { TrackList } from '../components/TrackList';
 import { SparkBars } from '../components/Visuals';
+import { SystemLinerNotes } from '../components/SystemLinerNotes';
 import { formatClock, formatDate, formatDuration } from '../lib/format';
 import { themeForPeriod } from '../lib/visual-theme';
 import type { RouteId } from '../routes';
@@ -19,7 +20,7 @@ export function PeriodView({ summary, onNavigate }: { summary: PeriodSummary; on
   const chartData = summary.daily.length ? summary.daily : summary.hourly;
   const relationship = pair && summary.relationships.find((item) => (item.appA === pair.appA && item.appB === pair.appB) || (item.appA === pair.appB && item.appB === pair.appA));
   const availableDays = countCalendarDays(summary.kind === 'all-time' ? summary.firstActivity ?? summary.rangeEnd : summary.rangeStart, summary.rangeEnd);
-  return <motion.main className={`page period-page period-page--${summary.kind}`} style={{ '--page-bg': theme.background, '--page-fg': theme.foreground, '--page-accent': theme.accent } as React.CSSProperties} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+  return <motion.main className={`page period-page period-page--${summary.kind}`} style={{ '--page-bg': theme.background, '--page-fg': theme.foreground, '--page-accent': theme.accent } as React.CSSProperties} initial={false} animate={{ opacity: 1 }}>
     <header className="simple-page-heading"><h1>{titles[summary.kind] ?? summary.label}</h1><span>{summary.label}</span></header>
     <section className="period-cover">
       <div><strong>{formatDuration(summary.totalSeconds)}</strong><p>{summary.previousTotalSeconds > 0 ? `${summary.changePercent >= 0 ? '+' : '−'}${Math.abs(summary.changePercent)}% · ${summary.comparisonLabel}` : 'First comparable chapter'}</p></div>
@@ -36,6 +37,7 @@ export function PeriodView({ summary, onNavigate }: { summary: PeriodSummary; on
       <div className="poster-stack">{summary.observations.slice(0, 2).map((observation) => <ObservationPoster key={observation.id} observation={observation} />)}</div>
     </section>
     <section className="period-print"><header><h2>{summary.daily.length ? 'Activity by day' : 'Activity by hour'}</h2></header><SparkBars data={chartData} color={theme.accent} scale={summary.daily.length ? 'day' : 'hour'} /></section>
+    <SystemLinerNotes activity={summary.activity} performance={summary.performance} />
     {(pair || summary.categories[0]) && <section className="liner-facts">
       {pair && <div><span>Together</span><b>{pair.appA} + {pair.appB}</b><small>{relationship?.transitions ?? 0} switches across {pair.daysTogether} days</small></div>}
       {summary.categories[0] && <div><span>Category</span><b>{summary.categories[0].name}</b><small>{summary.categories[0].share}% of tracked time</small></div>}

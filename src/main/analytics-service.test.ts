@@ -62,6 +62,86 @@ describe('AnalyticsService local calendar semantics', () => {
     expect(service.getSummary('today')).toMatchObject({ totalSeconds: 120, sessionCount: 1 });
   });
 
+  it('keeps active, idle, suspended, and recap-total time understandable and separate', () => {
+    const repository = new ActivityRepository(':memory:');
+    repositories.push(repository);
+    repository.insertSession({
+      id: 'active-hour', appId: 'code', appName: 'Visual Studio Code', categoryId: 'coding',
+      startedAt: '2026-08-15T10:00:00.000Z', endedAt: '2026-08-15T11:00:00.000Z', durationSeconds: 3_600,
+    });
+    repository.insertActivityStateInterval({
+      id: 'idle-quarter', state: 'idle', startedAt: '2026-08-15T11:00:00.000Z', endedAt: '2026-08-15T11:15:00.000Z',
+      durationSeconds: 900, machineId: 'pc', source: 'os-idle',
+    });
+    repository.insertActivityStateInterval({
+      id: 'overnight-sleep', state: 'suspended', startedAt: '2026-08-15T12:00:00.000Z', endedAt: '2026-08-15T20:00:00.000Z',
+      durationSeconds: 28_800, machineId: 'pc', source: 'power-monitor',
+    });
+    const service = new AnalyticsService(
+      repository,
+      () => ({ state: 'tracking' }),
+      () => new Date('2026-08-15T21:00:00.000Z'),
+    );
+
+    expect(service.getSummary('today').activity).toEqual({
+      activeSeconds: 3_600,
+      passiveSeconds: 0,
+      idleSeconds: 900,
+      lockedSeconds: 0,
+      suspendedSeconds: 28_800,
+      unavailableSeconds: 0,
+      untrackedSeconds: 0,
+      observedSeconds: 4_500,
+      awayPercentage: 20,
+      recapTotalSeconds: 3_600,
+      includesIdleInRecapTotal: false,
+    });
+    repository.updateSettings({ includeIdleInRecapTotals: true } as never);
+    expect(service.getSummary('today').activity.recapTotalSeconds).toBe(4_500);
+  });
+
+  it('turns performance rollups into honest recap context and records', () => {
+    const repository = new ActivityRepository(':memory:');
+    repositories.push(repository);
+    const samples = [
+      { id: 'p1', sampledAt: '2026-08-20T10:00:00.000Z', cpuPercent: 80, memoryPercent: 75, memoryUsedBytes: 12_000, batteryPercent: 70, powerState: 'battery' as const, foregroundAppId: 'minecraft', foregroundAppName: 'Minecraft' },
+      { id: 'p2', sampledAt: '2026-08-20T10:00:10.000Z', cpuPercent: 60, memoryPercent: 60, memoryUsedBytes: 9_000, batteryPercent: 71, powerState: 'ac' as const, foregroundAppId: 'code', foregroundAppName: 'Visual Studio Code' },
+      { id: 'p3', sampledAt: '2026-08-20T10:00:20.000Z', cpuPercent: 90, memoryPercent: 85, memoryUsedBytes: 13_000, batteryPercent: 72, powerState: 'charging' as const, foregroundAppId: 'minecraft', foregroundAppName: 'Minecraft' },
+    ];
+    for (const sample of samples) repository.insertPerformanceSample({
+      ...sample, machineId: 'pc', intervalSeconds: 10,
+    });
+    const service = new AnalyticsService(
+      repository,
+      () => ({ state: 'tracking' }),
+      () => new Date('2026-08-20T21:00:00.000Z'),
+    );
+
+    const summary = service.getSummary('today');
+    expect(summary.performance).toMatchObject({
+      sampleCount: 3,
+      cpuAverage: 76.7,
+      cpuPeak: 90,
+      cpuPeakAt: '2026-08-20T10:00:20.000Z',
+      memoryPercentAverage: 73.3,
+      memoryPercentPeak: 85,
+      highLoadSeconds: 20,
+      batteryUsagePercentage: 33,
+      pluggedInPercentage: 67,
+      highestLoadContext: {
+        appId: 'minecraft', appName: 'Minecraft', sampleCount: 2, cpuAverage: 85, highLoadSeconds: 20,
+      },
+    });
+    expect(summary.records).toContainEqual(expect.objectContaining({
+      id: 'highest-cpu', value: '90%', achievedAt: '2026-08-20T10:00:20.000Z',
+    }));
+    expect(service.getDayReplay('2026-08-20').performanceSamples).toEqual([
+      expect.objectContaining({ sampledAt: '2026-08-20T10:00:00.000Z', cpuPercent: 80, memoryPercent: 75 }),
+      expect.objectContaining({ sampledAt: '2026-08-20T10:00:10.000Z', cpuPercent: 60, memoryPercent: 60 }),
+      expect.objectContaining({ sampledAt: '2026-08-20T10:00:20.000Z', cpuPercent: 90, memoryPercent: 85 }),
+    ]);
+  });
+
   it('unlocks seven active days at the seventh day instead of the first session', () => {
     const repository = new ActivityRepository(':memory:');
     repositories.push(repository);

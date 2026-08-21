@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
-import { spawnSync } from 'node:child_process';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { createZipFromDirectory } from './zip-directory.mjs';
 
 function readArgument(name, fallback) {
   const index = process.argv.indexOf(name);
@@ -15,11 +15,6 @@ function replaceRequired(source, pattern, replacement, label) {
   return source.replace(pattern, replacement);
 }
 
-function escapePowerShellLiteral(value) {
-  return value.replaceAll("'", "''");
-}
-
-
 async function main() {
   const root = resolve(readArgument('--root', '.'));
   const date = readArgument('--date', new Date().toISOString().slice(0, 10));
@@ -31,6 +26,9 @@ async function main() {
   const metadata = JSON.parse(await readFile(resolve(root, 'release-metadata.json'), 'utf8'));
   if (packageJson.version !== metadata.version) {
     throw new Error(`Package version ${packageJson.version} does not match release metadata version ${metadata.version}.`);
+  }
+  if (!metadata.platforms || !metadata.platforms.windows || !metadata.platforms.macArm64 || !metadata.platforms.macX64 || !metadata.platforms.linuxAppImage || !metadata.platforms.linuxDeb) {
+    throw new Error('Release metadata must list every supported platform artifact.');
   }
 
   const websiteDirectory = resolve(root, 'website');
@@ -63,10 +61,24 @@ async function main() {
     `https://github.com/TheAgencyMGE/pc-recap/releases/tag/v${metadata.version}`,
     'release notes links',
   );
+  for (const [platform, artifact] of [
+    ['windows', metadata.platforms.windows],
+    ['mac-arm64', metadata.platforms.macArm64],
+    ['mac-x64', metadata.platforms.macX64],
+    ['linux-appimage', metadata.platforms.linuxAppImage],
+    ['linux-deb', metadata.platforms.linuxDeb],
+  ]) {
+    html = replaceRequired(
+      html,
+      new RegExp(`(<a\\b[^>]*data-platform="${platform}"[^>]*href=")[^"]+("[^>]*>)`, 'g'),
+      `$1${artifact.downloadUrl}$2`,
+      `${platform} download links`,
+    );
+  }
   html = replaceRequired(
     html,
-    /v\d+\.\d+\.\d+ beta · x64/,
-    `v${metadata.version} beta · x64`,
+    /v\d+\.\d+\.\d+ beta(?: · x64)?/,
+    `v${metadata.version} beta`,
     'visible release label',
   );
   html = replaceRequired(
@@ -97,16 +109,7 @@ async function main() {
 
   const archivePath = resolve(artifactsDirectory, 'pc-recap-netlify.zip');
   await rm(archivePath, { force: true });
-  const sourceGlob = `${escapePowerShellLiteral(websiteDirectory)}\\*`;
-  const destination = escapePowerShellLiteral(archivePath);
-  const archiveResult = spawnSync(
-    'powershell.exe',
-    ['-NoProfile', '-NonInteractive', '-Command', `Compress-Archive -Path '${sourceGlob}' -DestinationPath '${destination}' -Force`],
-    { encoding: 'utf8' },
-  );
-  if (archiveResult.status !== 0) {
-    throw new Error(archiveResult.stderr || archiveResult.stdout || 'Could not create the Netlify archive.');
-  }
+  await createZipFromDirectory(websiteDirectory, archivePath);
 
   console.log(`Prepared PC Recap ${metadata.version} promotion assets.`);
   console.log(`Website archive: ${archivePath}`);

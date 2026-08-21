@@ -1,6 +1,6 @@
 import { writeFile } from 'node:fs/promises';
 import { basename } from 'node:path';
-import { app, dialog, ipcMain } from 'electron';
+import { clipboard, dialog, ipcMain } from 'electron';
 import type { BrowserWindow, IpcMainInvokeEvent } from 'electron';
 import { BACKUP_EXTENSION, LEGACY_BACKUP_EXTENSIONS, PRODUCT_NAME } from '../shared/brand.js';
 import type { Category, MemoryPin, PeriodKind, RecapSelection, TrackingSettings } from '../shared/types.js';
@@ -10,6 +10,7 @@ import type { ActivityRepository } from './database.js';
 import type { AppIconService } from './app-icon-service.js';
 import type { HistoryRecoveryService } from './history-recovery-service.js';
 import type { ActivityTracker } from './tracker.js';
+import type { DiagnosticsService } from './diagnostics-service.js';
 
 interface IpcDependencies {
   repository: ActivityRepository;
@@ -18,6 +19,9 @@ interface IpcDependencies {
   backup: BackupService;
   icons: AppIconService;
   history: HistoryRecoveryService;
+  diagnostics: DiagnosticsService;
+  setLaunchAtStartup: (enabled: boolean) => Promise<void>;
+  getVersion: () => string;
   eraseHistory: () => Promise<void>;
   getMainWindow: () => BrowserWindow | null;
   trustedRendererUrl: string;
@@ -29,7 +33,7 @@ const safeYear = (value: unknown) => typeof value === 'number' && value >= 1970 
 const cleanName = (value: string) => basename(value).replace(/[^a-zA-Z0-9 ._-]/g, '').slice(0, 80) || 'PC-Recap.png';
 
 export function registerIpcHandlers({
-  repository, analytics, tracker, backup, icons, history, eraseHistory, getMainWindow, trustedRendererUrl,
+  repository, analytics, tracker, backup, icons, history, diagnostics, setLaunchAtStartup, getVersion, eraseHistory, getMainWindow, trustedRendererUrl,
 }: IpcDependencies) {
   const handle = (channel: string, listener: (...args: any[]) => unknown) => {
     ipcMain.handle(channel, (event, ...args) => {
@@ -52,18 +56,27 @@ export function registerIpcHandlers({
   handle('achievements:get', () => analytics.getAchievements());
   handle('on-this-day:get', () => analytics.getOnThisDay());
   handle('settings:get', () => repository.getSettings());
-  handle('settings:update', (patch: Partial<TrackingSettings>) => {
+  handle('settings:update', async (patch: Partial<TrackingSettings>) => {
     const allowed: Partial<TrackingSettings> = {};
     const keys: Array<keyof TrackingSettings> = [
       'trackingEnabled', 'launchAtStartup', 'minimizeToTray', 'captureWindowTitles',
       'sampleIntervalSeconds', 'idleThresholdSeconds', 'excludedExecutables',
+      'includeIdleInRecapTotals', 'performanceHistoryEnabled', 'performanceSampleIntervalSeconds',
       'includedExecutables',
       'onboardingComplete',
     ];
     for (const key of keys) if (Object.hasOwn(patch ?? {}, key)) (allowed as Record<string, unknown>)[key] = patch[key];
+    const previous = repository.getSettings();
     const settings = repository.updateSettings(allowed);
-    app.setLoginItemSettings({ openAtLogin: settings.launchAtStartup });
-    return settings;
+    if (settings.launchAtStartup !== previous.launchAtStartup) {
+      try {
+        await setLaunchAtStartup(settings.launchAtStartup);
+      } catch (error) {
+        repository.updateSettings({ launchAtStartup: previous.launchAtStartup });
+        throw error;
+      }
+    }
+    return repository.getSettings();
   });
   handle('categories:get', () => repository.getCategories());
   handle('category:save', (category: Category) => {
@@ -80,6 +93,8 @@ export function registerIpcHandlers({
   handle('app:set-category', (appId, categoryId) => repository.setAppCategory(String(appId), String(categoryId)));
   handle('app:set-excluded', (appId, excluded) => repository.setAppExcluded(String(appId), Boolean(excluded)));
   handle('tracking:status', () => tracker.getStatus());
+  handle('diagnostics:get', () => diagnostics.get());
+  handle('diagnostics:copy', () => { clipboard.writeText(diagnostics.format()); });
   handle('tracking:set', async (enabled) => {
     if (enabled) await tracker.resume(); else await tracker.pause();
     return tracker.getStatus();
@@ -120,7 +135,7 @@ export function registerIpcHandlers({
     if (selected.canceled || !selected.filePaths[0]) return null;
     return history.previewFile(selected.filePaths[0]);
   });
-  handle('history:scan-windows', (includeBrowserHistory) => history.scanWindows(Boolean(includeBrowserHistory)));
+  handle('history:scan-windows', () => history.scanWindows());
   handle('history:commit-import', (previewId) => history.commit(String(previewId).slice(0, 100)));
   handle('history:cancel-preview', (previewId) => history.cancel(String(previewId).slice(0, 100)));
   handle('memory-pins:list', (start, end) => repository.listMemoryPins(
@@ -143,7 +158,7 @@ export function registerIpcHandlers({
     return { ok: true, path: selected.filePath };
   });
   handle('history:delete-all', () => eraseHistory());
-  handle('app:version', () => app.getVersion());
+  handle('app:version', () => getVersion());
 }
 
 function sanitizeRecapSelection(value: unknown): RecapSelection {
