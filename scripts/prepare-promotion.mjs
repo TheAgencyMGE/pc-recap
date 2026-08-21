@@ -75,11 +75,9 @@ async function main() {
       `${platform} download links`,
     );
   }
-  html = replaceRequired(
-    html,
+  html = html.replace(
     /v\d+\.\d+\.\d+ beta(?: · x64)?/,
     `v${metadata.version} beta`,
-    'visible release label',
   );
   html = replaceRequired(
     html,

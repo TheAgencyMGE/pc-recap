@@ -5,7 +5,7 @@ import { extname, resolve } from 'node:path';
 
 const site = resolve('website');
 const required = [
-  'index.html', 'styles.css', 'site.js', 'analytics.js', '_headers', 'robots.txt', 'og.png',
+  'index.html', 'styles.css', 'site.js', 'motion.js', 'analytics.js', '_headers', 'robots.txt', 'og.png',
   'favicon.svg', 'manifest.webmanifest', 'sitemap.xml', 'indexnow-key.txt',
   'THIRD_PARTY_NOTICES.txt', 'fonts/archivo.woff2', 'fonts/instrument-sans.woff2',
   'fonts/OFL-Archivo.txt', 'fonts/OFL-Instrument-Sans.txt',
@@ -19,6 +19,7 @@ for (const file of required) await access(resolve(site, file));
 const html = await readFile(resolve(site, 'index.html'), 'utf8');
 const headers = await readFile(resolve(site, '_headers'), 'utf8');
 const script = await readFile(resolve(site, 'site.js'), 'utf8');
+const motion = await readFile(resolve(site, 'motion.js'), 'utf8');
 const analytics = await readFile(resolve(site, 'analytics.js'), 'utf8');
 const robots = await readFile(resolve(site, 'robots.txt'), 'utf8');
 const sitemap = await readFile(resolve(site, 'sitemap.xml'), 'utf8');
@@ -32,7 +33,7 @@ assert.match(html, /<title>PC Recap/i, 'The page needs product-specific metadata
 assert.match(html, /<link rel="canonical" href="https:\/\/pcrecap\.online\/"\s*\/>/i, 'The page needs a canonical production URL.');
 assert.match(html, /<link rel="icon" href="favicon\.svg" type="image\/svg\+xml"\s*\/>/i, 'The page needs its branded favicon.');
 assert.match(html, /<link rel="manifest" href="manifest\.webmanifest"\s*\/>/i, 'The page needs its web app manifest.');
-assert.match(html, /<meta name="robots" content="index, follow, max-image-preview:large"\s*\/>/i, 'The page needs explicit search preview guidance.');
+assert.match(html, /<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"\s*\/>/i, 'The page needs explicit search preview guidance.');
 assert.match(html, /property="og:image"/i, 'The page needs a social preview image.');
 assert.match(html, /property="og:url" content="https:\/\/pcrecap\.online\/"/i, 'The social preview needs the production URL.');
 assert.match(html, /property="og:image" content="https:\/\/pcrecap\.online\/og\.png"/i, 'The social preview must use an absolute image URL.');
@@ -40,6 +41,12 @@ assert.match(html, /name="twitter:image" content="https:\/\/pcrecap\.online\/og\
 assert.match(html, /<script type="application\/ld\+json">\s*\{[\s\S]*"@type":\s*"SoftwareApplication"[\s\S]*<\/script>/i, 'The page needs SoftwareApplication structured data.');
 const structuredData = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/i)?.[1];
 assert.ok(structuredData, 'The structured data block must be readable.');
+const schema = JSON.parse(structuredData);
+const softwareSchema = schema['@graph']?.find((entry) => entry['@type'] === 'SoftwareApplication');
+assert.ok(softwareSchema, 'The structured data must identify PC Recap as software.');
+assert.match(softwareSchema.operatingSystem, /Windows/i, 'Structured data must advertise Windows support.');
+assert.match(softwareSchema.operatingSystem, /macOS/i, 'Structured data must advertise macOS support.');
+assert.match(softwareSchema.operatingSystem, /Linux/i, 'Structured data must advertise Linux support.');
 const structuredDataHash = createHash('sha256').update(structuredData).digest('base64');
 assert.ok(headers.includes(`'sha256-${structuredDataHash}'`), 'The content security policy must allow the exact structured-data block.');
 assert.ok(html.includes(releaseUrl), `The primary download must use the v${metadata.version} GitHub Release asset.`);
@@ -53,12 +60,16 @@ assert.match(headers, /Content-Security-Policy:/i);
 assert.match(headers, /X-Content-Type-Options:\s*nosniff/i);
 assert.match(headers, /Referrer-Policy:/i);
 assert.match(script, /prefers-reduced-motion/);
+assert.match(script, /scrollProgress/, 'The site must drive its recap story from scroll position.');
+assert.match(script, /entry\.target\.classList\.toggle\('is-visible'/, 'Reveal scenes must be able to enter and leave with the viewport.');
+assert.match(motion, /export function storyFrame/, 'Scroll motion math must remain independently testable.');
 assert.match(html, /<script async src="https:\/\/plausible\.io\/js\/pa-XHVFKtgOfFWCJGGT6QqaS\.js"><\/script>/, 'The Plausible site tracker must load.');
 assert.match(analytics, /plausible\.init\(\)/, 'Plausible must be initialized before it loads.');
 assert.match(headers, /script-src[^\r\n]*https:\/\/plausible\.io/i, 'The content security policy must allow the Plausible tracker.');
 assert.match(headers, /connect-src[^\r\n]*https:\/\/plausible\.io/i, 'The content security policy must allow Plausible events.');
 assert.match(robots, /Sitemap:\s*https:\/\/pcrecap\.online\/sitemap\.xml/i, 'robots.txt must advertise the sitemap.');
 assert.match(sitemap, /<loc>https:\/\/pcrecap\.online\/<\/loc>/i, 'The sitemap must include the canonical home page.');
+assert.match(sitemap, /<image:loc>https:\/\/pcrecap\.online\/og\.png<\/image:loc>/i, 'The sitemap must expose the real product preview to image search.');
 assert.equal(manifest.name, 'PC Recap', 'The manifest must use the product name.');
 assert.match(manifest.description, /Windows/i, 'The manifest must describe Windows support.');
 assert.match(manifest.description, /macOS/i, 'The manifest must describe macOS support.');
@@ -74,6 +85,7 @@ for (const [index, link] of installerLinks.entries()) {
 assert.match(script, /plausible\('Download'/, 'Installer clicks must emit the Download event.');
 assert.match(script, /platform:\s*link\.dataset\.platform/, 'Download events must identify the selected platform.');
 assert.match(html, /aria-label="Download installer SHA-256 checksum"/i, 'The checksum link needs an accessible name.');
+assert.match(html, /<img\s+src="og\.png"[^>]+alt="[^"]+"/i, 'The product preview must be a crawlable image with meaningful alt text.');
 assert.deepEqual([...png.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10], 'og.png must be a real PNG.');
 const ogWidth = png.readUInt32BE(16);
 const ogHeight = png.readUInt32BE(20);

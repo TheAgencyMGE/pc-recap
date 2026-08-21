@@ -1,69 +1,88 @@
-# PC Recap
+<p align="center">
+  <img src="website/favicon.svg" width="88" height="88" alt="PC Recap logo" />
+</p>
 
-PC Recap turns real computer activity into a visual history of your digital life: daily snapshots, weekly and monthly recaps, a cinematic Yearly Recap, long-term eras, records, and an archive you can carry between computers.
+<h1 align="center">PC Recap</h1>
 
-[Website](https://pcrecap.online/) · [Download](https://github.com/TheAgencyMGE/pc-recap/releases/latest) · [GPL-3.0 license](LICENSE)
+<p align="center"><strong>Your computer life, played back.</strong></p>
 
-![PC Recap cover shelf](website/og.png)
+<p align="center">
+  A free, open-source visual time capsule for the apps, eras, late nights,<br />
+  records, and strange little patterns that made your computer history yours.
+</p>
 
-> [!IMPORTANT]
-> **PC Recap 1.2.0 is a cross-platform beta.** Windows, macOS, and Linux packages are currently unsigned; macOS builds are not notarized. Updates are installed manually from [GitHub Releases](https://github.com/TheAgencyMGE/pc-recap/releases), and beta users may encounter bugs. [Report a bug](https://github.com/TheAgencyMGE/pc-recap/issues/new?template=bug_report.yml) or [suggest an improvement](https://github.com/TheAgencyMGE/pc-recap/issues/new?template=feature_request.yml).
+<p align="center">
+  <a href="https://pcrecap.online/">Website</a> ·
+  <a href="https://github.com/TheAgencyMGE/pc-recap/releases/latest">Download</a> ·
+  <a href="docs/INSTALL.md">Install guide</a> ·
+  <a href="https://github.com/TheAgencyMGE/pc-recap/issues">Issues</a>
+</p>
 
-## What it does
+<p align="center">
+  <a href="https://github.com/TheAgencyMGE/pc-recap/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/TheAgencyMGE/pc-recap?display_name=tag&style=flat-square&color=3957ff" /></a>
+  <a href="https://github.com/TheAgencyMGE/pc-recap/actions/workflows/ci.yml"><img alt="CI status" src="https://github.com/TheAgencyMGE/pc-recap/actions/workflows/ci.yml/badge.svg?branch=main" /></a>
+  <a href="LICENSE"><img alt="GPL-3.0 license" src="https://img.shields.io/badge/license-GPL--3.0--only-c7f000?style=flat-square&labelColor=171717" /></a>
+  <img alt="Windows, macOS, and Linux" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-ff4f32?style=flat-square&labelColor=171717" />
+</p>
 
-- Records foreground application usage on Windows, macOS, and Linux X11; Wayland reports an unavailable collector instead of fabricating activity.
-- Keeps active, idle, locked, suspended, and unavailable time separate so idle never ranks as an app.
-- Optionally records lightweight CPU, memory, battery, and power-state context with bounded raw retention and durable rollups.
-- Builds Today, Week, Month, Year, All-Time, Decade, and On This Day recaps.
-- Finds deterministic observations, app pairings, streaks, records, and usage eras without AI services.
-- Replays individual days on a proportional, interactive timeline with exact local-clock labels.
-- Builds historical, seasonal, and custom stories in Recap Studio.
-- Imports exact ActivityWatch and ManicTime intervals, plus clearly separated RescueTime and WakaTime context.
-- Recovers local Windows application clues plus Steam and Epic launcher evidence without converting clues into usage time or inventing playtime.
-- Adds local Memory Pins that stay out of stories and share cards unless explicitly included.
-- Keeps history in local SQLite storage with per-app exclusions.
-- Exports and merges versioned `.pcr` backups across computers.
-- Runs from the system tray and continues collecting when the window is closed.
-- Uses native application icons and exports shareable Recap cards locally.
+![PC Recap cover shelf with Today, Week, Year, Timeline, and On This Day recaps](website/og.png)
 
-PC Recap never creates demo activity or placeholder statistics. A new archive is empty until real sessions are collected or imported.
+## A time capsule, not a timesheet
 
-## Download
+Most activity trackers focus on productivity. PC Recap is built for remembering. It records real foreground app activity, keeps it in a local SQLite archive, and turns that history into visual daily, weekly, monthly, yearly, and long-term recaps.
 
-PC Recap 1.2 packages are prepared for Windows x64 (NSIS), macOS Intel and Apple Silicon (DMG), and Linux x64 (AppImage and deb). Download the package for your computer from [GitHub Releases](https://github.com/TheAgencyMGE/pc-recap/releases/latest).
+There are no productivity grades and no invented demo activity. A new archive begins empty, then grows from sessions PC Recap actually observes or history you explicitly import.
 
-Linux foreground tracking currently requires an X11 session. Wayland does not expose a reliable universal foreground-window API, so PC Recap shows the collector as unavailable there.
+## What PC Recap remembers
 
-Windows may show SmartScreen because the installer is not Authenticode-signed. macOS may show Gatekeeper because the beta DMGs are not yet signed or notarized. PC Recap does not update automatically yet.
+- **Your recaps:** Today, Week, Month, Year, All-Time, Decade, On This Day, and a zoomable historical timeline.
+- **Your patterns:** favorite apps, categories, pairings, streaks, records, comparisons, late-night habits, and automatically detected eras.
+- **Your days:** first and last activity, longest sessions, honest active and idle time, and an interactive Day Replay.
+- **Your computer's pulse:** optional CPU, memory, battery, and power context alongside the moments that pushed your system.
+- **Your old history:** exact intervals from supported trackers, plus clearly labeled historical clues that never pretend to be measured usage.
+- **Your own stories:** custom Recap Studio stories, local Memory Pins, and shareable recap cards.
+- **Your archive:** versioned `.pcr` backups, merge previews, daily recovery backups, and storage designed for years of history.
 
-## Privacy
+Observations are generated by deterministic rules. PC Recap does not call an AI service or send activity data to one.
 
-- No account, telemetry, advertising identifier, cloud sync, or external AI API.
-- No keystrokes, screenshots, clipboard contents, or file contents.
-- No browser-history or URL scanning. Recovered clues never count as usage duration.
-- Window titles are off by default.
-- Performance history stores supported system utilization samples locally and can be disabled independently.
-- Performance sampling and database growth have a reproducible local benchmark in [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md).
-- Tracking can be paused immediately and individual executables can be excluded.
-- All history can be exported or erased from the app.
-- The marketing website uses Plausible for aggregate page and download analytics; the desktop app remains telemetry-free and never sends activity history.
+## Download PC Recap 1.2
 
-See [SECURITY.md](SECURITY.md) for vulnerability reporting.
+| System | Package | Notes |
+| --- | --- | --- |
+| Windows 10/11 x64 | [Setup.exe](https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.2.0/PC-Recap-1.2.0-Setup.exe) | Foreground tracking, tray mode, and optional startup launch |
+| macOS 12+ Apple Silicon | [DMG](https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.2.0/PC-Recap-1.2.0-mac-arm64.dmg) | For M1, M2, M3, M4, and newer Apple silicon Macs |
+| macOS 12+ Intel | [DMG](https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.2.0/PC-Recap-1.2.0-mac-x64.dmg) | For Intel-based Macs |
+| Linux x64 | [AppImage](https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.2.0/PC-Recap-1.2.0-linux-x64.AppImage) · [deb](https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.2.0/PC-Recap-1.2.0-linux-x64.deb) | Foreground tracking currently requires X11 and `xprop` |
 
-Third-party font notices are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+These beta packages are unsigned, and macOS builds are not notarized. Windows SmartScreen or macOS Gatekeeper may therefore show a warning. Read the [install guide](docs/INSTALL.md) for safe, platform-specific steps and checksum verification.
 
-## Development
+Wayland does not expose a reliable universal foreground-window API. PC Recap opens on Wayland but reports its foreground collector as unavailable instead of inventing activity.
 
-Requirements: Node.js 22 or newer and npm. Build distributables on their target operating system.
+## Built to be inspectable
+
+- Activity and optional performance history stay on your computer.
+- No account, desktop telemetry, cloud sync, advertising identifier, or external AI API.
+- No keystrokes, screenshots, clipboard contents, file contents, browser-history scanning, or URL collection.
+- Window-title collection is optional and off by default.
+- Per-app exclusions, independent performance controls, immediate pause, export, and erase controls are built in.
+- The renderer is sandboxed and context-isolated. Node integration is disabled and IPC is explicitly allowlisted.
+
+The product website uses Plausible for aggregate page and download analytics. The desktop app itself remains telemetry-free and never sends computer activity.
+
+Read the [security model](SECURITY.md), [performance notes](docs/PERFORMANCE.md), and [third-party notices](THIRD_PARTY_NOTICES.md).
+
+## Run it locally
+
+PC Recap requires Node.js 22 or newer and npm.
 
 ```powershell
 npm ci
 npm run dev
 ```
 
-`npm run dev` builds the Electron main process, starts the renderer development server, and opens the actual desktop application.
+`npm run dev` launches the actual Electron desktop app. It also runs the local React renderer and watches the Electron main and preload processes.
 
-Quality checks:
+Run the quality suite:
 
 ```powershell
 npm run test:run
@@ -71,9 +90,11 @@ npm run typecheck
 npm run smoke:activity
 npm run build
 npm run smoke:visual
+npm run promotion:test
+npm run website:validate
 ```
 
-Create platform packages:
+Build packages on their target operating systems:
 
 ```text
 npm run package:win
@@ -81,46 +102,38 @@ npm run package:mac
 npm run package:linux
 ```
 
-Packaging uses prebuilt branded PNG and ICO resources from `build/`, so release builds do not depend on converting the source SVG at package time.
-
-Prepare the current website, Netlify archive, and release post copy:
-
-```powershell
-npm run promotion:prepare
-```
-
-This refreshes versioned download links and sitemap dates, validates the static site, and writes the deployable archive to `artifacts/pc-recap-netlify.zip`. After the updated site is live, notify participating search engines with `npm run seo:submit`.
+All package commands pass `--publish never`. Publishing is handled only by the tag-driven release workflow after every platform artifact has been built and verified.
 
 ## Architecture
 
 ```text
 Windows / macOS / Linux activity source
-                 |
-ActivityTracker + performance sampler
-                 |
- SQLite raw history + hourly/daily rollups + portable backups
-                 |
- analytics + deterministic rules
-                 |
- validated Electron IPC -> React renderer
+                 │
+Activity tracker + optional performance sampler
+                 │
+SQLite raw history + hourly/daily rollups + portable backups
+                 │
+Analytics + deterministic observation rules
+                 │
+Allowlisted Electron IPC → React renderer
 ```
 
-- `src/main` — Electron lifecycle, tray, platform activity sources, lightweight performance history, SQLite, historical recovery, backups, and IPC.
-- `src/shared` — domain contracts, period math, analytics, and the deterministic observation engine.
-- `src/renderer` — React UI, archive visualizations, Day Replay, Recap Studio, Memory Pins, and share cards.
-- `website` — dependency-free product and download site for static hosting.
-- `scripts` — activity and website verification utilities.
+- `src/main` contains Electron lifecycle, tray behavior, platform collectors, SQLite, recovery, backups, and secure IPC.
+- `src/shared` contains domain contracts, period math, analytics, and deterministic observations.
+- `src/renderer` contains the React UI, timelines, Day Replay, Recap Studio, Memory Pins, and share cards.
+- `website` is the dependency-free static product and download site.
+- `scripts` contains activity, packaging, release, and website verification tools.
 
-The renderer runs with context isolation, sandboxing, no Node integration, and an explicit preload API. Platform-specific activity collection stays behind the activity-source boundary; all platforms share analytics and persistence.
+Operating-system-specific tracking stays behind the activity-source boundary. All platforms share the same analytics, persistence, and renderer contracts.
 
 ## Contributing
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. Activity data must remain local, observations must remain deterministic, and features must behave honestly with an empty archive.
+Issues and pull requests are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md) and [SUPPORT.md](SUPPORT.md). Features must remain honest with an empty archive, activity must remain on-device, and observations must remain deterministic.
+
+If PC Recap is the kind of open-source project you want to see grow, starring the repository helps more people find it.
 
 ## License
 
 Copyright © 2026 Ryan Panda.
 
-PC Recap's source code is licensed under the [GNU General Public License v3.0](LICENSE), using the `GPL-3.0-only` SPDX identifier. You may use, study, modify, and redistribute the code under those terms. Distributed versions must provide the corresponding source and preserve the same license.
-
-The GPL covers the software, not the PC Recap name, logo, or visual identity. Those may be used to refer to the original project, but modified distributions should use distinct branding and must not imply endorsement.
+The source code is licensed under [GNU GPL v3.0](LICENSE) using the `GPL-3.0-only` SPDX identifier. The license covers the software, not the PC Recap name, logo, or visual identity. Modified distributions should use distinct branding and must not imply endorsement.
