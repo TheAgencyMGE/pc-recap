@@ -94,4 +94,14 @@ jobs:
       - name: Build unsigned local package
         run: npm run ${{ matrix.command }}
 
-      # Deliberately no artifact upload or publishing step. Packaging is verification only.
+      - name: Upload unsigned macOS test installers
+        if: matrix.command == 'package:mac'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: PC-Recap-1.2.0-macOS-unsigned-${{ github.run_attempt }}
+          path: release/*.dmg
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
+      # CI artifacts are retained only for hands-on testing. Nothing is published to a release.

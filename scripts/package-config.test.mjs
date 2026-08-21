@@ -3,6 +3,7 @@ import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 
 const packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
+const ciWorkflow = await readFile(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8');
 
 test('cross-platform package metadata uses electron-builder 26 schema locations', () => {
   assert.equal(packageJson.desktopName, 'pc-recap.desktop');
@@ -11,6 +12,8 @@ test('cross-platform package metadata uses electron-builder 26 schema locations'
   assert.equal(packageJson.build.linux.desktopName, undefined);
   assert.equal(packageJson.build.linux.syncDesktopName, true);
   assert.equal(packageJson.build.linux.executableName, 'pc-recap');
+  assert.equal(packageJson.build.linux.maintainer, 'PC Recap <TheAgencyMGE@users.noreply.github.com>');
+  assert.equal(packageJson.build.linux.vendor, 'PC Recap');
   assert.deepEqual(packageJson.build.win.target, [{ target: 'nsis', arch: ['x64'] }]);
   assert.deepEqual(packageJson.build.mac.target, [{ target: 'dmg', arch: ['x64', 'arm64'] }]);
   assert.deepEqual(packageJson.build.linux.target, [
@@ -20,6 +23,13 @@ test('cross-platform package metadata uses electron-builder 26 schema locations'
   assert.equal(packageJson.build.win.icon, 'build/icon.ico');
   assert.equal(packageJson.build.mac.icon, 'build/icon.png');
   assert.equal(packageJson.build.linux.icon, 'build/icon.png');
+});
+
+test('CI retains unsigned macOS test installers without publishing a release', () => {
+  assert.match(ciWorkflow, /name: Upload unsigned macOS test installers/);
+  assert.match(ciWorkflow, /if: matrix\.command == 'package:mac'/);
+  assert.match(ciWorkflow, /release\/\*\.dmg/);
+  assert.match(ciWorkflow, /retention-days: 7/);
 });
 
 test('prebuilt package icons are valid binary assets', async () => {

@@ -120,6 +120,8 @@
       "category": "Utility",
       "executableName": "pc-recap",
       "syncDesktopName": true,
+      "maintainer": "PC Recap <TheAgencyMGE@users.noreply.github.com>",
+      "vendor": "PC Recap",
       "synopsis": "A visual time capsule for your computer life",
       "description": "PC Recap turns locally recorded application activity into visual daily, weekly, monthly, and yearly recaps."
     },
