@@ -10,14 +10,15 @@ body:
     id: version
     attributes:
       label: PC Recap version
-      placeholder: 1.0.1
+      placeholder: 1.2.0
     validations:
       required: true
   - type: input
-    id: windows
+    id: platform
     attributes:
-      label: Windows version
-      placeholder: Windows 11 24H2
+      label: Platform and version
+      description: Include CPU architecture and, on Linux, whether you use X11 or Wayland.
+      placeholder: Windows 11 x64, macOS 15 arm64, or Ubuntu 24.04 x64 X11
     validations:
       required: true
   - type: textarea

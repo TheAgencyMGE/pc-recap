@@ -17,7 +17,22 @@
     "node": ">=22"
   },
   "type": "module",
-  "description": "A local-first visual time capsule for your PC life.",
+  "description": "An open-source visual app usage tracker and computer history time capsule for Windows, macOS, and Linux.",
+  "keywords": [
+    "activity-tracker",
+    "app-usage",
+    "data-visualization",
+    "desktop-app",
+    "digital-wellbeing",
+    "electron",
+    "lifelogging",
+    "linux",
+    "macos",
+    "personal-analytics",
+    "sqlite",
+    "time-tracker",
+    "windows"
+  ],
   "main": "dist/main/main.js",
   "scripts": {
     "dev": "npm run build:main && concurrently -k \"vite --host 127.0.0.1\" \"tsc -p tsconfig.main.json --watch --preserveWatchOutput\" \"esbuild ./src/main/preload.ts --bundle --platform=node --format=cjs --external:electron --outfile=dist/main/preload.cjs --watch\" \"wait-on tcp:127.0.0.1:5173 dist/main/main.js dist/main/preload.cjs && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron .\"",
@@ -27,7 +42,7 @@
     "smoke:visual": "node scripts/visual-smoke.mjs",
     "smoke:visual:test": "node --test scripts/visual-smoke.test.mjs",
     "website:validate": "node scripts/validate-website.mjs",
-    "promotion:test": "node --test scripts/prepare-promotion.test.mjs scripts/submit-indexnow.test.mjs",
+    "promotion:test": "node --test scripts/prepare-promotion.test.mjs scripts/submit-indexnow.test.mjs scripts/website-motion.test.mjs",
     "promotion:prepare": "node scripts/prepare-promotion.mjs && npm run website:validate",
     "seo:submit": "node scripts/submit-indexnow.mjs",
     "release:inspect": "node scripts/verify-installer.mjs",

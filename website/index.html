@@ -3,10 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#f6f6f1" />
+    <meta name="theme-color" content="#f4f2ea" />
+    <meta name="color-scheme" content="light" />
     <meta name="application-name" content="PC Recap" />
-    <meta name="robots" content="index, follow, max-image-preview:large" />
-    <meta name="description" content="PC Recap turns real app activity into visual daily, weekly, monthly, and yearly recaps on Windows, macOS, and Linux." />
+    <meta name="author" content="Ryan Panda" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <meta name="description" content="PC Recap is a free, open-source app usage tracker that turns your computer history into visual daily, weekly, monthly, and yearly recaps on Windows, macOS, and Linux." />
     <link rel="canonical" href="https://pcrecap.online/" />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="manifest" href="manifest.webmanifest" />
@@ -14,76 +16,112 @@
     <meta property="og:site_name" content="PC Recap" />
     <meta property="og:locale" content="en_US" />
     <meta property="og:url" content="https://pcrecap.online/" />
-    <meta property="og:title" content="PC Recap — Your PC, remembered." />
-    <meta property="og:description" content="Turn your computer activity into visual recaps, eras, records, and a history you can replay." />
+    <meta property="og:title" content="PC Recap — Your computer life, played back." />
+    <meta property="og:description" content="Turn real app usage into visual recaps, eras, records, and a computer history you can replay." />
     <meta property="og:image" content="https://pcrecap.online/og.png" />
-    <meta property="og:image:alt" content="PC Recap visual recap covers for Today, This Week, 2026, Timeline, and On This Day" />
+    <meta property="og:image:secure_url" content="https://pcrecap.online/og.png" />
+    <meta property="og:image:alt" content="A colorful shelf of PC Recap covers for Today, This Week, 2026, Timeline, and On This Day" />
     <meta property="og:image:width" content="1731" />
     <meta property="og:image:height" content="909" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="PC Recap — Your PC, remembered." />
-    <meta name="twitter:description" content="Turn your computer activity into visual recaps, eras, records, and a history you can replay." />
+    <meta name="twitter:title" content="PC Recap — Your computer life, played back." />
+    <meta name="twitter:description" content="A free, open-source visual time capsule for your computer history." />
     <meta name="twitter:image" content="https://pcrecap.online/og.png" />
-    <meta name="twitter:image:alt" content="PC Recap visual recap covers" />
-    <title>PC Recap — Visual Computer History for Windows, macOS &amp; Linux</title>
+    <meta name="twitter:image:alt" content="A colorful shelf of PC Recap covers" />
+    <title>PC Recap | Visual App Usage Tracker for Windows, macOS &amp; Linux</title>
     <link rel="preload" href="fonts/archivo.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="fonts/instrument-sans.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="styles.css" />
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
-        "@type": "SoftwareApplication",
-        "name": "PC Recap",
-        "url": "https://pcrecap.online/",
-        "description": "PC Recap turns real app activity into daily, weekly, monthly, and yearly visual recaps, timelines, eras, records, and local performance context.",
-        "applicationCategory": "UtilitiesApplication",
-        "operatingSystem": "Windows, macOS, Linux",
-        "softwareVersion": "1.2.0",
-        "downloadUrl": "https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.2.0/PC-Recap-1.2.0-Setup.exe",
-        "releaseNotes": "https://github.com/TheAgencyMGE/pc-recap/releases/tag/v1.2.0",
-        "codeRepository": "https://github.com/TheAgencyMGE/pc-recap",
-        "license": "https://www.gnu.org/licenses/gpl-3.0.html",
-        "image": "https://pcrecap.online/og.png",
-        "isAccessibleForFree": true,
-        "offers": {
-          "@type": "Offer",
-          "price": "0",
-          "priceCurrency": "USD"
-        },
-        "author": {
-          "@type": "Person",
-          "name": "Ryan Panda"
-        }
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "@id": "https://pcrecap.online/#website",
+            "url": "https://pcrecap.online/",
+            "name": "PC Recap",
+            "description": "A visual time capsule for your computer history.",
+            "inLanguage": "en-US"
+          },
+          {
+            "@type": "SoftwareApplication",
+            "@id": "https://pcrecap.online/#app",
+            "name": "PC Recap",
+            "url": "https://pcrecap.online/",
+            "mainEntityOfPage": { "@id": "https://pcrecap.online/#website" },
+            "description": "PC Recap is a free, open-source desktop app that turns real application activity into daily, weekly, monthly, yearly, and long-term visual recaps.",
+            "applicationCategory": "UtilitiesApplication",
+            "applicationSubCategory": "Personal analytics and digital memory",
+            "operatingSystem": "Windows 10, Windows 11, macOS 12 or newer, Linux X11",
+            "softwareVersion": "1.2.0",
+            "downloadUrl": "https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.2.0/PC-Recap-1.2.0-Setup.exe",
+            "releaseNotes": "https://github.com/TheAgencyMGE/pc-recap/releases/tag/v1.2.0",
+            "codeRepository": "https://github.com/TheAgencyMGE/pc-recap",
+            "license": "https://www.gnu.org/licenses/gpl-3.0.html",
+            "image": "https://pcrecap.online/og.png",
+            "screenshot": {
+              "@type": "ImageObject",
+              "url": "https://pcrecap.online/og.png",
+              "width": 1731,
+              "height": 909,
+              "caption": "PC Recap cover shelf and recap modes"
+            },
+            "featureList": [
+              "Foreground application tracking",
+              "Daily, weekly, monthly, yearly, all-time, and decade recaps",
+              "Historical timeline and On This Day",
+              "Deterministic observations, records, and eras",
+              "Local SQLite history and portable backups"
+            ],
+            "isAccessibleForFree": true,
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD"
+            },
+            "author": {
+              "@type": "Person",
+              "name": "Ryan Panda"
+            }
+          }
+        ]
       }
     </script>
     <script src="analytics.js"></script>
     <script async src="https://plausible.io/js/pa-XHVFKtgOfFWCJGGT6QqaS.js"></script>
-    <script src="site.js" defer></script>
+    <script type="module" src="site.js"></script>
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
-    <header class="site-header">
+
+    <header class="site-header" data-header>
       <a class="brand" href="#top" aria-label="PC Recap home">
         <span class="brand__stamp" aria-hidden="true">PC</span>
         <span class="brand__name"><b>PC</b><em>RECAP</em></span>
       </a>
-      <a class="header-download" data-download-location="header-windows" data-platform="windows" href="https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.2.0/PC-Recap-1.2.0-Setup.exe">Download</a>
+      <nav class="site-nav" aria-label="Main navigation">
+        <a href="#recaps">Recaps</a>
+        <a href="#version">Version 1.2</a>
+        <a href="https://github.com/TheAgencyMGE/pc-recap">GitHub</a>
+      </nav>
+      <a class="header-download" href="#download">Download</a>
     </header>
 
     <main id="main">
       <section class="hero" id="top">
-        <div class="hero__copy reveal">
-          <p class="overline">Windows · macOS · Linux</p>
-          <h1>Your PC,<br /><em>remembered.</em></h1>
-          <p class="hero__lede">See the apps, eras, and late nights that made up your year.</p>
+        <div class="hero__copy">
+          <p class="overline hero__overline">Open source · Windows · macOS · Linux</p>
+          <h1>Your computer life,<br /><em>played back.</em></h1>
+          <p class="hero__lede">PC Recap turns real app usage into visual daily, weekly, monthly, and yearly recaps. It remembers the eras, late nights, and strange little patterns that made the time yours.</p>
           <div class="hero__actions">
             <a class="download-button" data-download-location="hero-windows" data-platform="windows" href="https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.2.0/PC-Recap-1.2.0-Setup.exe">
               <span>Download for Windows</span>
               <span aria-hidden="true">↓</span>
             </a>
-            <span class="release-line">v1.2.0 beta</span>
+            <a class="text-link" href="https://github.com/TheAgencyMGE/pc-recap">View the source <span aria-hidden="true">↗</span></a>
           </div>
-          <div class="platform-links" aria-label="Other downloads">
+          <div class="platform-links" aria-label="Downloads for other operating systems">
             <a data-download-location="hero-mac-arm64" data-platform="mac-arm64" href="https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.2.0/PC-Recap-1.2.0-mac-arm64.dmg">Mac · Apple Silicon</a>
             <a data-download-location="hero-mac-x64" data-platform="mac-x64" href="https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.2.0/PC-Recap-1.2.0-mac-x64.dmg">Mac · Intel</a>
             <a data-download-location="hero-linux-appimage" data-platform="linux-appimage" href="https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.2.0/PC-Recap-1.2.0-linux-x64.AppImage">Linux · AppImage</a>
@@ -91,83 +129,167 @@
           </div>
         </div>
 
-        <div class="today-cover reveal" aria-label="An abstract preview of the Today recap">
-          <div class="today-cover__rings" aria-hidden="true"><i></i><i></i><i></i></div>
-          <div class="today-cover__copy"><span>Today</span><strong>Once you’ve lived it.</strong></div>
-          <div class="today-cover__activity" aria-hidden="true"></div>
-          <div class="today-cover__badge" aria-hidden="true">≋</div>
+        <div class="mixtape-stage" aria-label="A moving stack of PC Recap covers">
+          <article class="hero-cover hero-cover--today"><span>Today</span><strong>Once you’ve<br />lived it.</strong><i aria-hidden="true"></i></article>
+          <article class="hero-cover hero-cover--week"><span>This week</span><strong>Your<br />rhythm.</strong><i aria-hidden="true">7</i></article>
+          <article class="hero-cover hero-cover--year"><span>2026</span><strong>The whole<br />story.</strong><i aria-hidden="true">↗</i></article>
+          <article class="hero-cover hero-cover--memory"><span>On this day</span><strong>It comes<br />back.</strong><i aria-hidden="true">◌</i></article>
+          <div class="mixtape-stage__stamp" aria-hidden="true">YOUR<br />PC</div>
+        </div>
+
+        <a class="scroll-cue" href="#recaps"><span>Scroll through your history</span><i aria-hidden="true">↓</i></a>
+      </section>
+
+      <div class="recap-ticker" aria-hidden="true">
+        <div><span>TODAY</span><i>✳</i><span>WEEK</span><i>✳</i><span>MONTH</span><i>✳</i><span>YEAR</span><i>✳</i><span>ALL-TIME</span><i>✳</i><span>ON THIS DAY</span><i>✳</i><span>TODAY</span><i>✳</i><span>WEEK</span><i>✳</i><span>MONTH</span><i>✳</i><span>YEAR</span><i>✳</i><span>ALL-TIME</span><i>✳</i><span>ON THIS DAY</span><i>✳</i></div>
+      </div>
+
+      <section class="memory-intro" id="recaps" data-reveal>
+        <p class="overline">A digital time capsule</p>
+        <h2>Most trackers tell you where the time went.<br /><em>PC Recap remembers what it felt like.</em></h2>
+      </section>
+
+      <section class="scroll-story" data-scroll-story aria-labelledby="story-title">
+        <div class="scroll-story__sticky">
+          <div class="story-copy">
+            <p class="overline">Your archive, in motion</p>
+            <h2 id="story-title" class="sr-only">How PC Recap turns computer activity into a history</h2>
+            <article class="story-copy__chapter is-active" data-story-copy>
+              <span>Today</span>
+              <h3>A day becomes<br />a pattern.</h3>
+              <p>Your first app. Your last session. The shape of every hour between.</p>
+            </article>
+            <article class="story-copy__chapter" data-story-copy>
+              <span>Eras</span>
+              <h3>Patterns become<br />chapters.</h3>
+              <p>The Minecraft phase. The coding run. The app that quietly disappeared.</p>
+            </article>
+            <article class="story-copy__chapter" data-story-copy>
+              <span>Observations</span>
+              <h3>The odd details<br />survive.</h3>
+              <p>Your 2 AM app. Your power couple. Your computer’s hardest-working moment.</p>
+            </article>
+            <article class="story-copy__chapter" data-story-copy>
+              <span>Yearly Recap</span>
+              <h3>Then the year<br />plays back.</h3>
+              <p>A full-screen story of favorites, records, monthly eras, and the facts only your computer could know.</p>
+            </article>
+            <div class="story-meter" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+          </div>
+
+          <div class="story-deck" aria-hidden="true">
+            <article class="story-card story-card--day" data-story-card>
+              <span>Today</span>
+              <b>Your day,<br />in tracks.</b>
+              <div class="story-card__tape"><i></i><i></i><i></i><i></i></div>
+              <small>FIRST → LAST</small>
+            </article>
+            <article class="story-card story-card--era" data-story-card>
+              <span>Era detected</span>
+              <b>Your<br />chapter.</b>
+              <i class="story-card__orbit"></i>
+              <small>MONTHS BECOME ERAS</small>
+            </article>
+            <article class="story-card story-card--pair" data-story-card>
+              <span>Power couple</span>
+              <b>Better<br />together.</b>
+              <div class="story-card__pair"><i></i><i></i></div>
+              <small>APPS USED TOGETHER</small>
+            </article>
+            <article class="story-card story-card--year" data-story-card>
+              <span>Yearly Recap</span>
+              <b>Your year.<br />One more time.</b>
+              <i class="story-card__burst">↗</i>
+              <small>PLAY YOUR RECAP</small>
+            </article>
+          </div>
         </div>
       </section>
 
-      <section class="recap-section" aria-labelledby="recaps-title">
-        <div class="section-heading reveal">
-          <h2 id="recaps-title">Your recaps</h2>
-          <p>Days become years.</p>
+      <section class="recap-gallery" aria-labelledby="gallery-title">
+        <div class="gallery-heading" data-reveal>
+          <p class="overline">Every scale of your history</p>
+          <h2 id="gallery-title">Days become years.</h2>
         </div>
-        <div class="recap-shelf reveal" role="list" aria-label="PC Recap recap formats">
-          <article class="recap-card recap-card--today" role="listitem"><span class="card-icon">⌁</span><div><b>Today</b><small>Your day</small></div></article>
-          <article class="recap-card recap-card--week" role="listitem"><span class="card-icon">7</span><div><b>This week</b><small>The rhythm</small></div></article>
-          <article class="recap-card recap-card--year" role="listitem"><span class="card-icon">↗</span><div><b>2026</b><small>The story</small></div></article>
-          <article class="recap-card recap-card--timeline" role="listitem"><span class="card-icon">∞</span><div><b>Timeline</b><small>The long view</small></div></article>
-          <article class="recap-card recap-card--memory" role="listitem"><span class="card-icon">◌</span><div><b>On this day</b><small>The return</small></div></article>
-        </div>
-      </section>
-
-      <section class="story" aria-labelledby="story-title">
-        <div class="story__copy reveal">
-          <p class="overline">Yearly Recap</p>
-          <h2 id="story-title">Your year,<br /><em>one screen at a time.</em></h2>
-        </div>
-        <div class="story__scenes reveal" aria-label="Yearly Recap scene types">
-          <article class="scene scene--favorite"><span>Top app</span><b>Your favorite</b><i aria-hidden="true"></i></article>
-          <article class="scene scene--era"><span>Era</span><b>Your chapter</b><i aria-hidden="true">ERA</i></article>
-          <article class="scene scene--fact"><span>Observation</span><b>Your weird fact</b><i aria-hidden="true">“</i></article>
-          <article class="scene scene--system"><span>Computer pulse</span><b>Your hardest-working moment</b><i aria-hidden="true">∿</i></article>
+        <div class="recap-shelf" role="list">
+          <article class="recap-card recap-card--today" role="listitem" data-reveal><span>Today</span><b>The day</b><i aria-hidden="true">⌁</i></article>
+          <article class="recap-card recap-card--week" role="listitem" data-reveal><span>This week</span><b>The rhythm</b><i aria-hidden="true">7</i></article>
+          <article class="recap-card recap-card--month" role="listitem" data-reveal><span>This month</span><b>The shift</b><i aria-hidden="true">30</i></article>
+          <article class="recap-card recap-card--year" role="listitem" data-reveal><span>This year</span><b>The story</b><i aria-hidden="true">↗</i></article>
+          <article class="recap-card recap-card--timeline" role="listitem" data-reveal><span>Timeline</span><b>The long view</b><i aria-hidden="true">∞</i></article>
+          <article class="recap-card recap-card--on-this-day" role="listitem" data-reveal><span>On this day</span><b>The return</b><i aria-hidden="true">◌</i></article>
         </div>
       </section>
 
-      <section class="release-notes reveal" aria-labelledby="release-title">
-        <div><p class="overline">Version 1.2</p><h2 id="release-title">More of your computer story.</h2></div>
-        <article><b>Cross-platform</b><span>Foreground tracking on Windows, macOS, and Linux X11.</span></article>
-        <article><b>Better time</b><span>Active, idle, locked, asleep, and unavailable time stay distinct.</span></article>
-        <article><b>Computer pulse</b><span>Optional local CPU, memory, battery, and power context for recaps.</span></article>
-      </section>
-
-      <section class="principles" aria-label="Product principles">
-        <article class="reveal"><span>01</span><h3>Real history</h3><p>No generated activity.</p></article>
-        <article class="reveal"><span>02</span><h3>Your machine</h3><p>SQLite and portable backups.</p></article>
-        <article class="reveal"><span>03</span><h3>Deterministic</h3><p>No external AI APIs.</p></article>
-      </section>
-
-      <section class="download-panel reveal" aria-labelledby="download-title">
+      <section class="not-timesheet" data-reveal>
         <div>
+          <p class="overline">Built for remembering</p>
+          <h2>A time capsule.<br /><em>Not a time sheet.</em></h2>
+        </div>
+        <div class="not-timesheet__copy">
+          <p>There are no productivity scores waiting to judge you. PC Recap keeps the parts worth looking back on: favorites, records, streaks, eras, reunions, and the little facts you would otherwise forget.</p>
+          <a class="text-link" href="https://github.com/TheAgencyMGE/pc-recap#what-pc-recap-remembers">See what it remembers <span aria-hidden="true">↗</span></a>
+        </div>
+      </section>
+
+      <section class="product-window" aria-labelledby="product-title" data-reveal>
+        <div class="product-window__bar"><i></i><i></i><i></i><span>PC RECAP / COVER SHELF</span></div>
+        <figure>
+          <img src="og.png" width="1731" height="909" loading="lazy" alt="PC Recap’s colorful cover shelf with Today, This Week, Yearly Recap, Timeline, and On This Day views" />
+          <figcaption>
+            <p class="overline">The app</p>
+            <h2 id="product-title">Your history has a home.</h2>
+            <p>Search it. Replay a day. Build a custom recap. Carry the archive to your next computer.</p>
+          </figcaption>
+        </figure>
+      </section>
+
+      <section class="release-board" id="version" aria-labelledby="release-title">
+        <div class="release-board__title" data-reveal>
+          <p class="overline">Version 1.2</p>
+          <h2 id="release-title">Now your Mac<br />and Linux PC<br />remember too.</h2>
+          <span>Windows · macOS · Linux X11</span>
+        </div>
+        <div class="release-board__notes">
+          <article data-reveal><span>01</span><div><b>Tracking Health</b><p>See the collector, current state, permissions, and last successful sample.</p></div></article>
+          <article data-reveal><span>02</span><div><b>Computer pulse</b><p>Optional CPU, memory, battery, and power context for the moments that pushed your system.</p></div></article>
+          <article data-reveal><span>03</span><div><b>Honest time</b><p>Active, idle, locked, asleep, and unavailable time stay separate.</p></div></article>
+          <article data-reveal><span>04</span><div><b>Long-haul archive</b><p>Faster analytics, daily backups, merge previews, and storage built for years of history.</p></div></article>
+        </div>
+      </section>
+
+      <section class="principles" aria-label="PC Recap principles">
+        <article data-reveal><span>REAL</span><h3>No invented activity.</h3><p>A new archive starts empty and grows from real sessions or imports.</p></article>
+        <article data-reveal><span>LOCAL</span><h3>Your history stays here.</h3><p>SQLite on your computer, portable backups when you want them.</p></article>
+        <article data-reveal><span>OPEN</span><h3>Read the source.</h3><p>GPL-3.0 code, deterministic rules, and no external AI calls.</p></article>
+      </section>
+
+      <section class="download-panel" id="download" aria-labelledby="download-title" data-reveal>
+        <div class="download-panel__intro">
           <p class="overline">PC Recap 1.2.0 Beta</p>
-          <h2 id="download-title">Start your archive.</h2>
+          <h2 id="download-title">Start the archive.</h2>
+          <p>Choose your computer. Each build is free and open source.</p>
         </div>
-        <a class="download-button download-button--light" data-download-location="footer-panel-windows" data-platform="windows" href="https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.2.0/PC-Recap-1.2.0-Setup.exe">
-          <span>Download for Windows</span>
-          <span aria-hidden="true">↓</span>
-        </a>
-        <div class="download-platforms" aria-label="Downloads for every platform">
-          <a data-download-location="footer-mac-arm64" data-platform="mac-arm64" href="https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.2.0/PC-Recap-1.2.0-mac-arm64.dmg"><b>macOS</b><span>Apple Silicon</span></a>
-          <a data-download-location="footer-mac-x64" data-platform="mac-x64" href="https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.2.0/PC-Recap-1.2.0-mac-x64.dmg"><b>macOS</b><span>Intel</span></a>
-          <a data-download-location="footer-linux-appimage" data-platform="linux-appimage" href="https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.2.0/PC-Recap-1.2.0-linux-x64.AppImage"><b>Linux</b><span>AppImage x64</span></a>
-          <a data-download-location="footer-linux-deb" data-platform="linux-deb" href="https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.2.0/PC-Recap-1.2.0-linux-x64.deb"><b>Linux</b><span>deb x64</span></a>
+        <div class="download-grid">
+          <a data-download-location="download-windows" data-platform="windows" href="https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.2.0/PC-Recap-1.2.0-Setup.exe"><span>Windows</span><b>x64 installer</b><i aria-hidden="true">↓</i></a>
+          <a data-download-location="download-mac-arm64" data-platform="mac-arm64" href="https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.2.0/PC-Recap-1.2.0-mac-arm64.dmg"><span>macOS</span><b>Apple Silicon</b><i aria-hidden="true">↓</i></a>
+          <a data-download-location="download-mac-x64" data-platform="mac-x64" href="https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.2.0/PC-Recap-1.2.0-mac-x64.dmg"><span>macOS</span><b>Intel</b><i aria-hidden="true">↓</i></a>
+          <a data-download-location="download-linux-appimage" data-platform="linux-appimage" href="https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.2.0/PC-Recap-1.2.0-linux-x64.AppImage"><span>Linux</span><b>AppImage x64</b><i aria-hidden="true">↓</i></a>
+          <a data-download-location="download-linux-deb" data-platform="linux-deb" href="https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.2.0/PC-Recap-1.2.0-linux-x64.deb"><span>Linux</span><b>deb x64</b><i aria-hidden="true">↓</i></a>
         </div>
-        <a class="checksum" href="https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.2.0/PC-Recap-1.2.0-Setup.exe.sha256" aria-label="Download installer SHA-256 checksum">
-          <span>SHA-256</span>
-          <strong>Download checksum</strong>
-          <i aria-hidden="true">→</i>
-        </a>
+        <div class="download-footnote">
+          <span>Unsigned beta builds may trigger Windows SmartScreen or macOS Gatekeeper.</span>
+          <a class="checksum" href="https://github.com/TheAgencyMGE/pc-recap/releases/download/v1.2.0/PC-Recap-1.2.0-Setup.exe.sha256" aria-label="Download installer SHA-256 checksum">SHA-256 checksum <i aria-hidden="true">→</i></a>
+        </div>
       </section>
     </main>
 
     <footer>
       <a class="brand brand--small" href="#top"><span class="brand__stamp" aria-hidden="true">PC</span><span>PC Recap</span></a>
-      <nav aria-label="Footer">
-        <a href="https://github.com/TheAgencyMGE/pc-recap">Open source</a>
-        <a href="https://github.com/TheAgencyMGE/pc-recap/blob/main/SECURITY.md">Security</a>
+      <nav aria-label="Footer navigation">
+        <a href="https://github.com/TheAgencyMGE/pc-recap">Source</a>
         <a href="https://github.com/TheAgencyMGE/pc-recap/releases">Releases</a>
+        <a href="https://github.com/TheAgencyMGE/pc-recap/blob/main/SECURITY.md">Security</a>
         <a href="THIRD_PARTY_NOTICES.txt">Notices</a>
       </nav>
       <span>© 2026 Ryan Panda</span>
