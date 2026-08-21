@@ -56,6 +56,7 @@ test('prepares version-correct website metadata, post copy, and a Netlify archiv
     const result = spawnSync(process.execPath, [script, '--root', root, '--date', '2026-08-14'], {
       cwd: resolve('.'),
       encoding: 'utf8',
+      env: { ...process.env, PATH: '' },
     });
 
     assert.equal(result.status, 0, result.stderr || result.stdout);
@@ -63,6 +64,7 @@ test('prepares version-correct website metadata, post copy, and a Netlify archiv
     const repeatedResult = spawnSync(process.execPath, [script, '--root', root, '--date', '2026-08-14'], {
       cwd: resolve('.'),
       encoding: 'utf8',
+      env: { ...process.env, PATH: '' },
     });
     assert.equal(repeatedResult.status, 0, repeatedResult.stderr || repeatedResult.stdout);
 
@@ -82,6 +84,10 @@ test('prepares version-correct website metadata, post copy, and a Netlify archiv
 
     const archive = await stat(join(root, 'artifacts/pc-recap-netlify.zip'));
     assert.ok(archive.size > 0);
+    const archiveContents = await readFile(join(root, 'artifacts/pc-recap-netlify.zip'));
+    assert.equal(archiveContents.readUInt32LE(0), 0x04034b50);
+    assert.ok(archiveContents.includes(Buffer.from('index.html')));
+    assert.ok(archiveContents.includes(Buffer.from('robots.txt')));
   } finally {
     await rm(root, { recursive: true, force: true });
   }

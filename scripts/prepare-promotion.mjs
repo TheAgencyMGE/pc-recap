@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
-import { spawnSync } from 'node:child_process';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { createZipFromDirectory } from './zip-directory.mjs';
 
 function readArgument(name, fallback) {
   const index = process.argv.indexOf(name);
@@ -14,11 +14,6 @@ function replaceRequired(source, pattern, replacement, label) {
   }
   return source.replace(pattern, replacement);
 }
-
-function escapePowerShellLiteral(value) {
-  return value.replaceAll("'", "''");
-}
-
 
 async function main() {
   const root = resolve(readArgument('--root', '.'));
@@ -114,16 +109,7 @@ async function main() {
 
   const archivePath = resolve(artifactsDirectory, 'pc-recap-netlify.zip');
   await rm(archivePath, { force: true });
-  const sourceGlob = `${escapePowerShellLiteral(websiteDirectory)}\\*`;
-  const destination = escapePowerShellLiteral(archivePath);
-  const archiveResult = spawnSync(
-    'powershell.exe',
-    ['-NoProfile', '-NonInteractive', '-Command', `Compress-Archive -Path '${sourceGlob}' -DestinationPath '${destination}' -Force`],
-    { encoding: 'utf8' },
-  );
-  if (archiveResult.status !== 0) {
-    throw new Error(archiveResult.stderr || archiveResult.stdout || 'Could not create the Netlify archive.');
-  }
+  await createZipFromDirectory(websiteDirectory, archivePath);
 
   console.log(`Prepared PC Recap ${metadata.version} promotion assets.`);
   console.log(`Website archive: ${archivePath}`);
