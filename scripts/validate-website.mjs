@@ -60,6 +60,9 @@ assert.match(headers, /connect-src[^\r\n]*https:\/\/plausible\.io/i, 'The conten
 assert.match(robots, /Sitemap:\s*https:\/\/pcrecap\.online\/sitemap\.xml/i, 'robots.txt must advertise the sitemap.');
 assert.match(sitemap, /<loc>https:\/\/pcrecap\.online\/<\/loc>/i, 'The sitemap must include the canonical home page.');
 assert.equal(manifest.name, 'PC Recap', 'The manifest must use the product name.');
+assert.match(manifest.description, /Windows/i, 'The manifest must describe Windows support.');
+assert.match(manifest.description, /macOS/i, 'The manifest must describe macOS support.');
+assert.match(manifest.description, /Linux/i, 'The manifest must describe Linux support.');
 assert.ok(manifest.icons.some((icon) => icon.src === '/favicon.svg'), 'The manifest must use the branded favicon.');
 assert.match(favicon, /viewBox="0 0 512 512"/i, 'The favicon must be the square PC Recap mark.');
 assert.match(indexNowKey, /^[A-Za-z0-9-]{8,128}$/, 'The IndexNow ownership key must be valid.');

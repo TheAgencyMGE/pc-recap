@@ -33,14 +33,15 @@
     "release:inspect": "node scripts/verify-installer.mjs",
     "release:verify": "node scripts/verify-installer.mjs",
     "release:prepare": "node scripts/verify-installer.mjs --write-checksum",
+    "release:verify-all": "node scripts/release-artifacts.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.main.json --noEmit",
     "build:main": "tsc -p tsconfig.main.json && esbuild ./src/main/preload.ts --bundle --platform=node --format=cjs --external:electron --outfile=dist/main/preload.cjs",
     "build": "rimraf dist && npm run build:main && vite build",
-    "package": "npm run build && electron-builder",
-    "package:win": "npm run build && electron-builder --win --x64",
-    "package:mac": "npm run build && electron-builder --mac --x64 --arm64",
-    "package:linux": "npm run build && electron-builder --linux --x64",
-    "package:check": "npm run build && electron-builder --dir",
+    "package": "npm run build && electron-builder --publish never",
+    "package:win": "npm run build && electron-builder --win --x64 --publish never",
+    "package:mac": "npm run build && electron-builder --mac --x64 --arm64 --publish never",
+    "package:linux": "npm run build && electron-builder --linux --x64 --publish never",
+    "package:check": "npm run build && electron-builder --dir --publish never",
     "benchmark:performance": "npm run build:main && cross-env ELECTRON_RUN_AS_NODE=1 electron scripts/benchmark-performance.mjs",
     "postinstall": "electron-builder install-app-deps"
   },
@@ -124,6 +125,12 @@
       "vendor": "PC Recap",
       "synopsis": "A visual time capsule for your computer life",
       "description": "PC Recap turns locally recorded application activity into visual daily, weekly, monthly, and yearly recaps."
+    },
+    "appImage": {
+      "artifactName": "PC-Recap-${version}-linux-x64.AppImage"
+    },
+    "deb": {
+      "artifactName": "PC-Recap-${version}-linux-x64.deb"
     },
     "nsis": {
       "oneClick": false,
