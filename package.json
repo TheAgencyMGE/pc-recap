@@ -76,7 +76,6 @@
   "build": {
     "appId": "com.pcrecap.app",
     "productName": "PC Recap",
-    "electronDist": "node_modules/electron/dist",
     "electronLanguages": ["en-US"],
     "asar": true,
     "directories": {

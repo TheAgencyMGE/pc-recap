@@ -6,6 +6,7 @@ const packageJson = JSON.parse(await readFile(new URL('../package.json', import.
 
 test('cross-platform package metadata uses electron-builder 26 schema locations', () => {
   assert.equal(packageJson.desktopName, 'pc-recap.desktop');
+  assert.equal(packageJson.build.electronDist, undefined, 'electron-builder must select a runtime for each target architecture');
   assert.deepEqual(packageJson.build.electronLanguages, ['en-US']);
   assert.equal(packageJson.build.linux.desktopName, undefined);
   assert.equal(packageJson.build.linux.syncDesktopName, true);
