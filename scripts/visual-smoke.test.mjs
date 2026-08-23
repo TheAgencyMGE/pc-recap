@@ -15,7 +15,7 @@ test('visual smoke uses an Electron helper and isolated screenshot artifacts', (
   ]);
   const command = buildSmokeCommand(process.cwd());
   assert.ok(command.executable.toLowerCase().includes('electron'));
-  assert.deepEqual(command.args, [command.paths.helper]);
+  assert.deepEqual(command.args, ['--disable-gpu', '--no-sandbox', command.paths.helper]);
 });
 
 test('visual smoke waits for the Electron report instead of racing process startup', async () => {
@@ -38,6 +38,7 @@ test('visual smoke removes stale reports before starting Electron', async () => 
   const spawnElectron = runner.indexOf('const child = spawn(');
   assert.ok(removeReport >= 0, 'the runner must remove a previous report');
   assert.ok(removeReport < spawnElectron, 'the stale report must be removed before Electron starts');
+  assert.doesNotMatch(runner, /windowsHide:\s*true/, 'hiding the Electron host can prevent sandboxed utility processes from launching on Windows');
 });
 
 test('visual smoke waits for the populated Today cover before its first screenshot', async () => {

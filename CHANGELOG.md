@@ -2,7 +2,7 @@
 
 All notable changes to PC Recap are documented here.
 
-## [1.2.0] Beta - 2026-08-20
+## [1.2.0] Beta - 2026-08-23
 
 ### Added
 

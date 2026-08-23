@@ -42,7 +42,7 @@
     "smoke:visual": "node scripts/visual-smoke.mjs",
     "smoke:visual:test": "node --test scripts/visual-smoke.test.mjs",
     "website:validate": "node scripts/validate-website.mjs",
-    "promotion:test": "node --test scripts/prepare-promotion.test.mjs scripts/submit-indexnow.test.mjs scripts/website-motion.test.mjs",
+    "promotion:test": "node --test scripts/prepare-promotion.test.mjs scripts/release-surface.test.mjs scripts/submit-indexnow.test.mjs",
     "promotion:prepare": "node scripts/prepare-promotion.mjs && npm run website:validate",
     "seo:submit": "node scripts/submit-indexnow.mjs",
     "release:inspect": "node scripts/verify-installer.mjs",
