@@ -5,7 +5,7 @@ import { extname, resolve } from 'node:path';
 
 const site = resolve('website');
 const required = [
-  'index.html', 'styles.css', 'site.js', 'motion.js', 'analytics.js', '_headers', 'robots.txt', 'og.png',
+  'index.html', 'styles.css', 'site.js', 'analytics.js', '_headers', 'robots.txt', 'og.png',
   'favicon.svg', 'manifest.webmanifest', 'sitemap.xml', 'indexnow-key.txt',
   'THIRD_PARTY_NOTICES.txt', 'fonts/archivo.woff2', 'fonts/instrument-sans.woff2',
   'fonts/OFL-Archivo.txt', 'fonts/OFL-Instrument-Sans.txt',
@@ -19,7 +19,6 @@ for (const file of required) await access(resolve(site, file));
 const html = await readFile(resolve(site, 'index.html'), 'utf8');
 const headers = await readFile(resolve(site, '_headers'), 'utf8');
 const script = await readFile(resolve(site, 'site.js'), 'utf8');
-const motion = await readFile(resolve(site, 'motion.js'), 'utf8');
 const analytics = await readFile(resolve(site, 'analytics.js'), 'utf8');
 const robots = await readFile(resolve(site, 'robots.txt'), 'utf8');
 const sitemap = await readFile(resolve(site, 'sitemap.xml'), 'utf8');
@@ -42,7 +41,7 @@ assert.match(html, /<script type="application\/ld\+json">\s*\{[\s\S]*"@type":\s*
 const structuredData = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/i)?.[1];
 assert.ok(structuredData, 'The structured data block must be readable.');
 const schema = JSON.parse(structuredData);
-const softwareSchema = schema['@graph']?.find((entry) => entry['@type'] === 'SoftwareApplication');
+const softwareSchema = (schema['@graph'] ?? [schema]).find((entry) => entry['@type'] === 'SoftwareApplication');
 assert.ok(softwareSchema, 'The structured data must identify PC Recap as software.');
 assert.match(softwareSchema.operatingSystem, /Windows/i, 'Structured data must advertise Windows support.');
 assert.match(softwareSchema.operatingSystem, /macOS/i, 'Structured data must advertise macOS support.');
@@ -60,9 +59,10 @@ assert.match(headers, /Content-Security-Policy:/i);
 assert.match(headers, /X-Content-Type-Options:\s*nosniff/i);
 assert.match(headers, /Referrer-Policy:/i);
 assert.match(script, /prefers-reduced-motion/);
-assert.match(script, /scrollProgress/, 'The site must drive its recap story from scroll position.');
-assert.match(script, /entry\.target\.classList\.toggle\('is-visible'/, 'Reveal scenes must be able to enter and leave with the viewport.');
-assert.match(motion, /export function storyFrame/, 'Scroll motion math must remain independently testable.');
+assert.match(html, /class="[^"]*\btoday-cover\b[^"]*"/i, 'The homepage must keep the approved Today cover hero.');
+assert.match(html, /class="[^"]*\brecap-shelf\b[^"]*"/i, 'The homepage must keep the approved recap shelf.');
+assert.match(html, /class="story__scenes/i, 'The homepage must keep the approved Yearly Recap scene grid.');
+assert.doesNotMatch(html, /data-scroll-story|mixtape-stage/i, 'The rejected scroll-story redesign must not return.');
 assert.match(html, /<script async src="https:\/\/plausible\.io\/js\/pa-XHVFKtgOfFWCJGGT6QqaS\.js"><\/script>/, 'The Plausible site tracker must load.');
 assert.match(analytics, /plausible\.init\(\)/, 'Plausible must be initialized before it loads.');
 assert.match(headers, /script-src[^\r\n]*https:\/\/plausible\.io/i, 'The content security policy must allow the Plausible tracker.');
@@ -85,7 +85,6 @@ for (const [index, link] of installerLinks.entries()) {
 assert.match(script, /plausible\('Download'/, 'Installer clicks must emit the Download event.');
 assert.match(script, /platform:\s*link\.dataset\.platform/, 'Download events must identify the selected platform.');
 assert.match(html, /aria-label="Download installer SHA-256 checksum"/i, 'The checksum link needs an accessible name.');
-assert.match(html, /<img\s+src="og\.png"[^>]+alt="[^"]+"/i, 'The product preview must be a crawlable image with meaningful alt text.');
 assert.deepEqual([...png.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10], 'og.png must be a real PNG.');
 const ogWidth = png.readUInt32BE(16);
 const ogHeight = png.readUInt32BE(20);

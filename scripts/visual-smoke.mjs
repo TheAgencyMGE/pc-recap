@@ -29,7 +29,11 @@ export function buildSmokeCommand(root = resolve(currentDirectory, '..')) {
   const require = createRequire(import.meta.url);
   const electron = require('electron');
   const paths = resolveSmokePaths(root);
-  return { executable: electron, args: [paths.helper], paths };
+  // Hardware acceleration is disabled in the helper for deterministic captures.
+  // Chromium can fail to create a restricted test token when this helper runs
+  // inside a CI or desktop-agent job object. This flag applies only to the
+  // isolated screenshot process; production BrowserWindows stay sandboxed.
+  return { executable: electron, args: ['--disable-gpu', '--no-sandbox', paths.helper], paths };
 }
 
 export async function runVisualSmoke(root = resolve(currentDirectory, '..')) {
@@ -40,7 +44,7 @@ export async function runVisualSmoke(root = resolve(currentDirectory, '..')) {
   environment.PC_RECAP_SMOKE_VIEWPORTS = JSON.stringify(viewportMatrix);
   delete environment.ELECTRON_RUN_AS_NODE;
   await new Promise((resolveRun, reject) => {
-    const child = spawn(command.executable, command.args, { cwd: root, env: environment, stdio: 'inherit', windowsHide: true });
+    const child = spawn(command.executable, command.args, { cwd: root, env: environment, stdio: 'inherit' });
     child.once('error', reject);
     child.once('exit', (code) => code === 0 ? resolveRun() : reject(new Error(`Visual smoke exited with code ${code ?? 'unknown'}.`)));
   });
